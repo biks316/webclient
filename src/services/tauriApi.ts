@@ -1,0 +1,204 @@
+import { invoke } from "@tauri-apps/api/core";
+import {
+  BikRequest,
+  CollectionAutomation,
+  DiffRow,
+  JsonValue,
+  RunResponse,
+  Scripts,
+  WorkspaceIndex,
+} from "../types/bik";
+
+function ensureTauriRuntime() {
+  if (!("__TAURI_INTERNALS__" in window)) {
+    throw new Error("Desktop app required. Run npm run tauri:dev to create and edit .bik files.");
+  }
+}
+
+export function createWorkspace(path: string, name?: string): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("create_workspace", { path, name });
+}
+
+export function openWorkspace(path: string): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("open_workspace", { path });
+}
+
+export function createCollection(
+  workspacePath: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("create_collection", { workspacePath, name });
+}
+
+export function createEnvironment(
+  workspacePath: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("create_environment", { workspacePath, name });
+}
+
+export function createEndpoint(
+  workspacePath: string,
+  collectionId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("create_endpoint", { workspacePath, collectionId, name });
+}
+
+export async function createEndpointWithRequest(
+  workspacePath: string,
+  collectionId: string,
+  request: BikRequest,
+): Promise<WorkspaceIndex> {
+  const workspace = await createEndpoint(workspacePath, collectionId, request.name);
+  const matchingEndpoints = workspace.collections
+    .find((collection) => collection.id === collectionId)
+    ?.endpoints.filter((item) => item.name === request.name);
+  const endpoint = matchingEndpoints?.[matchingEndpoints.length - 1];
+
+  if (!endpoint) {
+    return workspace;
+  }
+
+  return saveRequest(workspacePath, collectionId, endpoint.id, {
+    ...request,
+    id: endpoint.id,
+  });
+}
+
+export function saveRequest(
+  workspacePath: string,
+  collectionId: string,
+  endpointId: string,
+  request: BikRequest,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("save_request", {
+    payload: { workspacePath, collectionId, endpointId, request },
+  });
+}
+
+export function saveGlobals(
+  workspacePath: string,
+  variables: Record<string, string>,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("save_globals", {
+    payload: { workspacePath, variables },
+  });
+}
+
+export function saveCollectionVariables(
+  workspacePath: string,
+  collectionId: string,
+  variables: Record<string, string>,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("save_collection_variables", {
+    payload: { workspacePath, collectionId, variables },
+  });
+}
+
+export function saveEnvironmentVariables(
+  workspacePath: string,
+  environmentId: string,
+  variables: Record<string, string>,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("save_environment_variables", {
+    payload: { workspacePath, environmentId, variables },
+  });
+}
+
+export function sendRequest(
+  workspacePath: string,
+  collectionId: string,
+  endpointId: string,
+  environmentId: string | null,
+  request: BikRequest,
+): Promise<RunResponse> {
+  ensureTauriRuntime();
+  return invoke("send_request", {
+    payload: { workspacePath, collectionId, endpointId, environmentId, request },
+  });
+}
+
+export function saveResponseExample(
+  workspacePath: string,
+  collectionId: string,
+  endpointId: string,
+  request: BikRequest,
+  response: RunResponse,
+  label?: string,
+): Promise<string> {
+  ensureTauriRuntime();
+  return invoke("save_response_example", {
+    payload: { workspacePath, collectionId, endpointId, request, response, label },
+  });
+}
+
+export function readScripts(
+  workspacePath: string,
+  collectionId: string,
+  endpointId: string,
+): Promise<Scripts> {
+  ensureTauriRuntime();
+  return invoke("read_scripts", {
+    payload: { workspacePath, collectionId, endpointId },
+  });
+}
+
+export function saveScript(
+  workspacePath: string,
+  collectionId: string,
+  endpointId: string,
+  scriptName: "pre" | "post",
+  content: string,
+): Promise<void> {
+  ensureTauriRuntime();
+  return invoke("save_script", {
+    payload: { workspacePath, collectionId, endpointId, scriptName, content },
+  });
+}
+
+export function readCollectionAutomation(
+  workspacePath: string,
+  collectionId: string,
+): Promise<CollectionAutomation> {
+  ensureTauriRuntime();
+  return invoke("read_collection_automation", {
+    payload: { workspacePath, collectionId },
+  });
+}
+
+export function saveCollectionAutomationScript(
+  workspacePath: string,
+  collectionId: string,
+  scriptName: keyof CollectionAutomation,
+  content: string,
+): Promise<void> {
+  ensureTauriRuntime();
+  return invoke("save_collection_automation_script", {
+    payload: { workspacePath, collectionId, scriptName, content },
+  });
+}
+
+export function readHistoryEntry(path: string): Promise<JsonValue> {
+  ensureTauriRuntime();
+  return invoke("read_history_entry", { payload: { path } });
+}
+
+export function requestDiff(
+  current: BikRequest,
+  historicalPath: string,
+): Promise<DiffRow[]> {
+  ensureTauriRuntime();
+  return invoke("request_diff", {
+    payload: { current, historicalPath },
+  });
+}

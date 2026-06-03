@@ -1,0 +1,190 @@
+use crate::commands::workspace::{
+    endpoint_dir, filename_timestamp, read_json, timestamp, write_json, CommandResult, BIK_VERSION,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EndpointPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    pub endpoint_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveScriptPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    pub endpoint_id: String,
+    pub script_name: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveCollectionAutomationPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    pub script_name: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveExamplePayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    pub endpoint_id: String,
+    pub label: Option<String>,
+    pub request: Value,
+    pub response: Value,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Scripts {
+    pub pre: String,
+    pub post: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionAutomation {
+    pub pre: String,
+    pub post: String,
+    pub test: String,
+    pub assert: String,
+}
+
+#[tauri::command]
+pub fn read_scripts(payload: EndpointPayload) -> CommandResult<Scripts> {
+    let dir = endpoint_dir(
+        &PathBuf::from(payload.workspace_path),
+        &payload.collection_id,
+        &payload.endpoint_id,
+    );
+    Ok(Scripts {
+        pre: read_optional_text(&dir.join("pre.js"))?,
+        post: read_optional_text(&dir.join("post.js"))?,
+    })
+}
+
+#[tauri::command]
+pub fn save_script(payload: SaveScriptPayload) -> CommandResult<()> {
+    let file_name = match payload.script_name.as_str() {
+        "pre" => "pre.js",
+        "post" => "post.js",
+        _ => return Err("scriptName must be pre or post".to_string()),
+    };
+    let dir = endpoint_dir(
+        &PathBuf::from(payload.workspace_path),
+        &payload.collection_id,
+        &payload.endpoint_id,
+    );
+    fs::write(dir.join(file_name), payload.content).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn read_collection_automation(payload: CollectionPayload) -> CommandResult<CollectionAutomation> {
+    let dir = collection_dir(&payload.workspace_path, &payload.collection_id);
+    Ok(CollectionAutomation {
+        pre: read_optional_text(&dir.join("pre.js"))?,
+        post: read_optional_text(&dir.join("post.js"))?,
+        test: read_optional_text(&dir.join("test.js"))?,
+        assert: read_optional_text(&dir.join("assert.js"))?,
+    })
+}
+
+#[tauri::command]
+pub fn save_collection_automation_script(
+    payload: SaveCollectionAutomationPayload,
+) -> CommandResult<()> {
+    let file_name = match payload.script_name.as_str() {
+        "pre" => "pre.js",
+        "post" => "post.js",
+        "test" => "test.js",
+        "assert" => "assert.js",
+        _ => return Err("scriptName must be pre, post, test, or assert".to_string()),
+    };
+    let dir = collection_dir(&payload.workspace_path, &payload.collection_id);
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    fs::write(dir.join(file_name), payload.content).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn save_response_example(payload: SaveExamplePayload) -> CommandResult<String> {
+    let dir = endpoint_dir(
+        &PathBuf::from(&payload.workspace_path),
+        &payload.collection_id,
+        &payload.endpoint_id,
+    )
+    .join("examples");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+
+    let mut label = payload
+        .label
+        .unwrap_or_else(|| "response".to_string())
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    if label.is_empty() {
+        label = "response".to_string();
+    }
+    let file_name = format!("{label}-{}.bik", filename_timestamp());
+    let path = dir.join(file_name);
+
+    write_json(
+        &path,
+        &json!({
+            "bikVersion": BIK_VERSION,
+            "type": "example",
+            "id": path.file_stem().and_then(|value| value.to_str()).unwrap_or("example"),
+            "name": label,
+            "createdAt": timestamp(),
+            "request": payload.request,
+            "response": payload.response
+        }),
+    )?;
+
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[allow(dead_code)]
+pub fn read_example(path: &str) -> CommandResult<HashMap<String, Value>> {
+    let value = read_json(&PathBuf::from(path))?;
+    serde_json::from_value(value).map_err(|error| error.to_string())
+}
+
+fn read_optional_text(path: &PathBuf) -> CommandResult<String> {
+    if path.exists() {
+        fs::read_to_string(path).map_err(|error| error.to_string())
+    } else {
+        Ok(String::new())
+    }
+}
+
+fn collection_dir(workspace_path: &str, collection_id: &str) -> PathBuf {
+    PathBuf::from(workspace_path)
+        .join("collections")
+        .join(collection_id)
+}

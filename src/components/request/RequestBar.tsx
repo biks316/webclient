@@ -1,6 +1,7 @@
 import { Copy, Download, Save, Send } from "lucide-react";
 import { VariableFile } from "../../types/bik";
 import { MethodBadge } from "../common/MethodBadge";
+import { CompactSelect } from "../common/CompactSelect";
 import styles from "./RequestBar.module.css";
 
 interface RequestBarProps {
@@ -44,33 +45,38 @@ export function RequestBar({
   onCopyRequest,
   onExportRequest,
 }: RequestBarProps) {
+  const environmentOptions = [
+    { value: "", label: "No environment" },
+    ...environments.map((environment) => ({ value: environment.id, label: environment.name })),
+  ];
+  const methodOptions = METHODS.map((item) => ({ value: item, label: item }));
+
   return (
     <section className={styles.bar}>
       <div className={styles.header}>
-        <input className={styles.name} value={name} onChange={(event) => onNameChange(event.currentTarget.value)} />
+        <div className={styles.identity}>
+          <MethodBadge method={method} compact />
+          <input
+            className={styles.name}
+            value={name}
+            onChange={(event) => onNameChange(event.currentTarget.value)}
+          />
+        </div>
         <div className={styles.rightMeta}>
-          <span className={styles.metaLabel}>Environment</span>
-          <select value={selectedEnvironmentId ?? ""} onChange={(event) => onEnvironmentChange(event.currentTarget.value || null)}>
-            <option value="">No environment</option>
-            {environments.map((environment) => (
-              <option key={environment.id} value={environment.id}>
-                {environment.name}
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={onCreateEnvironment}>New env</button>
-          <div className={styles.variablePill}>
-            <span>{selectedEnvironmentName ?? "Globals"}</span>
-          </div>
+          <CompactSelect
+            value={selectedEnvironmentId ?? ""}
+            options={environmentOptions}
+            placeholder="No environment"
+            className={styles.environmentSelect}
+            onChange={(next) => onEnvironmentChange(next || null)}
+          />
+          <button type="button" onClick={onCreateEnvironment}>New Env</button>
+          <div className={styles.variablePill}>{selectedEnvironmentName ?? "Globals"}</div>
         </div>
       </div>
 
       <div className={styles.requestRow}>
-        <select value={method} className={styles.methodSelect} onChange={(event) => onMethodChange(event.currentTarget.value)}>
-          {METHODS.map((item) => (
-            <option key={item}>{item}</option>
-          ))}
-        </select>
+        <CompactSelect value={method} options={methodOptions} className={styles.methodSelect} onChange={onMethodChange} />
         <input
           className={styles.url}
           value={url}
@@ -89,9 +95,7 @@ export function RequestBar({
         </button>
       </div>
 
-      <div className={styles.footer}>
-        <MethodBadge method={method} />
-        <div className={styles.footerActions}>
+      <div className={styles.footerActions}>
           <button type="button" onClick={onCopyRequest}>
             <Copy size={14} />
             Copy
@@ -100,7 +104,6 @@ export function RequestBar({
             <Download size={14} />
             Export
           </button>
-        </div>
       </div>
     </section>
   );

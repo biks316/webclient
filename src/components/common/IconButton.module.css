@@ -1,7 +1,7 @@
 .button {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  border-radius: 7px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 4px;
   padding: 0;
 }

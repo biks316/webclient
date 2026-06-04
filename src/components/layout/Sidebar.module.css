@@ -2,37 +2,36 @@
   height: 100%;
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   border-right: 1px solid rgba(255, 255, 255, 0.04);
-  background:
-    linear-gradient(180deg, rgba(25, 31, 40, 0.98), rgba(18, 23, 31, 0.98));
+  background: linear-gradient(180deg, rgba(22, 27, 35, 0.98), rgba(16, 20, 27, 0.98));
 }
 
 .brand {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+  padding-bottom: 4px;
 }
 
 .brandInfo {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brandMark {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 8px;
   color: #b7d6ff;
-  background: linear-gradient(180deg, rgba(76, 136, 226, 0.32), rgba(37, 70, 123, 0.18));
-  border: 1px solid rgba(108, 168, 255, 0.24);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(76, 136, 226, 0.16);
+  border: 1px solid rgba(108, 168, 255, 0.14);
 }
 
 .brand span,
@@ -49,14 +48,14 @@
 }
 
 .searchBox {
-  height: 34px;
+  height: 32px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(10, 14, 19, 0.96), rgba(18, 23, 30, 0.96));
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 14, 19, 0.72);
   color: var(--text-muted);
 }
 
@@ -71,7 +70,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  padding: 2px 2px 6px;
 }
 
 .workspaceMeta strong,
@@ -83,7 +83,7 @@
 }
 
 .workspaceMeta span {
-  max-width: 190px;
+  max-width: 170px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -93,29 +93,53 @@
   min-height: 0;
   overflow: auto;
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
 .collection {
   display: grid;
-  gap: 5px;
-  padding: 8px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  gap: 1px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.collectionExpanded {
+  padding: 1px 2px;
+}
+
+.collectionCollapsed {
+  padding: 0;
 }
 
 .collectionRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border-radius: 8px;
-  padding: 2px;
+  gap: 2px;
+  border-radius: 4px;
+  padding: 0;
+  min-height: 20px;
 }
 
 .activeCollection {
-  background: rgba(108, 168, 255, 0.09);
+  background: rgba(108, 168, 255, 0.08);
+}
+
+.collectionToggle {
+  min-width: 16px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+}
+
+.collectionToggle:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .collectionButton {
@@ -123,23 +147,40 @@
   justify-content: flex-start;
   border-color: transparent;
   background: transparent;
-  padding: 0 6px;
-  min-height: 28px;
+  padding: 0;
+  min-height: 18px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.1;
+  box-shadow: none;
 }
 
 .folderIcon {
   color: var(--text-muted);
+  transition: transform 140ms ease;
+}
+
+.folderIconExpanded {
+  transform: rotate(90deg);
 }
 
 .rowActions {
   display: flex;
-  gap: 6px;
+  margin-left: auto;
+  gap: 0;
+}
+
+.rowActions :global(button) {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 3px;
 }
 
 .endpointList {
   display: grid;
-  gap: 4px;
-  padding-left: 10px;
+  gap: 1px;
+  padding: 0 0 0 16px;
 }
 
 .endpoint {
@@ -147,10 +188,13 @@
   justify-content: flex-start;
   border-color: transparent;
   background: transparent;
-  min-height: 28px;
-  padding: 0 8px;
-  gap: 8px;
-  border-radius: 7px;
+  min-height: 18px;
+  padding: 0 2px;
+  gap: 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.1;
+  box-shadow: none;
 }
 
 .endpoint span {
@@ -159,23 +203,33 @@
   white-space: nowrap;
 }
 
+.endpoint :global(.badge) {
+  flex-shrink: 0;
+}
+
 .endpointActive {
-  background: rgba(108, 168, 255, 0.14);
-  border-color: rgba(108, 168, 255, 0.24);
+  background: rgba(108, 168, 255, 0.12);
+  border-color: rgba(108, 168, 255, 0.18);
 }
 
 .emptyFolder,
-.exportLink {
+.emptyFolder {
   justify-content: flex-start;
   border-style: solid;
   color: var(--text-muted);
   background: rgba(255, 255, 255, 0.02);
+  min-height: 18px;
+  font-size: 11px;
+  padding: 0 4px;
+  border-radius: 3px;
+  box-shadow: none;
 }
 
 .bottomNav {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
+  padding-top: 4px;
 }
 
 .bottomNav button {

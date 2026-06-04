@@ -1,4 +1,5 @@
 import { CollectionAutomation } from "../../types/bik";
+import { JsonEditor } from "../common/JsonEditor";
 import styles from "./TestsEditor.module.css";
 
 interface TestsEditorProps {
@@ -20,19 +21,23 @@ export function TestsEditor({ automation, onChange, onSave }: TestsEditorProps) 
       <div className={styles.grid}>
         <label>
           <span>test.js</span>
-          <textarea
-            spellCheck={false}
-            value={automation.test}
-            onChange={(event) => onChange({ ...automation, test: event.currentTarget.value })}
-          />
+          <div className={styles.editorSurface}>
+            <JsonEditor
+              language="javascript"
+              value={automation.test}
+              onChange={(value) => onChange({ ...automation, test: value })}
+            />
+          </div>
         </label>
         <label>
           <span>assert.js</span>
-          <textarea
-            spellCheck={false}
-            value={automation.assert}
-            onChange={(event) => onChange({ ...automation, assert: event.currentTarget.value })}
-          />
+          <div className={styles.editorSurface}>
+            <JsonEditor
+              language="javascript"
+              value={automation.assert}
+              onChange={(value) => onChange({ ...automation, assert: value })}
+            />
+          </div>
         </label>
       </div>
     </section>

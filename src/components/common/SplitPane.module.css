@@ -9,19 +9,19 @@
 }
 
 .horizontal.primaryFirst {
-  grid-template-columns: var(--primary-size) 10px minmax(0, 1fr);
+  grid-template-columns: var(--primary-size) 6px minmax(0, 1fr);
 }
 
 .horizontal.primarySecond {
-  grid-template-columns: minmax(0, 1fr) 10px var(--primary-size);
+  grid-template-columns: minmax(0, 1fr) 6px var(--primary-size);
 }
 
 .vertical.primaryFirst {
-  grid-template-rows: var(--primary-size) 10px minmax(0, 1fr);
+  grid-template-rows: var(--primary-size) 6px minmax(0, 1fr);
 }
 
 .vertical.primarySecond {
-  grid-template-rows: minmax(0, 1fr) 10px var(--primary-size);
+  grid-template-rows: minmax(0, 1fr) 6px var(--primary-size);
 }
 
 .pane {
@@ -53,13 +53,13 @@
 }
 
 .horizontal .handle::before {
-  width: 2px;
+  width: 1px;
   height: 100%;
 }
 
 .vertical .handle::before {
   width: 100%;
-  height: 2px;
+  height: 1px;
 }
 
 .hidden {

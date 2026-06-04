@@ -24,16 +24,21 @@ export function JsonEditor({
       options={{
         readOnly,
         minimap: { enabled: false },
-        fontSize: 13,
-        lineHeight: 20,
-        padding: { top: 14, bottom: 14 },
+        fontSize: 12,
+        lineHeight: 18,
+        padding: { top: 8, bottom: 8 },
         automaticLayout: true,
         smoothScrolling: true,
         scrollBeyondLastLine: false,
-        wordWrap: "on",
+        wordWrap: "off",
         tabSize: 2,
         formatOnPaste: true,
         formatOnType: true,
+        glyphMargin: false,
+        folding: true,
+        lineNumbersMinChars: 3,
+        overviewRulerBorder: false,
+        renderLineHighlight: "gutter",
       }}
     />
   );

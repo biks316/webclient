@@ -1,6 +1,7 @@
 import { FilePlus, MoreHorizontal, Save, ScrollText } from "lucide-react";
 import { useState } from "react";
 import { ActionMenu } from "./ActionMenu";
+import { JsonEditor } from "./common/JsonEditor";
 import { KeyValueEditor } from "./KeyValueEditor";
 import { CollectionAutomation, CollectionIndex } from "../types/bik";
 
@@ -113,19 +114,23 @@ export function CollectionPanel({
           <div className="script-grid">
             <label>
               pre.js
-              <textarea
-                spellCheck={false}
-                value={automation.pre}
-                onChange={(event) => updateAutomation({ pre: event.target.value })}
-              />
+              <div className="script-editor-surface">
+                <JsonEditor
+                  language="javascript"
+                  value={automation.pre}
+                  onChange={(value) => updateAutomation({ pre: value })}
+                />
+              </div>
             </label>
             <label>
               post.js
-              <textarea
-                spellCheck={false}
-                value={automation.post}
-                onChange={(event) => updateAutomation({ post: event.target.value })}
-              />
+              <div className="script-editor-surface">
+                <JsonEditor
+                  language="javascript"
+                  value={automation.post}
+                  onChange={(value) => updateAutomation({ post: value })}
+                />
+              </div>
             </label>
           </div>
         </section>
@@ -143,19 +148,23 @@ export function CollectionPanel({
           <div className="test-grid">
             <label>
               test.js
-              <textarea
-                spellCheck={false}
-                value={automation.test}
-                onChange={(event) => updateAutomation({ test: event.target.value })}
-              />
+              <div className="script-editor-surface">
+                <JsonEditor
+                  language="javascript"
+                  value={automation.test}
+                  onChange={(value) => updateAutomation({ test: value })}
+                />
+              </div>
             </label>
             <label>
               assert.js
-              <textarea
-                spellCheck={false}
-                value={automation.assert}
-                onChange={(event) => updateAutomation({ assert: event.target.value })}
-              />
+              <div className="script-editor-surface">
+                <JsonEditor
+                  language="javascript"
+                  value={automation.assert}
+                  onChange={(value) => updateAutomation({ assert: value })}
+                />
+              </div>
             </label>
           </div>
         </section>

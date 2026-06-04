@@ -3,6 +3,7 @@ import { SplitPane } from "../common/SplitPane";
 import styles from "./AppShell.module.css";
 
 interface AppShellProps {
+  toolbar?: ReactNode;
   sidebar: ReactNode;
   main: ReactNode;
   rightPanel: ReactNode;
@@ -17,7 +18,7 @@ interface CenterColumnProps {
   bottomCollapsed?: boolean;
 }
 
-function AppShellRoot({ sidebar, main, rightPanel, showSidebar, showRightPanel }: AppShellProps) {
+function AppShellRoot({ toolbar, sidebar, main, rightPanel, showSidebar, showRightPanel }: AppShellProps) {
   const center = showRightPanel ? (
     <SplitPane
       direction="horizontal"
@@ -34,20 +35,28 @@ function AppShellRoot({ sidebar, main, rightPanel, showSidebar, showRightPanel }
   );
 
   if (!showSidebar) {
-    return <div className={styles.shell}>{center}</div>;
+    return (
+      <div className={styles.shell}>
+        {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
+        <div className={styles.body}>{center}</div>
+      </div>
+    );
   }
 
   return (
     <div className={styles.shell}>
-      <SplitPane
-        direction="horizontal"
-        first={sidebar}
-        second={center}
-        initialPrimarySize={284}
-        minPrimarySize={220}
-        maxPrimarySize={420}
-        className={styles.outerSplit}
-      />
+      {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
+      <div className={styles.body}>
+        <SplitPane
+          direction="horizontal"
+          first={sidebar}
+          second={center}
+          initialPrimarySize={248}
+          minPrimarySize={208}
+          maxPrimarySize={360}
+          className={styles.outerSplit}
+        />
+      </div>
     </div>
   );
 }

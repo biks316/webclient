@@ -1,6 +1,7 @@
-import { FolderOpen, Plus, Search, Send, Settings2, X } from "lucide-react";
+import { ChevronRight, Copy, FolderOpen, Plus, Search, Send, Settings2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { ActionMenu } from "../ActionMenu";
 import { EmptyState } from "../common/EmptyState";
 import { IconButton } from "../common/IconButton";
 import { MethodBadge } from "../common/MethodBadge";
@@ -24,8 +25,16 @@ interface SidebarProps {
 }
 
 interface EndpointContextMenuState {
+  kind: "endpoint";
   collectionId: string;
   endpointId: string;
+  top: number;
+  left: number;
+}
+
+interface CollectionContextMenuState {
+  kind: "collection";
+  collection: CollectionIndex;
   top: number;
   left: number;
 }
@@ -46,13 +55,15 @@ export function Sidebar({
   onOpenEndpointHistory,
 }: SidebarProps) {
   const [search, setSearch] = useState("");
-  const [contextMenu, setContextMenu] = useState<EndpointContextMenuState | null>(null);
+  const [contextMenu, setContextMenu] = useState<EndpointContextMenuState | CollectionContextMenuState | null>(null);
+  const [expandedCollectionId, setExpandedCollectionId] = useState<string | null>(selectedCollectionId);
+
+  const query = search.trim().toLowerCase();
 
   const filteredCollections = useMemo(() => {
     if (!workspace) {
       return [];
     }
-    const query = search.trim().toLowerCase();
     if (!query) {
       return workspace.collections;
     }
@@ -66,7 +77,7 @@ export function Sidebar({
         return matchesCollection ? collection : { ...collection, endpoints };
       })
       .filter((collection) => collection.endpoints.length > 0 || collection.name.toLowerCase().includes(query));
-  }, [workspace, search]);
+  }, [workspace, query]);
 
   useEffect(() => {
     if (!contextMenu) {
@@ -95,6 +106,26 @@ export function Sidebar({
       document.removeEventListener("keydown", handleEscape);
     };
   }, [contextMenu]);
+
+  useEffect(() => {
+    if (selectedCollectionId) {
+      setExpandedCollectionId(selectedCollectionId);
+    }
+  }, [selectedCollectionId]);
+
+  function handleToggleCollection(collectionId: string, isExpanded: boolean) {
+    setExpandedCollectionId(isExpanded ? null : collectionId);
+  }
+
+  function handleSelectCollection(collectionId: string) {
+    setExpandedCollectionId(collectionId);
+    onSelectCollection(collectionId);
+  }
+
+  function handleSelectEndpoint(collectionId: string, endpointId: string) {
+    setExpandedCollectionId(collectionId);
+    onSelectEndpoint(collectionId, endpointId);
+  }
 
   return (
     <>
@@ -152,56 +183,116 @@ export function Sidebar({
             <div className={styles.tree}>
               {filteredCollections.map((collection) => {
                 const activeCollection = selectedCollectionId === collection.id;
+                const isExpanded = query.length > 0 ? true : expandedCollectionId === collection.id;
                 return (
-                  <section className={styles.collection} key={collection.id}>
+                  <section
+                    className={`${styles.collection} ${isExpanded ? styles.collectionExpanded : styles.collectionCollapsed}`}
+                    key={collection.id}
+                  >
                     <div className={`${styles.collectionRow} ${activeCollection ? styles.activeCollection : ""}`}>
-                      <button type="button" className={styles.collectionButton} onClick={() => onSelectCollection(collection.id)}>
-                        <span className={styles.folderIcon}>▾</span>
+                      <button
+                        type="button"
+                        className={styles.collectionToggle}
+                        onClick={() => handleToggleCollection(collection.id, isExpanded)}
+                        aria-label={`${isExpanded ? "Collapse" : "Expand"} ${collection.name}`}
+                        aria-expanded={isExpanded}
+                      >
+                        <ChevronRight
+                          size={14}
+                          className={`${styles.folderIcon} ${isExpanded ? styles.folderIconExpanded : ""}`}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.collectionButton}
+                        onClick={() => handleSelectCollection(collection.id)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setContextMenu({
+                            kind: "collection",
+                            collection,
+                            top: event.clientY,
+                            left: event.clientX,
+                          });
+                        }}
+                      >
                         <strong>{collection.name}</strong>
                       </button>
                       <div className={styles.rowActions}>
-                        <IconButton title="Copy collection" onClick={() => onCopyCollection(collection)}>
-                          <Settings2 size={14} />
-                        </IconButton>
-                        <IconButton title="New request" onClick={() => onCreateEndpoint(collection.id)}>
-                          <Plus size={14} />
-                        </IconButton>
+                        <ActionMenu
+                          label={`${collection.name} options`}
+                          items={[
+                            {
+                              label: "New request",
+                              icon: <Plus size={12} />,
+                              onSelect: () => onCreateEndpoint(collection.id),
+                            },
+                            {
+                              label: "New folder",
+                              icon: <Plus size={12} />,
+                              disabled: true,
+                              onSelect: () => undefined,
+                            },
+                            {
+                              label: "Rename",
+                              icon: <Settings2 size={12} />,
+                              disabled: true,
+                              onSelect: () => undefined,
+                            },
+                            {
+                              label: "Duplicate",
+                              icon: <Copy size={12} />,
+                              onSelect: () => onCopyCollection(collection),
+                            },
+                            {
+                              label: "Delete",
+                              icon: <Settings2 size={12} />,
+                              disabled: true,
+                              onSelect: () => undefined,
+                            },
+                            {
+                              label: "Export collection",
+                              icon: <Settings2 size={12} />,
+                              onSelect: () => onExportCollection(collection),
+                            },
+                          ]}
+                        />
                       </div>
                     </div>
-                    <div className={styles.endpointList}>
-                      {collection.endpoints.map((endpoint) => {
-                        const active = activeCollection && selectedEndpointId === endpoint.id;
-                        return (
-                          <button
-                            key={endpoint.id}
-                            type="button"
-                            className={`${styles.endpoint} ${active ? styles.endpointActive : ""}`}
-                            onClick={() => onSelectEndpoint(collection.id, endpoint.id)}
-                            onContextMenu={(event) => {
-                              event.preventDefault();
-                              setContextMenu({
-                                collectionId: collection.id,
-                                endpointId: endpoint.id,
-                                top: event.clientY,
-                                left: event.clientX,
-                              });
-                            }}
-                            title={`${endpoint.name} (right click for history)`}
-                          >
-                            <MethodBadge method={endpoint.request.method} compact />
-                            <span>{endpoint.name}</span>
+                    {isExpanded && (
+                      <div className={styles.endpointList}>
+                        {collection.endpoints.map((endpoint) => {
+                          const active = activeCollection && selectedEndpointId === endpoint.id;
+                          return (
+                            <button
+                              key={endpoint.id}
+                              type="button"
+                              className={`${styles.endpoint} ${active ? styles.endpointActive : ""}`}
+                              onClick={() => handleSelectEndpoint(collection.id, endpoint.id)}
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                setContextMenu({
+                                  kind: "endpoint",
+                                  collectionId: collection.id,
+                                  endpointId: endpoint.id,
+                                  top: event.clientY,
+                                  left: event.clientX,
+                                });
+                              }}
+                              title={`${endpoint.name} (right click for history)`}
+                            >
+                              <MethodBadge method={endpoint.request.method} compact />
+                              <span>{endpoint.name}</span>
+                            </button>
+                          );
+                        })}
+                        {collection.endpoints.length === 0 && (
+                          <button type="button" className={styles.emptyFolder} onClick={() => onCreateEndpoint(collection.id)}>
+                            Add request
                           </button>
-                        );
-                      })}
-                      {collection.endpoints.length === 0 && (
-                        <button type="button" className={styles.emptyFolder} onClick={() => onCreateEndpoint(collection.id)}>
-                          Add request
-                        </button>
-                      )}
-                      <button type="button" className={styles.exportLink} onClick={() => onExportCollection(collection)}>
-                        Export collection
-                      </button>
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </section>
                 );
               })}
@@ -224,16 +315,50 @@ export function Sidebar({
             role="menu"
             style={{ top: contextMenu.top, left: contextMenu.left, position: "fixed" }}
           >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setContextMenu(null);
-                onOpenEndpointHistory(contextMenu.collectionId, contextMenu.endpointId);
-              }}
-            >
-              <span>See history</span>
-            </button>
+            {contextMenu.kind === "endpoint" ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setContextMenu(null);
+                  onOpenEndpointHistory(contextMenu.collectionId, contextMenu.endpointId);
+                }}
+              >
+                <span>See history</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setContextMenu(null);
+                    onCreateEndpoint(contextMenu.collection.id);
+                  }}
+                >
+                  <span>New request</span>
+                </button>
+                <button type="button" role="menuitem" disabled>
+                  <span>New folder</span>
+                </button>
+                <button type="button" role="menuitem" disabled>
+                  <span>Rename</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setContextMenu(null);
+                    onCopyCollection(contextMenu.collection);
+                  }}
+                >
+                  <span>Duplicate</span>
+                </button>
+                <button type="button" role="menuitem" disabled>
+                  <span>Delete</span>
+                </button>
+              </>
+            )}
           </div>,
           document.body,
         )}

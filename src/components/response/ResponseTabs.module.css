@@ -1,25 +1,24 @@
 .tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 1px;
   flex-wrap: wrap;
-  padding: 4px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(10, 14, 19, 0.5);
+  padding: 0;
 }
 
 .tab {
-  min-height: 28px;
-  border-radius: 7px;
+  min-height: 24px;
+  border-radius: 4px;
   border-color: transparent;
   background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
+  padding: 0 8px;
+  box-shadow: none;
 }
 
 .active {
   color: var(--text);
-  border-color: rgba(108, 168, 255, 0.24);
-  background: linear-gradient(180deg, rgba(108, 168, 255, 0.18), rgba(108, 168, 255, 0.09));
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.05);
 }

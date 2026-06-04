@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { CollectionPanel, CollectionPanelTab } from "./components/CollectionPanel";
 import { EmptyState } from "./components/common/EmptyState";
 import { AppShell } from "./components/layout/AppShell";
-import { BottomConsole, ConsoleEntry } from "./components/layout/BottomConsole";
+import { AppToolbar } from "./components/layout/AppToolbar";
+import { BottomConsole, BottomDockTab, ConsoleEntry } from "./components/layout/BottomConsole";
+import { CommandPalette, CommandPaletteCommand } from "./components/layout/CommandPalette";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopTabs } from "./components/layout/TopTabs";
 import { RequestEditor } from "./components/request/RequestEditor";
@@ -95,6 +97,8 @@ export default function App() {
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
   const [consoleHidden, setConsoleHidden] = useState(false);
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
+  const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   const selectedCollection = useMemo(
     () => findCollection(workspace, selectedCollectionId),
@@ -122,6 +126,15 @@ export default function App() {
         .filter((tab): tab is NonNullable<typeof tab> => Boolean(tab)),
     [workspace, openTabs],
   );
+  const flowItems = useMemo(
+    () =>
+      openEndpointTabs.map((tab) => ({
+        id: `${tab.collectionId}:${tab.endpointId}`,
+        method: tab.endpoint.request.method,
+        name: tab.endpoint.name,
+      })),
+    [openEndpointTabs],
+  );
   const hasUnsavedChanges = useMemo(() => {
     if (!draftRequest || !selectedEndpoint) {
       return false;
@@ -132,9 +145,10 @@ export default function App() {
     () =>
       [
         sidebarHidden ? "sidebar" : null,
+        timelineHidden ? "timeline" : null,
         consoleHidden ? "console" : null,
       ].filter((panel): panel is HiddenPanel => panel !== null),
-    [consoleHidden, sidebarHidden],
+    [consoleHidden, sidebarHidden, timelineHidden],
   );
 
   useEffect(() => {
@@ -211,6 +225,7 @@ export default function App() {
     setEndpointScripts(EMPTY_SCRIPTS);
     setActiveRequestTab("body");
     setActiveResponseTab("response");
+    setActiveBottomTab("response");
   }, [selectedEndpoint?.path]);
 
   useEffect(() => {
@@ -248,6 +263,31 @@ export default function App() {
       .then(setDiffRows)
       .catch((error) => setStatus(String(error)));
   }, [draftRequest, selectedHistoryPath]);
+
+  useEffect(() => {
+    function handleKeydown(event: KeyboardEvent) {
+      const meta = event.metaKey || event.ctrlKey;
+      if (meta && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandPaletteOpen(true);
+        return;
+      }
+      if (meta && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (draftRequest) {
+          void handleSaveRequest();
+        }
+        return;
+      }
+      if (meta && event.key === "Enter") {
+        event.preventDefault();
+        void handleSendRequest();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [draftRequest]);
 
   function appendConsole(message: string, tone: ConsoleEntry["tone"] = "info") {
     setConsoleEntries((entries) => [
@@ -428,9 +468,92 @@ export default function App() {
       setSidebarHidden(false);
       return;
     }
+    if (panel === "timeline") {
+      setTimelineHidden(false);
+      return;
+    }
     setConsoleHidden(false);
     setConsoleCollapsed(false);
   }
+
+  function toggleSidebarPanel() {
+    setSidebarHidden((current) => !current);
+  }
+
+  function toggleTimelinePanel() {
+    if (!selectedEndpoint) {
+      return;
+    }
+    setTimelineHidden((current) => !current);
+  }
+
+  function toggleConsolePanel() {
+    setConsoleHidden((current) => {
+      if (current) {
+        setConsoleCollapsed(false);
+      }
+      return !current;
+    });
+  }
+
+  const paletteCommands = useMemo<CommandPaletteCommand[]>(
+    () => [
+      {
+        id: "open-workspace",
+        label: "Open Workspace",
+        shortcut: "Ctrl/Cmd+O",
+        run: () => void handleOpenWorkspace(),
+      },
+      {
+        id: "new-collection",
+        label: "Create Collection",
+        run: () => void handleCreateCollection(),
+      },
+      {
+        id: "new-request",
+        label: "Create Request",
+        run: () => void handleCreateEndpoint(),
+      },
+      {
+        id: "save-request",
+        label: "Save Current Request",
+        shortcut: "Ctrl/Cmd+S",
+        run: () => void handleSaveRequest(),
+      },
+      {
+        id: "send-request",
+        label: "Send Current Request",
+        shortcut: "Ctrl/Cmd+Enter",
+        run: () => void handleSendRequest(),
+      },
+      {
+        id: "toggle-sidebar",
+        label: `${sidebarHidden ? "Show" : "Hide"} Collections Panel`,
+        run: toggleSidebarPanel,
+      },
+      {
+        id: "toggle-timeline",
+        label: `${timelineHidden ? "Show" : "Hide"} Timeline Panel`,
+        hint: selectedEndpoint ? selectedEndpoint.name : "Select a request first",
+        run: toggleTimelinePanel,
+      },
+      {
+        id: "toggle-console",
+        label: `${consoleHidden ? "Show" : "Hide"} Console`,
+        run: toggleConsolePanel,
+      },
+      {
+        id: "show-response-dock",
+        label: "Show Response Dock",
+        run: () => {
+          setConsoleHidden(false);
+          setConsoleCollapsed(false);
+          setActiveBottomTab("response");
+        },
+      },
+    ],
+    [consoleHidden, selectedEndpoint, sidebarHidden, timelineHidden],
+  );
 
   function openEndpointHistory(collectionId: string, endpointId: string) {
     setSelectedCollectionId(collectionId);
@@ -1002,9 +1125,22 @@ export default function App() {
               collapsed={consoleCollapsed}
               entries={consoleEntries}
               status={status}
+              activeTab={activeBottomTab}
+              response={response}
+              responseError={responseError}
+              responseBusy={isBusy}
+              responseTab={activeResponseTab}
+              diffRows={diffRows}
+              selectedHistoryPath={selectedHistoryPath}
+              flowItems={flowItems}
               onToggleCollapsed={() => setConsoleCollapsed((value) => !value)}
               onClear={() => setConsoleEntries([])}
               onClose={() => setConsoleHidden(true)}
+              onTabChange={setActiveBottomTab}
+              onResponseTabChange={setActiveResponseTab}
+              onSaveExample={handleSaveExample}
+              onCopyResponse={handleCopyResponse}
+              onExportResponse={handleExportResponse}
             />
           )}
           bottomCollapsed={!consoleHidden && consoleCollapsed}
@@ -1052,9 +1188,22 @@ export default function App() {
               collapsed={consoleCollapsed}
               entries={consoleEntries}
               status={status}
+              activeTab={activeBottomTab}
+              response={response}
+              responseError={responseError}
+              responseBusy={isBusy}
+              responseTab={activeResponseTab}
+              diffRows={diffRows}
+              selectedHistoryPath={selectedHistoryPath}
+              flowItems={flowItems}
               onToggleCollapsed={() => setConsoleCollapsed((value) => !value)}
               onClear={() => setConsoleEntries([])}
               onClose={() => setConsoleHidden(true)}
+              onTabChange={setActiveBottomTab}
+              onResponseTabChange={setActiveResponseTab}
+              onSaveExample={handleSaveExample}
+              onCopyResponse={handleCopyResponse}
+              onExportResponse={handleExportResponse}
             />
           )}
           bottomCollapsed={!consoleHidden && consoleCollapsed}
@@ -1102,9 +1251,22 @@ export default function App() {
             collapsed={consoleCollapsed}
             entries={consoleEntries}
             status={status}
+            activeTab={activeBottomTab}
+            response={response}
+            responseError={responseError}
+            responseBusy={isBusy}
+            responseTab={activeResponseTab}
+            diffRows={diffRows}
+            selectedHistoryPath={selectedHistoryPath}
+            flowItems={flowItems}
             onToggleCollapsed={() => setConsoleCollapsed((value) => !value)}
             onClear={() => setConsoleEntries([])}
             onClose={() => setConsoleHidden(true)}
+            onTabChange={setActiveBottomTab}
+            onResponseTabChange={setActiveResponseTab}
+            onSaveExample={handleSaveExample}
+            onCopyResponse={handleCopyResponse}
+            onExportResponse={handleExportResponse}
           />
         )}
         bottomCollapsed={!consoleHidden && consoleCollapsed}
@@ -1115,6 +1277,34 @@ export default function App() {
   return (
     <>
       <AppShell
+        toolbar={
+          <AppToolbar
+            workspaceName={workspace?.name ?? null}
+            status={status}
+            isBusy={isBusy}
+            environments={[
+              { value: "", label: "No environment" },
+              ...(workspace?.environments ?? []).map((environment) => ({
+                value: environment.id,
+                label: environment.name,
+              })),
+            ]}
+            selectedEnvironmentId={selectedEnvironmentId ?? ""}
+            sidebarHidden={sidebarHidden}
+            timelineHidden={timelineHidden}
+            consoleHidden={consoleHidden}
+            onOpenWorkspace={() => void handleOpenWorkspace()}
+            onCreateCollection={() => void handleCreateCollection()}
+            onCreateRequest={() => void handleCreateEndpoint()}
+            onSendRequest={() => void handleSendRequest()}
+            onEnvironmentChange={(value) => setSelectedEnvironmentId(value || null)}
+            onToggleSidebar={toggleSidebarPanel}
+            onToggleTimeline={toggleTimelinePanel}
+            onToggleConsole={toggleConsolePanel}
+            onOpenPalette={() => setCommandPaletteOpen(true)}
+            onOpenSettings={() => setStatus("Settings panel is not implemented yet.")}
+          />
+        }
         sidebar={
           <Sidebar
             workspace={workspace}
@@ -1146,6 +1336,11 @@ export default function App() {
         }
         showSidebar={!sidebarHidden}
         showRightPanel={Boolean(selectedEndpoint) && !timelineHidden}
+      />
+      <CommandPalette
+        open={commandPaletteOpen}
+        commands={paletteCommands}
+        onClose={() => setCommandPaletteOpen(false)}
       />
 
       {textPrompt && (

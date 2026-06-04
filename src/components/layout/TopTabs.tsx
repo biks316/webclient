@@ -1,4 +1,4 @@
-import { LayoutPanelLeft, MonitorDown, Plus, X } from "lucide-react";
+import { LayoutPanelLeft, MonitorDown, PanelsRightBottom, Plus, X } from "lucide-react";
 import { MethodBadge } from "../common/MethodBadge";
 import { IconButton } from "../common/IconButton";
 import styles from "./TopTabs.module.css";
@@ -24,7 +24,7 @@ interface TopTabsProps {
 
 const hiddenPanelMeta = {
   sidebar: { label: "Collections", icon: LayoutPanelLeft },
-  timeline: { label: "Timeline", icon: LayoutPanelLeft },
+  timeline: { label: "Timeline", icon: PanelsRightBottom },
   console: { label: "Console", icon: MonitorDown },
 } as const;
 

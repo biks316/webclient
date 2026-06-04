@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "../common/EmptyState";
-import { SplitPane } from "../common/SplitPane";
 import { BodyEditor } from "./BodyEditor";
 import { HeadersEditor } from "./HeadersEditor";
 import { ParamsEditor } from "./ParamsEditor";
@@ -9,7 +8,6 @@ import { RequestTabs } from "./RequestTabs";
 import { AuthEditor } from "./AuthEditor";
 import { ScriptsEditor } from "./ScriptsEditor";
 import { TestsEditor } from "./TestsEditor";
-import { ResponseViewer } from "../response/ResponseViewer";
 import { BikRequest, CollectionAutomation, DiffRow, RunResponse, Scripts, VariableFile } from "../../types/bik";
 import styles from "./RequestEditor.module.css";
 
@@ -266,29 +264,7 @@ export function RequestEditor({
       </div>
 
       <div className={styles.workSurface}>
-        <SplitPane
-          direction="horizontal"
-          first={<div className={styles.leftPane}>{renderLeftPane()}</div>}
-          second={
-            <ResponseViewer
-              response={response}
-              error={responseError}
-              isBusy={isBusy}
-              activeTab={activeResponseTab}
-              diffRows={diffRows}
-              selectedHistoryPath={selectedHistoryPath}
-              onActiveTabChange={onActiveResponseTabChange}
-              onSaveExample={onSaveExample}
-              onCopyResponse={onCopyResponse}
-              onExportResponse={onExportResponse}
-            />
-          }
-          initialPrimarySize={420}
-          primary="second"
-          minPrimarySize={340}
-          maxPrimarySize={620}
-          className={styles.split}
-        />
+        <div className={styles.leftPane}>{renderLeftPane()}</div>
       </div>
 
       {variableMode && (

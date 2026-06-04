@@ -1,0 +1,67 @@
+.toolbar {
+  height: 34px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #20262f, #1a2028);
+}
+
+.leading,
+.trailing,
+.center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.center {
+  min-width: 0;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.center strong,
+.center span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.center strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.command,
+.toolButton {
+  min-height: 24px;
+  border-radius: 4px;
+  padding: 0 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.environment {
+  width: 156px;
+}
+
+.command {
+  min-width: 200px;
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+
+.command kbd {
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.active {
+  background: rgba(108, 168, 255, 0.16);
+  border-color: rgba(108, 168, 255, 0.28);
+}

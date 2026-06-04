@@ -1,21 +1,21 @@
 :root {
   font-family:
-    "IBM Plex Sans", "SF Pro Text", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 13px;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
   color: #d9e1ea;
-  background: #0a0d12;
+  background: #181d24;
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
-  --bg: #0a0d12;
-  --window: #11161d;
-  --panel: #171d25;
-  --panel-soft: #1d2430;
-  --panel-elevated: #232b36;
-  --field: #10151c;
-  --field-soft: #151b24;
-  --border: #27303c;
-  --border-strong: #3b4758;
+  --bg: #181d24;
+  --window: #1b2129;
+  --panel: #171c23;
+  --panel-soft: #1a2028;
+  --panel-elevated: #242b34;
+  --field: #11161c;
+  --field-soft: #151b22;
+  --border: #2a313b;
+  --border-strong: #3a4552;
   --text: #d9e1ea;
   --text-muted: #8e9aab;
   --text-faint: #6f7a89;
@@ -24,8 +24,8 @@
   --success-green: #5fcf80;
   --error-red: #f06d6d;
   --warning-orange: #f3b25f;
-  --shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.26);
-  --shadow-hard: 0 28px 72px rgba(0, 0, 0, 0.42);
+  --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --shadow-hard: 0 18px 36px rgba(0, 0, 0, 0.32);
 }
 
 * {
@@ -45,7 +45,7 @@ body,
 
 body {
   overflow: hidden;
-  user-select: none;
+  user-select: auto;
 }
 
 button,
@@ -56,36 +56,34 @@ textarea {
 }
 
 button {
-  min-height: 30px;
-  border-radius: 8px;
+  min-height: 26px;
+  border-radius: 4px;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
   color: var(--text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0 11px;
+  gap: 6px;
+  padding: 0 8px;
   cursor: pointer;
   transition:
     background 120ms ease,
     border-color 120ms ease,
     box-shadow 120ms ease,
     transform 120ms ease;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: none;
 }
 
 button:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
   border-color: var(--border-strong);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.02);
+  box-shadow: none;
 }
 
 button:active:not(:disabled) {
-  transform: translateY(1px);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.02));
+  transform: none;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 button:disabled {
@@ -95,11 +93,9 @@ button:disabled {
 
 button.primary {
   color: white;
-  background: linear-gradient(180deg, #6ea8ff, #3e84f4);
+  background: linear-gradient(180deg, #4f8fe8, #3e84f4);
   border-color: rgba(108, 168, 255, 0.44);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 10px 20px rgba(62, 132, 244, 0.2);
+  box-shadow: none;
 }
 
 button.primary:hover:not(:disabled) {
@@ -111,26 +107,24 @@ select,
 textarea {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 0 11px;
-  background: linear-gradient(180deg, rgba(8, 11, 16, 0.96), rgba(19, 24, 31, 0.96));
+  border-radius: 4px;
+  padding: 0 8px;
+  background: var(--field);
   color: var(--text);
   outline: none;
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.38),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: none;
 }
 
 input,
 select {
-  height: 34px;
+  height: 28px;
 }
 
 textarea {
-  min-height: 110px;
+  min-height: 96px;
   resize: vertical;
-  padding: 9px 11px;
-  line-height: 1.5;
+  padding: 6px 8px;
+  line-height: 1.35;
 }
 
 input:focus,
@@ -149,7 +143,7 @@ textarea::placeholder {
 
 select {
   appearance: none;
-  padding-right: 34px;
+  padding-right: 24px;
   background-image:
     linear-gradient(45deg, transparent 50%, var(--text-faint) 50%),
     linear-gradient(135deg, var(--text-faint) 50%, transparent 50%);
@@ -169,11 +163,8 @@ code {
   height: 100%;
   display: grid;
   place-items: center;
-  border-radius: 12px;
   border: 1px dashed var(--border);
-  background:
-    linear-gradient(180deg, rgba(17, 22, 29, 0.96), rgba(13, 18, 24, 0.96)),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0 10px, transparent 10px 20px);
+  background: #161b22;
 }
 
 .prompt-backdrop {
@@ -189,18 +180,17 @@ code {
 .prompt-dialog {
   width: min(560px, calc(100vw - 28px));
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 14px;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-strong);
-  background:
-    linear-gradient(180deg, rgba(31, 39, 50, 0.98), rgba(18, 23, 31, 0.98));
+  background: #20262f;
   box-shadow: var(--shadow-hard);
 }
 
 .prompt-dialog h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .prompt-dialog label {
@@ -214,7 +204,7 @@ code {
 .prompt-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 6px;
 }
 
 .endpoint-dialog textarea {
@@ -224,12 +214,12 @@ code {
 .request-create-row {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
-  gap: 12px;
+  gap: 8px;
 }
 
 .tab-switch {
   display: inline-flex;
-  gap: 8px;
+  gap: 2px;
 }
 
 .tab-switch button.active {
@@ -248,13 +238,13 @@ code {
 
 .kv-editor {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .kv-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
-  gap: 8px;
+  gap: 6px;
 }
 
 .kv-row button {
@@ -263,12 +253,9 @@ code {
 
 .collection-panel {
   height: 100%;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background:
-    linear-gradient(180deg, rgba(28, 34, 43, 0.96), rgba(19, 24, 31, 0.96));
-  box-shadow: var(--shadow-soft);
+  padding: 8px;
+  border: 0;
+  background: #171c23;
   overflow: auto;
 }
 
@@ -277,8 +264,8 @@ code {
 }
 
 button.icon-button {
-  width: 28px;
-  min-width: 28px;
+  width: 24px;
+  min-width: 24px;
   padding: 0;
 }
 
@@ -287,20 +274,21 @@ button.icon-button {
   z-index: 80;
   min-width: 180px;
   display: grid;
-  gap: 4px;
-  padding: 6px;
-  border-radius: 10px;
+  gap: 1px;
+  padding: 4px;
+  border-radius: 6px;
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, rgba(34, 42, 53, 0.98), rgba(21, 27, 35, 0.98));
+  background: var(--panel-elevated);
   box-shadow: var(--shadow-hard);
 }
 
 .menu-popover button {
-  min-height: 28px;
+  min-height: 24px;
   justify-content: flex-start;
   background: transparent;
   border-color: transparent;
-  border-radius: 7px;
+  border-radius: 4px;
+  box-shadow: none;
 }
 
 .menu-popover button:hover:not(:disabled) {
@@ -313,11 +301,11 @@ button.icon-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .collection-panel-toolbar {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .collection-panel-toolbar span,
@@ -327,7 +315,7 @@ button.icon-button {
 
 .collection-section {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .collection-section h2,
@@ -339,18 +327,20 @@ button.icon-button {
 .test-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .script-grid label,
 .test-grid label {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
-.script-grid textarea,
-.test-grid textarea {
+.script-editor-surface {
   min-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }
 
 @media (max-width: 1200px) {

@@ -68,6 +68,53 @@ pub struct CollectionAutomation {
     pub assert: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PanelVisibility {
+    pub sidebar: bool,
+    pub timeline: bool,
+    pub console: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppState {
+    pub workspace_path: Option<String>,
+    pub collection_id: Option<String>,
+    pub endpoint_id: Option<String>,
+    pub panel_visibility: PanelVisibility,
+}
+
+#[tauri::command]
+pub fn read_app_state() -> CommandResult<Option<AppState>> {
+    let path = app_state_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let value = read_json(&path)?;
+    serde_json::from_value(value)
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn save_app_state(payload: AppState) -> CommandResult<()> {
+    let path = app_state_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    write_json(
+        &path,
+        &json!({
+            "workspacePath": payload.workspace_path,
+            "collectionId": payload.collection_id,
+            "endpointId": payload.endpoint_id,
+            "panelVisibility": payload.panel_visibility
+        }),
+    )
+}
+
 #[tauri::command]
 pub fn read_scripts(payload: EndpointPayload) -> CommandResult<Scripts> {
     let dir = endpoint_dir(
@@ -187,4 +234,11 @@ fn collection_dir(workspace_path: &str, collection_id: &str) -> PathBuf {
     PathBuf::from(workspace_path)
         .join("collections")
         .join(collection_id)
+}
+
+fn app_state_path() -> CommandResult<PathBuf> {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .ok_or_else(|| "Could not resolve a home directory for app state.".to_string())?;
+    Ok(PathBuf::from(home).join(".bikapi").join("app-state.json"))
 }

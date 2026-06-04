@@ -1,8 +1,8 @@
 mod commands;
 
 use commands::file_store::{
-    read_collection_automation, read_scripts, save_collection_automation_script,
-    save_response_example, save_script,
+    read_app_state, read_collection_automation, read_scripts, save_app_state,
+    save_collection_automation_script, save_response_example, save_script,
 };
 use commands::request_runner::send_request;
 use commands::timeline::{read_history_entry, request_diff};
@@ -31,7 +31,9 @@ fn main() {
             read_scripts,
             save_script,
             read_history_entry,
-            request_diff
+            request_diff,
+            read_app_state,
+            save_app_state
         ])
         .run(tauri::generate_context!())
         .expect("error while running BikAPI");

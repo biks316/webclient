@@ -1,0 +1,29 @@
+.state {
+  width: min(420px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.state strong {
+  color: var(--text);
+  font-size: 17px;
+}
+
+.state p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.iconWrap {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(108, 168, 255, 0.16), rgba(108, 168, 255, 0.05));
+  color: var(--active-blue);
+}

@@ -1,0 +1,72 @@
+.console {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(21, 27, 35, 0.98), rgba(13, 18, 24, 0.98));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header span,
+.entry time {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.body {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  font-family: "JetBrains Mono", "SFMono-Regular", monospace;
+}
+
+.empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: 9px;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.info span {
+  color: var(--text);
+}
+
+.success span {
+  color: #8ce5ad;
+}
+
+.warning span {
+  color: #ffd28d;
+}
+
+.error span {
+  color: #ff9393;
+}

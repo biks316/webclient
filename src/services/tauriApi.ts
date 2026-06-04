@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
+  AppState,
   BikRequest,
   CollectionAutomation,
   DiffRow,
@@ -201,4 +202,14 @@ export function requestDiff(
   return invoke("request_diff", {
     payload: { current, historicalPath },
   });
+}
+
+export function readAppState(): Promise<AppState | null> {
+  ensureTauriRuntime();
+  return invoke("read_app_state");
+}
+
+export function saveAppState(state: AppState): Promise<void> {
+  ensureTauriRuntime();
+  return invoke("save_app_state", { payload: state });
 }

@@ -1,0 +1,47 @@
+.shell {
+  width: 100vw;
+  height: 100vh;
+  padding: 8px;
+  background:
+    radial-gradient(circle at top left, rgba(108, 168, 255, 0.08), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(255, 180, 90, 0.05), transparent 24%),
+    linear-gradient(180deg, #0c1015 0%, #090c11 100%);
+  color: var(--text);
+}
+
+.outerSplit,
+.mainSplit,
+.consoleSplit,
+.main {
+  height: 100%;
+}
+
+.outerSplit,
+.mainSplit {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(19, 24, 31, 0.98), rgba(13, 18, 24, 0.98));
+  box-shadow: var(--shadow-hard);
+}
+
+.center {
+  height: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(17, 22, 29, 0.98), rgba(12, 16, 22, 0.98));
+}
+
+.top,
+.content {
+  min-width: 0;
+  min-height: 0;
+}
+
+.content {
+  overflow: hidden;
+}

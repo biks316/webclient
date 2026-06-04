@@ -1,0 +1,67 @@
+.split {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+
+.horizontal {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.horizontal.primaryFirst {
+  grid-template-columns: var(--primary-size) 10px minmax(0, 1fr);
+}
+
+.horizontal.primarySecond {
+  grid-template-columns: minmax(0, 1fr) 10px var(--primary-size);
+}
+
+.vertical.primaryFirst {
+  grid-template-rows: var(--primary-size) 10px minmax(0, 1fr);
+}
+
+.vertical.primarySecond {
+  grid-template-rows: minmax(0, 1fr) 10px var(--primary-size);
+}
+
+.pane {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.handle {
+  position: relative;
+  background: transparent;
+}
+
+.horizontal .handle {
+  cursor: col-resize;
+}
+
+.vertical .handle {
+  cursor: row-resize;
+}
+
+.handle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.horizontal .handle::before {
+  width: 2px;
+  height: 100%;
+}
+
+.vertical .handle::before {
+  width: 100%;
+  height: 2px;
+}
+
+.hidden {
+  display: none;
+}

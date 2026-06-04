@@ -1,0 +1,33 @@
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meta span {
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: rgba(10, 14, 19, 0.48);
+}
+
+.badge {
+  color: var(--text);
+}
+
+.success {
+  color: #9cf0ba;
+  border-color: rgba(95, 207, 128, 0.24);
+  background: rgba(95, 207, 128, 0.11);
+}
+
+.error {
+  color: #ff9f9f;
+  border-color: rgba(240, 109, 109, 0.24);
+  background: rgba(240, 109, 109, 0.11);
+}

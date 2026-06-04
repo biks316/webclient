@@ -1,12 +1,15 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { Braces, FlaskConical, SquareCode, X } from "lucide-react";
+import { Braces, FlaskConical, Plus, SquareCode } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CollectionPanel, CollectionPanelTab } from "./components/CollectionPanel";
-import { DiffViewer } from "./components/DiffViewer";
-import { RequestEditor } from "./components/RequestEditor";
-import { ResponseViewer } from "./components/ResponseViewer";
-import { Sidebar } from "./components/Sidebar";
-import { TimelineViewer } from "./components/TimelineViewer";
+import { EmptyState } from "./components/common/EmptyState";
+import { AppShell } from "./components/layout/AppShell";
+import { BottomConsole, ConsoleEntry } from "./components/layout/BottomConsole";
+import { Sidebar } from "./components/layout/Sidebar";
+import { TopTabs } from "./components/layout/TopTabs";
+import { RequestEditor } from "./components/request/RequestEditor";
+import { ResponseViewer } from "./components/response/ResponseViewer";
+import { RightTimelinePanel } from "./components/layout/RightTimelinePanel";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
 import { cloneJson, findCollection, findEndpoint, firstCollection } from "./services/workspaceService";
@@ -16,18 +19,16 @@ import {
   CollectionIndex,
   DiffRow,
   RunResponse,
+  Scripts,
   WorkspaceIndex,
 } from "./types/bik";
 
 const EMPTY_COLLECTION_AUTOMATION: CollectionAutomation = { pre: "", post: "", test: "", assert: "" };
+const EMPTY_SCRIPTS: Scripts = { pre: "", post: "" };
 const REQUEST_VERSION = "1.0";
 const DEFAULT_REQUEST_URL = "https://example.com/";
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-const COLLECTION_TABS: Array<{
-  id: CollectionPanelTab;
-  label: string;
-  icon: typeof Braces;
-}> = [
+const COLLECTION_TABS: Array<{ id: CollectionPanelTab; label: string; icon: typeof Braces }> = [
   { id: "variables", label: "Variables", icon: Braces },
   { id: "scripts", label: "Scripts", icon: SquareCode },
   { id: "tests", label: "Tests", icon: FlaskConical },
@@ -64,26 +65,36 @@ interface OpenEndpointTab {
   endpointId: string;
 }
 
+type RequestEditorTab = "params" | "auth" | "headers" | "body" | "scripts" | "docs" | "tests";
+type ResponseTab = "response" | "headers" | "timeline" | "tests";
+type HiddenPanel = "sidebar" | "timeline" | "console";
+
 export default function App() {
   const [workspace, setWorkspace] = useState<WorkspaceIndex | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
-  const [collectionWorkspaceOpen, setCollectionWorkspaceOpen] = useState(false);
-  const [activeCollectionTab, setActiveCollectionTab] =
-    useState<CollectionPanelTab>("variables");
+  const [activeCollectionTab, setActiveCollectionTab] = useState<CollectionPanelTab>("variables");
   const [draftRequest, setDraftRequest] = useState<BikRequest | null>(null);
   const [collectionAutomation, setCollectionAutomation] =
     useState<CollectionAutomation>(EMPTY_COLLECTION_AUTOMATION);
+  const [endpointScripts, setEndpointScripts] = useState<Scripts>(EMPTY_SCRIPTS);
   const [response, setResponse] = useState<RunResponse | null>(null);
   const [responseError, setResponseError] = useState<string | null>(null);
   const [selectedHistoryPath, setSelectedHistoryPath] = useState<string | null>(null);
   const [diffRows, setDiffRows] = useState<DiffRow[]>([]);
-  const [status, setStatus] = useState<string>("Ready");
+  const [status, setStatus] = useState("Ready");
   const [isBusy, setIsBusy] = useState(false);
   const [textPrompt, setTextPrompt] = useState<TextPromptState | null>(null);
   const [endpointPrompt, setEndpointPrompt] = useState<EndpointPromptState | null>(null);
   const [openTabs, setOpenTabs] = useState<OpenEndpointTab[]>([]);
+  const [activeRequestTab, setActiveRequestTab] = useState<RequestEditorTab>("body");
+  const [activeResponseTab, setActiveResponseTab] = useState<ResponseTab>("response");
+  const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [timelineHidden, setTimelineHidden] = useState(true);
+  const [consoleCollapsed, setConsoleCollapsed] = useState(false);
+  const [consoleHidden, setConsoleHidden] = useState(false);
+  const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
 
   const selectedCollection = useMemo(
     () => findCollection(workspace, selectedCollectionId),
@@ -111,23 +122,37 @@ export default function App() {
         .filter((tab): tab is NonNullable<typeof tab> => Boolean(tab)),
     [workspace, openTabs],
   );
+  const hasUnsavedChanges = useMemo(() => {
+    if (!draftRequest || !selectedEndpoint) {
+      return false;
+    }
+    return JSON.stringify(draftRequest) !== JSON.stringify(selectedEndpoint.request);
+  }, [draftRequest, selectedEndpoint]);
+  const hiddenPanels = useMemo(
+    () =>
+      [
+        sidebarHidden ? "sidebar" : null,
+        consoleHidden ? "console" : null,
+      ].filter((panel): panel is HiddenPanel => panel !== null),
+    [consoleHidden, sidebarHidden],
+  );
 
   useEffect(() => {
-    const session = loadWorkspaceSession();
-    if (!session) {
+    const restoredSession = loadWorkspaceSession();
+    if (!restoredSession) {
       return;
     }
+    const session = restoredSession;
 
-    const savedSession = session;
     let cancelled = false;
 
     async function restoreWorkspace() {
       setIsBusy(true);
       setStatus("Opening last workspace...");
       try {
-        const next = await api.openWorkspace(savedSession.workspacePath);
+        const next = await api.openWorkspace(session.workspacePath);
         if (!cancelled) {
-          applyWorkspace(next, savedSession.collectionId, savedSession.endpointId);
+          applyWorkspace(next, session.collectionId, session.endpointId);
           setStatus("Ready");
         }
       } catch (error) {
@@ -143,7 +168,6 @@ export default function App() {
     }
 
     void restoreWorkspace();
-
     return () => {
       cancelled = true;
     };
@@ -174,10 +198,7 @@ export default function App() {
       const exists = tabs.some(
         (tab) => tab.collectionId === selectedCollectionId && tab.endpointId === selectedEndpointId,
       );
-      if (exists) {
-        return tabs;
-      }
-      return [...tabs, { collectionId: selectedCollectionId, endpointId: selectedEndpointId }];
+      return exists ? tabs : [...tabs, { collectionId: selectedCollectionId, endpointId: selectedEndpointId }];
     });
   }, [selectedCollectionId, selectedEndpointId, selectedEndpoint?.path]);
 
@@ -187,6 +208,9 @@ export default function App() {
     setResponseError(null);
     setSelectedHistoryPath(null);
     setDiffRows([]);
+    setEndpointScripts(EMPTY_SCRIPTS);
+    setActiveRequestTab("body");
+    setActiveResponseTab("response");
   }, [selectedEndpoint?.path]);
 
   useEffect(() => {
@@ -202,6 +226,18 @@ export default function App() {
   }, [workspace?.path, selectedCollectionId]);
 
   useEffect(() => {
+    if (!workspace || !selectedCollectionId || !selectedEndpointId) {
+      setEndpointScripts(EMPTY_SCRIPTS);
+      return;
+    }
+
+    api
+      .readScripts(workspace.path, selectedCollectionId, selectedEndpointId)
+      .then(setEndpointScripts)
+      .catch(() => setEndpointScripts(EMPTY_SCRIPTS));
+  }, [workspace?.path, selectedCollectionId, selectedEndpointId]);
+
+  useEffect(() => {
     if (!draftRequest || !selectedHistoryPath) {
       setDiffRows([]);
       return;
@@ -212,6 +248,18 @@ export default function App() {
       .then(setDiffRows)
       .catch((error) => setStatus(String(error)));
   }, [draftRequest, selectedHistoryPath]);
+
+  function appendConsole(message: string, tone: ConsoleEntry["tone"] = "info") {
+    setConsoleEntries((entries) => [
+      {
+        id: `${Date.now()}-${entries.length}`,
+        message,
+        tone,
+        timestamp: new Date().toISOString(),
+      },
+      ...entries,
+    ]);
+  }
 
   function requestTextPrompt(options: {
     title: string;
@@ -262,14 +310,10 @@ export default function App() {
     preferredEndpointId = selectedEndpointId,
   ) {
     setWorkspace(next);
-
-    const nextCollection =
-      findCollection(next, preferredCollectionId) ?? firstCollection(next);
+    const nextCollection = findCollection(next, preferredCollectionId) ?? firstCollection(next);
     const nextEndpoint = findEndpoint(next, nextCollection?.id ?? null, preferredEndpointId);
-
     setSelectedCollectionId(nextCollection?.id ?? null);
     setSelectedEndpointId(nextEndpoint?.id ?? null);
-    setCollectionWorkspaceOpen(false);
     setActiveCollectionTab("variables");
     setSelectedEnvironmentId((currentEnvironmentId) =>
       currentEnvironmentId &&
@@ -282,12 +326,15 @@ export default function App() {
   async function runAction<T>(message: string, action: () => Promise<T>): Promise<T | null> {
     setIsBusy(true);
     setStatus(message);
+    appendConsole(message);
     try {
       const result = await action();
       setStatus("Ready");
       return result;
     } catch (error) {
-      setStatus(String(error));
+      const failure = String(error);
+      setStatus(failure);
+      appendConsole(failure, "error");
       return null;
     } finally {
       setIsBusy(false);
@@ -295,9 +342,7 @@ export default function App() {
   }
 
   function exportJson(filename: string, value: unknown) {
-    const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], {
-      type: "application/json",
-    });
+    const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -305,14 +350,18 @@ export default function App() {
     anchor.click();
     URL.revokeObjectURL(url);
     setStatus(`Exported ${filename}.`);
+    appendConsole(`Exported ${filename}.`, "success");
   }
 
   async function copyJson(label: string, value: unknown) {
     try {
       await navigator.clipboard.writeText(JSON.stringify(value, null, 2));
       setStatus(`${label} copied.`);
+      appendConsole(`${label} copied to clipboard.`, "success");
     } catch (error) {
-      setStatus(`Copy failed: ${String(error)}`);
+      const failure = `Copy failed: ${String(error)}`;
+      setStatus(failure);
+      appendConsole(failure, "error");
     }
   }
 
@@ -341,26 +390,15 @@ export default function App() {
   function selectEndpointTab(collectionId: string, endpointId: string) {
     setSelectedCollectionId(collectionId);
     setSelectedEndpointId(endpointId);
-    setCollectionWorkspaceOpen(false);
   }
 
   function selectCollection(collectionId: string) {
     setSelectedCollectionId(collectionId);
     setSelectedEndpointId(null);
-    setCollectionWorkspaceOpen(false);
-    setActiveCollectionTab("variables");
-  }
-
-  function openCollectionWorkspace(collectionId: string) {
-    setSelectedCollectionId(collectionId);
-    setSelectedEndpointId(null);
-    setCollectionWorkspaceOpen(true);
-    setActiveCollectionTab("variables");
   }
 
   function selectCollectionTab(tab: CollectionPanelTab) {
     setSelectedEndpointId(null);
-    setCollectionWorkspaceOpen(true);
     setActiveCollectionTab(tab);
   }
 
@@ -373,7 +411,6 @@ export default function App() {
     );
 
     setOpenTabs(nextTabs);
-
     if (selectedCollectionId !== collectionId || selectedEndpointId !== endpointId) {
       return;
     }
@@ -384,6 +421,21 @@ export default function App() {
     } else {
       setSelectedEndpointId(null);
     }
+  }
+
+  function restorePanel(panel: HiddenPanel) {
+    if (panel === "sidebar") {
+      setSidebarHidden(false);
+      return;
+    }
+    setConsoleHidden(false);
+    setConsoleCollapsed(false);
+  }
+
+  function openEndpointHistory(collectionId: string, endpointId: string) {
+    setSelectedCollectionId(collectionId);
+    setSelectedEndpointId(endpointId);
+    setTimelineHidden(false);
   }
 
   function resolveEndpointPrompt(value: EndpointPromptResult | null) {
@@ -458,7 +510,6 @@ export default function App() {
       if (["-d", "--data", "--data-raw", "--data-binary", "--data-ascii"].includes(token) && next) {
         bodyParts.push(next);
         index += 1;
-        continue;
       }
 
       if (!token.startsWith("-") && /^https?:\/\//i.test(token)) {
@@ -524,7 +575,6 @@ export default function App() {
     if (current) {
       tokens.push(current);
     }
-
     return tokens;
   }
 
@@ -594,9 +644,7 @@ export default function App() {
       setStatus("Collection name is required.");
       return;
     }
-    const next = await runAction("Creating collection...", () =>
-      api.createCollection(workspace.path, name),
-    );
+    const next = await runAction("Creating collection...", () => api.createCollection(workspace.path, name));
     if (next) {
       const created = next.collections.find((collection) => collection.name === name);
       applyWorkspace(next, created?.id ?? selectedCollectionId, null);
@@ -621,9 +669,7 @@ export default function App() {
     }
 
     const existingIds = new Set(workspace.environments.map((environment) => environment.id));
-    const next = await runAction("Creating environment...", () =>
-      api.createEnvironment(workspace.path, name),
-    );
+    const next = await runAction("Creating environment...", () => api.createEnvironment(workspace.path, name));
     if (next) {
       const created = next.environments.find((environment) => !existingIds.has(environment.id));
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
@@ -631,8 +677,14 @@ export default function App() {
     }
   }
 
-  async function handleCreateEndpoint(collectionId: string) {
+  async function handleCreateEndpoint(collectionId?: string) {
     if (!workspace) {
+      return;
+    }
+
+    const targetCollectionId = collectionId ?? selectedCollectionId ?? workspace.collections[0]?.id;
+    if (!targetCollectionId) {
+      setStatus("Create a collection first.");
       return;
     }
 
@@ -653,13 +705,27 @@ export default function App() {
     }
 
     const next = await runAction("Creating request...", () =>
-      api.createEndpointWithRequest(workspace.path, collectionId, request),
+      api.createEndpointWithRequest(workspace.path, targetCollectionId, request),
     );
     if (next) {
-      const collection = next.collections.find((item) => item.id === collectionId);
+      const collection = next.collections.find((item) => item.id === targetCollectionId);
       const matchingEndpoints = collection?.endpoints.filter((item) => item.name === request.name);
       const endpoint = matchingEndpoints?.[matchingEndpoints.length - 1];
-      applyWorkspace(next, collectionId, endpoint?.id ?? null);
+      applyWorkspace(next, targetCollectionId, endpoint?.id ?? null);
+    }
+  }
+
+  async function handleRestoreHistory(path: string) {
+    const historicalRequest = await runAction("Restoring historical version...", async () => {
+      const entry = await api.readHistoryEntry(path);
+      return entry as unknown as BikRequest;
+    });
+
+    if (historicalRequest) {
+      setDraftRequest(historicalRequest);
+      setSelectedHistoryPath(path);
+      setActiveRequestTab("body");
+      appendConsole(`Loaded historical request snapshot from ${path}.`, "warning");
     }
   }
 
@@ -704,6 +770,7 @@ export default function App() {
     );
     if (next) {
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
+      appendConsole(`Saved request ${draftRequest.name}.`, "success");
     }
   }
 
@@ -711,9 +778,7 @@ export default function App() {
     if (!workspace) {
       return;
     }
-    const next = await runAction("Saving globals.bik...", () =>
-      api.saveGlobals(workspace.path, workspace.globals),
-    );
+    const next = await runAction("Saving globals.bik...", () => api.saveGlobals(workspace.path, workspace.globals));
     if (next) {
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
     }
@@ -736,15 +801,23 @@ export default function App() {
       return;
     }
     const next = await runAction("Saving environment variables...", () =>
-      api.saveEnvironmentVariables(
-        workspace.path,
-        selectedEnvironment.id,
-        selectedEnvironment.variables,
-      ),
+      api.saveEnvironmentVariables(workspace.path, selectedEnvironment.id, selectedEnvironment.variables),
     );
     if (next) {
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
     }
+  }
+
+  async function handleSaveEndpointScripts() {
+    if (!workspace || !selectedCollectionId || !selectedEndpointId) {
+      return;
+    }
+
+    await runAction("Saving endpoint scripts...", async () => {
+      await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "pre", endpointScripts.pre);
+      await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "post", endpointScripts.post);
+    });
+    appendConsole("Endpoint scripts saved.", "success");
   }
 
   function handleGlobalVariablesChange(variables: Record<string, string>) {
@@ -792,6 +865,7 @@ export default function App() {
     setResponse(null);
     setResponseError(null);
     setStatus(`Sending ${draftRequest.method} ${draftRequest.url}...`);
+    appendConsole(`Sending ${draftRequest.method} ${draftRequest.url}...`);
 
     try {
       const result = await api.sendRequest(
@@ -802,13 +876,14 @@ export default function App() {
         draftRequest,
       );
       setResponse(result);
-      setStatus(
-        `Received ${result.status} ${result.statusText || ""} from ${result.resolvedUrl}`.trim(),
-      );
+      setActiveResponseTab("response");
+      setStatus(`Received ${result.status} ${result.statusText || ""} from ${result.resolvedUrl}`.trim());
+      appendConsole(`Response ${result.status} in ${result.responseTimeMs} ms from ${result.resolvedUrl}.`, result.status >= 400 ? "error" : "success");
     } catch (error) {
       const message = String(error);
       setResponseError(message);
       setStatus(`Request failed: ${message}`);
+      appendConsole(`Request failed: ${message}`, "error");
     } finally {
       setIsBusy(false);
     }
@@ -841,6 +916,7 @@ export default function App() {
       const next = await api.openWorkspace(workspace.path);
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
       setStatus(`Saved example: ${savedPath}`);
+      appendConsole(`Saved example to ${savedPath}.`, "success");
     }
   }
 
@@ -849,185 +925,228 @@ export default function App() {
       return;
     }
     await runAction("Saving collection automation...", async () => {
-      await api.saveCollectionAutomationScript(
-        workspace.path,
-        selectedCollectionId,
-        "pre",
-        collectionAutomation.pre,
-      );
-      await api.saveCollectionAutomationScript(
-        workspace.path,
-        selectedCollectionId,
-        "post",
-        collectionAutomation.post,
-      );
-      await api.saveCollectionAutomationScript(
-        workspace.path,
-        selectedCollectionId,
-        "test",
-        collectionAutomation.test,
-      );
-      await api.saveCollectionAutomationScript(
-        workspace.path,
-        selectedCollectionId,
-        "assert",
-        collectionAutomation.assert,
-      );
+      await api.saveCollectionAutomationScript(workspace.path, selectedCollectionId, "pre", collectionAutomation.pre);
+      await api.saveCollectionAutomationScript(workspace.path, selectedCollectionId, "post", collectionAutomation.post);
+      await api.saveCollectionAutomationScript(workspace.path, selectedCollectionId, "test", collectionAutomation.test);
+      await api.saveCollectionAutomationScript(workspace.path, selectedCollectionId, "assert", collectionAutomation.assert);
     });
+    appendConsole("Collection automation updated.", "success");
   }
 
-  return (
-    <div className={`app-shell ${selectedEndpoint ? "" : "no-timeline"}`}>
-      <Sidebar
-        workspace={workspace}
-        selectedCollectionId={selectedCollectionId}
-        selectedEndpointId={selectedEndpointId}
-        onOpenWorkspace={handleOpenWorkspace}
-        onCreateWorkspace={handleCreateWorkspace}
-        onCreateCollection={handleCreateCollection}
-        onCreateEndpoint={handleCreateEndpoint}
-        onCopyCollection={handleCopyCollection}
-        onExportCollection={handleExportCollection}
-        onSelectCollection={selectCollection}
-        onOpenCollectionWorkspace={openCollectionWorkspace}
-        onSelectEndpoint={selectEndpointTab}
-      />
-
-      <div
-        className={`workbench ${
-          draftRequest || (selectedCollection && collectionWorkspaceOpen) ? "has-endpoint" : "empty"
-        }`}
-      >
-        {(openEndpointTabs.length > 0 || (selectedCollection && collectionWorkspaceOpen)) && (
-          <div className="request-tabs" role="tablist" aria-label="Workbench tabs">
-            {openEndpointTabs.map((tab) => {
-              const active =
-                tab.collectionId === selectedCollectionId && tab.endpointId === selectedEndpointId;
-              return (
-                <div
-                  className={`request-tab ${active ? "active" : ""}`}
-                  key={`${tab.collectionId}:${tab.endpointId}`}
-                  role="tab"
-                  aria-selected={active}
-                >
-                  <button
-                    type="button"
-                    className="request-tab-main"
-                    onClick={() => selectEndpointTab(tab.collectionId, tab.endpointId)}
-                  >
-                    <span className={`method-badge method-${tab.endpoint.request.method.toLowerCase()}`}>
-                      {tab.endpoint.request.method}
-                    </span>
-                    <span>{tab.endpoint.name}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="request-tab-close"
-                    title="Close tab"
-                    aria-label={`Close ${tab.endpoint.name}`}
-                    onClick={() => closeEndpointTab(tab.collectionId, tab.endpointId)}
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              );
-            })}
-            {selectedCollection && collectionWorkspaceOpen &&
-              COLLECTION_TABS.map((tab) => {
-                const Icon = tab.icon;
-                const active = !selectedEndpointId && activeCollectionTab === tab.id;
-                return (
-                  <div
-                    className={`request-tab collection-workbench-tab ${active ? "active" : ""}`}
-                    key={`${selectedCollection.id}:${tab.id}`}
-                    role="tab"
-                    aria-selected={active}
-                  >
-                    <button
-                      type="button"
-                      className="request-tab-main"
-                      onClick={() => selectCollectionTab(tab.id)}
-                    >
-                      <Icon size={14} />
-                      <span>{tab.label}</span>
-                    </button>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-        {draftRequest ? (
-          <div className="request-stage" key={selectedEndpoint?.path}>
+  function renderMainContent() {
+    if (draftRequest) {
+      return (
+        <AppShell.CenterColumn
+          top={<TopTabs
+            tabs={openEndpointTabs.map((tab) => ({
+              id: `${tab.collectionId}:${tab.endpointId}`,
+              collectionId: tab.collectionId,
+              endpointId: tab.endpointId,
+              method: tab.endpoint.request.method,
+              name: tab.endpoint.name,
+              active: tab.collectionId === selectedCollectionId && tab.endpointId === selectedEndpointId,
+              dirty:
+                tab.collectionId === selectedCollectionId &&
+                tab.endpointId === selectedEndpointId &&
+                hasUnsavedChanges,
+            }))}
+            hiddenPanels={hiddenPanels}
+            onSelect={selectEndpointTab}
+            onClose={closeEndpointTab}
+            onCreate={() => void handleCreateEndpoint()}
+            onRestorePanel={restorePanel}
+          />}
+          content={
             <RequestEditor
               request={draftRequest}
+              activeTab={activeRequestTab}
+              activeResponseTab={activeResponseTab}
+              response={response}
+              responseError={responseError}
+              diffRows={diffRows}
+              selectedHistoryPath={selectedHistoryPath}
+              scripts={endpointScripts}
+              collectionAutomation={collectionAutomation}
               environments={workspace?.environments ?? []}
               selectedEnvironmentId={selectedEnvironmentId}
+              selectedEnvironment={selectedEnvironment}
               globalVariables={workspace?.globals ?? {}}
               collectionVariables={selectedCollection?.variables ?? {}}
-              selectedEnvironment={selectedEnvironment}
               isBusy={isBusy}
+              onActiveTabChange={setActiveRequestTab}
+              onActiveResponseTabChange={setActiveResponseTab}
               onEnvironmentChange={setSelectedEnvironmentId}
               onCreateEnvironment={handleCreateEnvironment}
               onGlobalVariablesChange={handleGlobalVariablesChange}
               onCollectionVariablesChange={handleCollectionVariablesChange}
               onEnvironmentVariablesChange={handleEnvironmentVariablesChange}
               onRequestChange={setDraftRequest}
+              onScriptsChange={setEndpointScripts}
+              onCollectionAutomationChange={setCollectionAutomation}
               onSave={handleSaveRequest}
               onSaveGlobals={handleSaveGlobals}
               onSaveCollectionVariables={handleSaveCollectionVariables}
               onSaveEnvironmentVariables={handleSaveEnvironmentVariables}
+              onSaveScripts={handleSaveEndpointScripts}
+              onSaveTests={handleSaveCollectionAutomation}
               onSend={handleSendRequest}
               onCopyRequest={handleCopyRequest}
               onExportRequest={handleExportRequest}
+              onSaveExample={handleSaveExample}
+              onCopyResponse={handleCopyResponse}
+              onExportResponse={handleExportResponse}
             />
-            {selectedHistoryPath && <DiffViewer rows={diffRows} selectedHistoryPath={selectedHistoryPath} />}
-            {(isBusy || response || responseError) && (
-              <ResponseViewer
-                response={response}
-                error={responseError}
-                isBusy={isBusy}
-                onSaveExample={handleSaveExample}
-                onCopyResponse={handleCopyResponse}
-                onExportResponse={handleExportResponse}
-              />
-            )}
-          </div>
-        ) : selectedCollection && collectionWorkspaceOpen ? (
-          <CollectionPanel
-            collection={selectedCollection}
-            activeTab={activeCollectionTab}
-            automation={collectionAutomation}
-            isBusy={isBusy}
-            onCreateEndpoint={handleCreateEndpoint}
-            onVariablesChange={handleCollectionVariablesChange}
-            onAutomationChange={setCollectionAutomation}
-            onSaveVariables={handleSaveCollectionVariables}
-            onSaveAutomation={handleSaveCollectionAutomation}
-          />
-        ) : selectedCollection ? (
-          <main className="workspace-start">
-            <strong>{selectedCollection.name}</strong>
-            <span>Double-click the collection to open Variables, Scripts, and Tests.</span>
-          </main>
-        ) : (
-          <main className="workspace-start">
-            <strong>{workspace ? "Select a request" : "Open a workspace"}</strong>
-            <span>
-              {workspace
-                ? "Choose an endpoint from the sidebar to inspect, edit, or send it."
-                : "Open or create a workspace to start working with local .bik files."}
-            </span>
-          </main>
-        )}
-      </div>
-
-      {selectedEndpoint && (
-        <TimelineViewer
-          endpoint={selectedEndpoint}
-          selectedHistoryPath={selectedHistoryPath}
-          onSelectHistory={setSelectedHistoryPath}
+          }
+          bottom={consoleHidden ? undefined : (
+            <BottomConsole
+              collapsed={consoleCollapsed}
+              entries={consoleEntries}
+              status={status}
+              onToggleCollapsed={() => setConsoleCollapsed((value) => !value)}
+              onClear={() => setConsoleEntries([])}
+              onClose={() => setConsoleHidden(true)}
+            />
+          )}
+          bottomCollapsed={!consoleHidden && consoleCollapsed}
         />
-      )}
+      );
+    }
+
+    if (selectedCollection) {
+      return (
+        <AppShell.CenterColumn
+          top={
+            <TopTabs
+              tabs={openEndpointTabs.map((tab) => ({
+                id: `${tab.collectionId}:${tab.endpointId}`,
+                collectionId: tab.collectionId,
+                endpointId: tab.endpointId,
+                method: tab.endpoint.request.method,
+                name: tab.endpoint.name,
+                active: tab.collectionId === selectedCollectionId && tab.endpointId === selectedEndpointId,
+                dirty: false,
+              }))}
+              hiddenPanels={hiddenPanels}
+              onSelect={selectEndpointTab}
+              onClose={closeEndpointTab}
+              onCreate={() => void handleCreateEndpoint(selectedCollection.id)}
+              onRestorePanel={restorePanel}
+            />
+          }
+          content={
+            <CollectionPanel
+              collection={selectedCollection}
+              activeTab={activeCollectionTab}
+              automation={collectionAutomation}
+              isBusy={isBusy}
+              onTabChange={selectCollectionTab}
+              onCreateEndpoint={handleCreateEndpoint}
+              onVariablesChange={handleCollectionVariablesChange}
+              onAutomationChange={setCollectionAutomation}
+              onSaveVariables={handleSaveCollectionVariables}
+              onSaveAutomation={handleSaveCollectionAutomation}
+            />
+          }
+          bottom={consoleHidden ? undefined : (
+            <BottomConsole
+              collapsed={consoleCollapsed}
+              entries={consoleEntries}
+              status={status}
+              onToggleCollapsed={() => setConsoleCollapsed((value) => !value)}
+              onClear={() => setConsoleEntries([])}
+              onClose={() => setConsoleHidden(true)}
+            />
+          )}
+          bottomCollapsed={!consoleHidden && consoleCollapsed}
+        />
+      );
+    }
+
+    return (
+      <AppShell.CenterColumn
+        top={
+          <TopTabs
+            tabs={openEndpointTabs.map((tab) => ({
+              id: `${tab.collectionId}:${tab.endpointId}`,
+              collectionId: tab.collectionId,
+              endpointId: tab.endpointId,
+              method: tab.endpoint.request.method,
+              name: tab.endpoint.name,
+              active: false,
+              dirty: false,
+            }))}
+            hiddenPanels={hiddenPanels}
+            onSelect={selectEndpointTab}
+            onClose={closeEndpointTab}
+            onCreate={() => void handleCreateEndpoint()}
+            onRestorePanel={restorePanel}
+          />
+        }
+        content={
+          <div className="workspace-empty">
+            <EmptyState
+              title={workspace ? "Select a request to start editing" : "Open a workspace"}
+              description={
+                workspace
+                  ? "Choose an endpoint from the left sidebar, or create a new request tab."
+                  : "Open or create a local workspace to edit and run .bik requests."
+              }
+              actionLabel={workspace ? "Create request" : "Open workspace"}
+              onAction={workspace ? () => void handleCreateEndpoint() : () => void handleOpenWorkspace()}
+              icon={workspace ? Plus : undefined}
+            />
+          </div>
+        }
+        bottom={consoleHidden ? undefined : (
+          <BottomConsole
+            collapsed={consoleCollapsed}
+            entries={consoleEntries}
+            status={status}
+            onToggleCollapsed={() => setConsoleCollapsed((value) => !value)}
+            onClear={() => setConsoleEntries([])}
+            onClose={() => setConsoleHidden(true)}
+          />
+        )}
+        bottomCollapsed={!consoleHidden && consoleCollapsed}
+      />
+    );
+  }
+
+  return (
+    <>
+      <AppShell
+        sidebar={
+          <Sidebar
+            workspace={workspace}
+            selectedCollectionId={selectedCollectionId}
+            selectedEndpointId={selectedEndpointId}
+            onClose={() => setSidebarHidden(true)}
+            onOpenWorkspace={handleOpenWorkspace}
+            onCreateWorkspace={handleCreateWorkspace}
+            onCreateCollection={handleCreateCollection}
+            onCreateEndpoint={handleCreateEndpoint}
+            onCopyCollection={handleCopyCollection}
+            onExportCollection={handleExportCollection}
+            onSelectCollection={selectCollection}
+            onSelectEndpoint={selectEndpointTab}
+            onOpenEndpointHistory={openEndpointHistory}
+          />
+        }
+        main={renderMainContent()}
+        rightPanel={
+          <RightTimelinePanel
+            endpoint={selectedEndpoint}
+            diffRows={diffRows}
+            selectedHistoryPath={selectedHistoryPath}
+            onClose={() => setTimelineHidden(true)}
+            onSelectHistory={setSelectedHistoryPath}
+            onCompare={setSelectedHistoryPath}
+            onRestore={handleRestoreHistory}
+          />
+        }
+        showSidebar={!sidebarHidden}
+        showRightPanel={Boolean(selectedEndpoint) && !timelineHidden}
+      />
 
       {textPrompt && (
         <div className="prompt-backdrop" role="presentation">
@@ -1047,9 +1166,7 @@ export default function App() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                onChange={(event) =>
-                  setTextPrompt({ ...textPrompt, value: event.currentTarget.value })
-                }
+                onChange={(event) => setTextPrompt({ ...textPrompt, value: event.currentTarget.value })}
               />
             </label>
             <div className="prompt-actions">
@@ -1104,7 +1221,6 @@ export default function App() {
                 <label>
                   <span>HTTP verb</span>
                   <select
-                    className={`method-select method-${endpointPrompt.method.toLowerCase()}`}
                     value={endpointPrompt.method}
                     onChange={(event) =>
                       setEndpointPrompt({ ...endpointPrompt, method: event.currentTarget.value, error: null })
@@ -1130,33 +1246,33 @@ export default function App() {
                 </label>
               </div>
             ) : (
-              <label>
-                <span>Request name</span>
-                <input
-                  autoFocus
-                  value={endpointPrompt.name}
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  onChange={(event) =>
-                    setEndpointPrompt({ ...endpointPrompt, name: event.currentTarget.value, error: null })
-                  }
-                />
-              </label>
-            )}
-            {endpointPrompt.mode === "curl" && (
-              <label>
-                <span>cURL command</span>
-                <textarea
-                  spellCheck={false}
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  value={endpointPrompt.curl}
-                  onChange={(event) =>
-                    setEndpointPrompt({ ...endpointPrompt, curl: event.currentTarget.value, error: null })
-                  }
-                />
-              </label>
+              <>
+                <label>
+                  <span>Request name</span>
+                  <input
+                    autoFocus
+                    value={endpointPrompt.name}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    onChange={(event) =>
+                      setEndpointPrompt({ ...endpointPrompt, name: event.currentTarget.value, error: null })
+                    }
+                  />
+                </label>
+                <label>
+                  <span>cURL command</span>
+                  <textarea
+                    spellCheck={false}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    value={endpointPrompt.curl}
+                    onChange={(event) =>
+                      setEndpointPrompt({ ...endpointPrompt, curl: event.currentTarget.value, error: null })
+                    }
+                  />
+                </label>
+              </>
             )}
             {endpointPrompt.error && <span className="error-text">{endpointPrompt.error}</span>}
             <div className="prompt-actions">
@@ -1170,15 +1286,6 @@ export default function App() {
           </form>
         </div>
       )}
-
-      <div className="status-bar">
-        <span>{status}</span>
-        {workspace && selectedCollection && draftRequest && (
-          <span>
-            {selectedCollection.name} / {draftRequest.name}
-          </span>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

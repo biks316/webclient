@@ -11,6 +11,7 @@ interface CollectionPanelProps {
   activeTab: CollectionPanelTab;
   automation: CollectionAutomation;
   isBusy: boolean;
+  onTabChange: (tab: CollectionPanelTab) => void;
   onCreateEndpoint: (collectionId: string) => void;
   onVariablesChange: (variables: Record<string, string>) => void;
   onAutomationChange: (automation: CollectionAutomation) => void;
@@ -23,6 +24,7 @@ export function CollectionPanel({
   activeTab,
   automation,
   isBusy,
+  onTabChange,
   onCreateEndpoint,
   onVariablesChange,
   onAutomationChange,
@@ -45,6 +47,30 @@ export function CollectionPanel({
         <button type="button" className="primary" onClick={() => onCreateEndpoint(collection.id)}>
           <FilePlus size={16} />
           New request
+        </button>
+      </div>
+
+      <div className="tab-switch">
+        <button
+          type="button"
+          className={activeTab === "variables" ? "active" : ""}
+          onClick={() => onTabChange("variables")}
+        >
+          Variables
+        </button>
+        <button
+          type="button"
+          className={activeTab === "scripts" ? "active" : ""}
+          onClick={() => onTabChange("scripts")}
+        >
+          Scripts
+        </button>
+        <button
+          type="button"
+          className={activeTab === "tests" ? "active" : ""}
+          onClick={() => onTabChange("tests")}
+        >
+          Tests
         </button>
       </div>
 

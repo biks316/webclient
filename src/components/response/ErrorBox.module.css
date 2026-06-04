@@ -1,0 +1,21 @@
+.box {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ff9292;
+}
+
+.box pre {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #ffd9d9;
+}

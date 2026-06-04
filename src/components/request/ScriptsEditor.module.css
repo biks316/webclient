@@ -1,0 +1,31 @@
+.wrap {
+  display: grid;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header span,
+.grid label span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.grid textarea {
+  width: 100%;
+  min-height: 220px;
+  margin-top: 8px;
+  resize: vertical;
+}

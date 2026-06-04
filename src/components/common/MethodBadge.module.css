@@ -1,0 +1,48 @@
+.badge {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+
+.compact {
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+
+.get {
+  color: #a5edbb;
+  background: rgba(95, 207, 128, 0.11);
+  border-color: rgba(95, 207, 128, 0.2);
+}
+
+.post {
+  color: #b8d7ff;
+  background: rgba(108, 168, 255, 0.12);
+  border-color: rgba(108, 168, 255, 0.22);
+}
+
+.put {
+  color: #f4ca93;
+  background: rgba(243, 178, 95, 0.12);
+  border-color: rgba(243, 178, 95, 0.22);
+}
+
+.delete {
+  color: #f7aaaa;
+  background: rgba(240, 109, 109, 0.12);
+  border-color: rgba(240, 109, 109, 0.22);
+}
+
+.default {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border);
+}

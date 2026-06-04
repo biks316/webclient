@@ -87,3 +87,16 @@ export interface DiffRow {
   after?: JsonValue;
   change: "added" | "removed" | "changed";
 }
+
+export interface PanelVisibility {
+  sidebar: boolean;
+  timeline: boolean;
+  console: boolean;
+}
+
+export interface AppState {
+  workspacePath: string | null;
+  collectionId: string | null;
+  endpointId: string | null;
+  panelVisibility: PanelVisibility;
+}

@@ -1,0 +1,11 @@
+.wrap {
+  display: grid;
+  gap: 12px;
+}
+
+.header span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}

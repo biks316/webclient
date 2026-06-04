@@ -2,20 +2,14 @@
   height: 100%;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 6px;
+  gap: 4px;
 }
 
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.header span {
-  display: block;
-  color: var(--text-muted);
-  font-size: 11px;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .error {
@@ -28,7 +22,10 @@
 
 .surface {
   min-height: 0;
+  height: 100%;
+  min-height: 360px;
   overflow: hidden;
   border-radius: 4px;
   border: 1px solid var(--border);
+  background: #10151b;
 }

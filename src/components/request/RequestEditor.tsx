@@ -196,10 +196,9 @@ export function RequestEditor({
         return hasRequestBody ? (
           <BodyEditor bodyText={bodyText} bodyError={bodyError} onChange={parseBody} onFormat={formatBody} />
         ) : (
-          <EmptyState
-            title={`${currentRequest.method} requests usually do not send a body`}
-            description="Switch to Headers, Params, Scripts, or Tests to continue configuring this request."
-          />
+          <div className={styles.bodyPlaceholder}>
+            <span>No request body</span>
+          </div>
         );
     }
   }

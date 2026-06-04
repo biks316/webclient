@@ -43,11 +43,8 @@ export function ResponseViewer({
 
     if (!response && !isBusy) {
       return (
-        <div className={styles.empty}>
-          <EmptyState
-            title="Response viewer"
-            description="Send the current request to inspect response data, headers, test output, and timing."
-          />
+        <div className={styles.emptyQuiet}>
+          <span>No response yet</span>
         </div>
       );
     }

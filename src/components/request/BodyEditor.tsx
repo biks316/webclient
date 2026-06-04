@@ -13,10 +13,6 @@ export function BodyEditor({ bodyText, bodyError, onChange, onFormat }: BodyEdit
   return (
     <section className={styles.editor}>
       <div className={styles.header}>
-        <div>
-          <strong>Body</strong>
-          <span>JSON request payload</span>
-        </div>
         <button type="button" onClick={onFormat}>
           <Wand2 size={14} />
           Pretty JSON
@@ -24,7 +20,7 @@ export function BodyEditor({ bodyText, bodyError, onChange, onFormat }: BodyEdit
       </div>
       {bodyError && <div className={styles.error}>{bodyError}</div>}
       <div className={styles.surface}>
-        <JsonEditor value={bodyText} onChange={onChange} />
+        <JsonEditor value={bodyText} onChange={onChange} fontSize={13} lineHeight={20} />
       </div>
     </section>
   );

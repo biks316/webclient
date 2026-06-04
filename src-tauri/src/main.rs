@@ -4,6 +4,7 @@ use commands::file_store::{
     read_app_state, read_collection_automation, read_scripts, save_app_state,
     save_collection_automation_script, save_response_example, save_script,
 };
+use commands::git::{get_git_remote_url, get_git_status, get_sync_status, run_git_action, save_workspace_snapshot};
 use commands::request_runner::send_request;
 use commands::timeline::{read_history_entry, request_diff};
 use commands::workspace::{
@@ -32,6 +33,11 @@ fn main() {
             save_script,
             read_history_entry,
             request_diff,
+            get_git_remote_url,
+            get_git_status,
+            get_sync_status,
+            run_git_action,
+            save_workspace_snapshot,
             read_app_state,
             save_app_state
         ])

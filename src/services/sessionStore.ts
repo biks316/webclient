@@ -4,6 +4,7 @@ export interface WorkspaceSession {
   workspacePath: string;
   collectionId: string | null;
   endpointId: string | null;
+  repoUrl: string | null;
 }
 
 function nullableString(value: unknown): string | null {
@@ -26,6 +27,7 @@ export function loadWorkspaceSession(): WorkspaceSession | null {
       workspacePath: value.workspacePath,
       collectionId: nullableString(value.collectionId),
       endpointId: nullableString(value.endpointId),
+      repoUrl: nullableString(value.repoUrl),
     };
   } catch {
     return null;

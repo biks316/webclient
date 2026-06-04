@@ -12,10 +12,10 @@
 }
 
 .compact {
-  height: 14px;
-  padding: 0 4px;
-  font-size: 9px;
-  border-radius: 5px;
+  height: 12px;
+  padding: 0 3px;
+  font-size: 8px;
+  border-radius: 4px;
 }
 
 .get {

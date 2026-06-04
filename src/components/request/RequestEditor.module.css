@@ -22,9 +22,13 @@
 }
 
 .quickBar {
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-bottom: 1px solid var(--border);
   background: #171c23;
+}
+
+.quickBar button {
+  min-height: 20px;
 }
 
 .quickActions {
@@ -39,11 +43,19 @@
 }
 
 .leftPane {
-  padding: 8px;
+  padding: 6px;
   border-right: 1px solid var(--border);
   background: #171c23;
 }
 
+.bodyPlaceholder {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
 .variableGrid {
-  margin-top: 8px;
+  margin-top: 6px;
 }

@@ -1,8 +1,12 @@
 import {
+  ArrowDown,
+  ArrowUp,
+  Check,
   FolderOpen,
   LayoutPanelLeft,
   PanelsRightBottom,
   Plus,
+  RefreshCw,
   Search,
   Send,
   Settings2,
@@ -10,12 +14,15 @@ import {
 } from "lucide-react";
 import { CompactSelect } from "../common/CompactSelect";
 import { IconButton } from "../common/IconButton";
+import { SyncStatusResult } from "../../types/bik";
 import styles from "./AppToolbar.module.css";
 
 interface AppToolbarProps {
   workspaceName: string | null;
   status: string;
-  isBusy: boolean;
+  isSyncing: boolean;
+  syncStatus: SyncStatusResult | null;
+  lastSyncedLabel: string;
   environments: Array<{ value: string; label: string }>;
   selectedEnvironmentId: string;
   sidebarHidden: boolean;
@@ -25,6 +32,8 @@ interface AppToolbarProps {
   onCreateCollection: () => void;
   onCreateRequest: () => void;
   onSendRequest: () => void;
+  onSync: () => void;
+  onReviewChanges: () => void;
   onEnvironmentChange: (value: string) => void;
   onToggleSidebar: () => void;
   onToggleTimeline: () => void;
@@ -36,7 +45,9 @@ interface AppToolbarProps {
 export function AppToolbar({
   workspaceName,
   status,
-  isBusy,
+  isSyncing,
+  syncStatus,
+  lastSyncedLabel,
   environments,
   selectedEnvironmentId,
   sidebarHidden,
@@ -46,6 +57,8 @@ export function AppToolbar({
   onCreateCollection,
   onCreateRequest,
   onSendRequest,
+  onSync,
+  onReviewChanges,
   onEnvironmentChange,
   onToggleSidebar,
   onToggleTimeline,
@@ -53,6 +66,8 @@ export function AppToolbar({
   onOpenPalette,
   onOpenSettings,
 }: AppToolbarProps) {
+  const syncMeta = getSyncMeta(syncStatus);
+
   return (
     <header className={styles.toolbar}>
       <div className={styles.leading}>
@@ -70,11 +85,30 @@ export function AppToolbar({
       </div>
 
       <div className={styles.center}>
-        <strong>{workspaceName ?? "BikAPI"}</strong>
-        <span>{isBusy ? "Syncing..." : status}</span>
+        <div className={styles.workspaceSummary}>
+          <strong>{workspaceName ?? "BikAPI"}</strong>
+          <span>Last synced: {lastSyncedLabel}</span>
+          <span>Status: {syncMeta.label}</span>
+        </div>
       </div>
 
       <div className={styles.trailing}>
+        <div className={styles.syncBar}>
+          <div className={`${styles.syncStatus} ${styles[syncMeta.tone]}`}>
+            <span className={styles.statusDot} />
+            <syncMeta.Icon size={12} className={isSyncing ? styles.spinning : ""} />
+            <span>{syncMeta.summary}</span>
+          </div>
+          {(syncStatus?.state === "sync_required" || syncStatus?.state === "conflict") && (
+            <button type="button" className={styles.reviewButton} onClick={onReviewChanges}>
+              Review Changes
+            </button>
+          )}
+          <button type="button" className={styles.syncButton} onClick={onSync} disabled={isSyncing}>
+            <RefreshCw size={12} className={isSyncing ? styles.spinning : ""} />
+            Sync
+          </button>
+        </div>
         <CompactSelect
           value={selectedEnvironmentId}
           options={environments}
@@ -106,4 +140,45 @@ export function AppToolbar({
       </div>
     </header>
   );
+}
+
+function getSyncMeta(syncStatus: SyncStatusResult | null) {
+  switch (syncStatus?.state) {
+    case "remote_updates":
+      return {
+        tone: "orange",
+        label: "New changes available",
+        summary: `${syncStatus.remoteChanges} updates available`,
+        Icon: ArrowDown,
+      };
+    case "local_changes":
+      return {
+        tone: "blue",
+        label: "Local changes pending",
+        summary: `${syncStatus.localChanges} local changes`,
+        Icon: ArrowUp,
+      };
+    case "sync_required":
+      return {
+        tone: "red",
+        label: "Sync required",
+        summary: "Sync required",
+        Icon: RefreshCw,
+      };
+    case "conflict":
+      return {
+        tone: "red",
+        label: "Review changes",
+        summary: "Review changes",
+        Icon: RefreshCw,
+      };
+    case "synced":
+    default:
+      return {
+        tone: "green",
+        label: "Synced",
+        summary: "Up to date",
+        Icon: Check,
+      };
+  }
 }

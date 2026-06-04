@@ -9,6 +9,10 @@ interface AppShellProps {
   rightPanel: ReactNode;
   showSidebar: boolean;
   showRightPanel: boolean;
+  sidebarWidth?: number;
+  sidebarMinWidth?: number;
+  sidebarMaxWidth?: number;
+  onSidebarWidthChange?: (size: number) => void;
 }
 
 interface CenterColumnProps {
@@ -18,7 +22,18 @@ interface CenterColumnProps {
   bottomCollapsed?: boolean;
 }
 
-function AppShellRoot({ toolbar, sidebar, main, rightPanel, showSidebar, showRightPanel }: AppShellProps) {
+function AppShellRoot({
+  toolbar,
+  sidebar,
+  main,
+  rightPanel,
+  showSidebar,
+  showRightPanel,
+  sidebarWidth = 220,
+  sidebarMinWidth = 180,
+  sidebarMaxWidth = 280,
+  onSidebarWidthChange,
+}: AppShellProps) {
   const center = showRightPanel ? (
     <SplitPane
       direction="horizontal"
@@ -51,9 +66,11 @@ function AppShellRoot({ toolbar, sidebar, main, rightPanel, showSidebar, showRig
           direction="horizontal"
           first={sidebar}
           second={center}
-          initialPrimarySize={248}
-          minPrimarySize={208}
-          maxPrimarySize={360}
+          initialPrimarySize={sidebarWidth}
+          primarySize={sidebarWidth}
+          minPrimarySize={sidebarMinWidth}
+          maxPrimarySize={sidebarMaxWidth}
+          onPrimarySizeChange={onSidebarWidthChange}
           className={styles.outerSplit}
         />
       </div>

@@ -4,8 +4,11 @@ import {
   BikRequest,
   CollectionAutomation,
   DiffRow,
+  GitActionResult,
+  GitStatusResult,
   JsonValue,
   RunResponse,
+  SyncStatusResult,
   Scripts,
   WorkspaceIndex,
 } from "../types/bik";
@@ -212,4 +215,41 @@ export function readAppState(): Promise<AppState | null> {
 export function saveAppState(state: AppState): Promise<void> {
   ensureTauriRuntime();
   return invoke("save_app_state", { payload: state });
+}
+
+export function getGitRemoteUrl(workspacePath: string): Promise<string | null> {
+  ensureTauriRuntime();
+  return invoke("get_git_remote_url", { payload: { workspacePath } });
+}
+
+export function getGitStatus(workspacePath: string): Promise<GitStatusResult> {
+  ensureTauriRuntime();
+  return invoke("get_git_status", { payload: { workspacePath } });
+}
+
+export function getSyncStatus(workspacePath: string): Promise<SyncStatusResult> {
+  ensureTauriRuntime();
+  return invoke("get_sync_status", { payload: { workspacePath } });
+}
+
+export function runGitAction(
+  workspacePath: string,
+  repoUrl: string,
+  action: "push" | "pull" | "sync",
+  commitMessage?: string,
+): Promise<GitActionResult> {
+  ensureTauriRuntime();
+  return invoke("run_git_action", {
+    payload: { workspacePath, repoUrl, action, commitMessage },
+  });
+}
+
+export function saveWorkspaceSnapshot(
+  workspacePath: string,
+  label?: string,
+): Promise<string | null> {
+  ensureTauriRuntime();
+  return invoke("save_workspace_snapshot", {
+    payload: { workspacePath, label },
+  });
 }

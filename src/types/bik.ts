@@ -100,3 +100,36 @@ export interface AppState {
   endpointId: string | null;
   panelVisibility: PanelVisibility;
 }
+
+export interface GitActionResult {
+  action: string;
+  branch: string;
+  repoUrl: string;
+  output: string;
+}
+
+export interface GitStatusResult {
+  branch: string;
+  dirty: boolean;
+  hasLocalCommit: boolean;
+}
+
+export interface SyncCollectionStatus {
+  collectionId: string;
+  state: "synced" | "local_changes" | "remote_updates" | "sync_required" | "conflict";
+  localChanges: number;
+  remoteChanges: number;
+}
+
+export interface SyncStatusResult {
+  state: "synced" | "local_changes" | "remote_updates" | "sync_required" | "conflict";
+  branch: string;
+  repoUrl: string | null;
+  localChanges: number;
+  remoteChanges: number;
+  localChangeFiles: string[];
+  remoteChangeFiles: string[];
+  collections: SyncCollectionStatus[];
+  remoteEmpty: boolean;
+  checkedAt: string;
+}

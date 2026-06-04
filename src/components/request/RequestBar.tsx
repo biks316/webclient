@@ -72,6 +72,12 @@ export function RequestBar({
           />
           <button type="button" onClick={onCreateEnvironment}>New Env</button>
           <div className={styles.variablePill}>{selectedEnvironmentName ?? "Globals"}</div>
+          <button type="button" className={styles.iconAction} onClick={onCopyRequest} title="Copy request">
+            <Copy size={13} />
+          </button>
+          <button type="button" className={styles.iconAction} onClick={onExportRequest} title="Export request">
+            <Download size={13} />
+          </button>
         </div>
       </div>
 
@@ -93,17 +99,6 @@ export function RequestBar({
           <Send size={14} />
           {isBusy ? "Sending..." : "Send"}
         </button>
-      </div>
-
-      <div className={styles.footerActions}>
-          <button type="button" onClick={onCopyRequest}>
-            <Copy size={14} />
-            Copy
-          </button>
-          <button type="button" onClick={onExportRequest}>
-            <Download size={14} />
-            Export
-          </button>
       </div>
     </section>
   );

@@ -1,12 +1,13 @@
 .trigger {
-  min-height: 26px;
+  min-height: 22px;
   border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--field);
-  padding: 0 7px;
-  gap: 6px;
+  padding: 0 6px;
+  gap: 5px;
   justify-content: space-between;
   box-shadow: none;
+  font-size: 11px;
 }
 
 .label {

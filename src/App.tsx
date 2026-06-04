@@ -1,6 +1,6 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Braces, FlaskConical, Plus, SquareCode } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CollectionPanel, CollectionPanelTab } from "./components/CollectionPanel";
 import { EmptyState } from "./components/common/EmptyState";
 import { AppShell } from "./components/layout/AppShell";
@@ -22,6 +22,7 @@ import {
   DiffRow,
   RunResponse,
   Scripts,
+  SyncStatusResult,
   WorkspaceIndex,
 } from "./types/bik";
 
@@ -29,6 +30,11 @@ const EMPTY_COLLECTION_AUTOMATION: CollectionAutomation = { pre: "", post: "", t
 const EMPTY_SCRIPTS: Scripts = { pre: "", post: "" };
 const REQUEST_VERSION = "1.0";
 const DEFAULT_REQUEST_URL = "https://example.com/";
+const DEFAULT_SIDEBAR_WIDTH = 260;
+const SIDEBAR_COLLAPSED_WIDTH = 52;
+const SIDEBAR_MIN_WIDTH = 180;
+const SIDEBAR_MAX_WIDTH = 280;
+const SYNC_PREFS_KEY = "bikapi:sync-preferences";
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 const COLLECTION_TABS: Array<{ id: CollectionPanelTab; label: string; icon: typeof Braces }> = [
   { id: "variables", label: "Variables", icon: Braces },
@@ -67,9 +73,39 @@ interface OpenEndpointTab {
   endpointId: string;
 }
 
+interface SyncPreferences {
+  every30Seconds: boolean;
+  onStartup: boolean;
+  onSave: boolean;
+}
+
+interface ToastMessage {
+  id: string;
+  title: string;
+  tone: "success" | "info" | "warning" | "error";
+}
+
 type RequestEditorTab = "params" | "auth" | "headers" | "body" | "scripts" | "docs" | "tests";
 type ResponseTab = "response" | "headers" | "timeline" | "tests";
 type HiddenPanel = "sidebar" | "timeline" | "console";
+
+function loadSyncPreferences(): SyncPreferences {
+  try {
+    const raw = window.localStorage.getItem(SYNC_PREFS_KEY);
+    if (!raw) {
+      return { every30Seconds: false, onStartup: true, onSave: false };
+    }
+
+    const value = JSON.parse(raw) as Partial<SyncPreferences>;
+    return {
+      every30Seconds: Boolean(value.every30Seconds),
+      onStartup: value.onStartup !== false,
+      onSave: Boolean(value.onSave),
+    };
+  } catch {
+    return { every30Seconds: false, onStartup: true, onSave: false };
+  }
+}
 
 export default function App() {
   const [workspace, setWorkspace] = useState<WorkspaceIndex | null>(null);
@@ -87,18 +123,30 @@ export default function App() {
   const [diffRows, setDiffRows] = useState<DiffRow[]>([]);
   const [status, setStatus] = useState("Ready");
   const [isBusy, setIsBusy] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [textPrompt, setTextPrompt] = useState<TextPromptState | null>(null);
   const [endpointPrompt, setEndpointPrompt] = useState<EndpointPromptState | null>(null);
   const [openTabs, setOpenTabs] = useState<OpenEndpointTab[]>([]);
   const [activeRequestTab, setActiveRequestTab] = useState<RequestEditorTab>("body");
   const [activeResponseTab, setActiveResponseTab] = useState<ResponseTab>("response");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [syncStatus, setSyncStatus] = useState<SyncStatusResult | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [syncPreferences, setSyncPreferences] = useState<SyncPreferences>(() => loadSyncPreferences());
+  const [reviewSyncOpen, setReviewSyncOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [expandedSidebarWidth, setExpandedSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [timelineHidden, setTimelineHidden] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
   const [consoleHidden, setConsoleHidden] = useState(false);
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
   const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const startupSyncWorkspaceRef = useRef<string | null>(null);
 
   const selectedCollection = useMemo(
     () => findCollection(workspace, selectedCollectionId),
@@ -150,6 +198,11 @@ export default function App() {
       ].filter((panel): panel is HiddenPanel => panel !== null),
     [consoleHidden, sidebarHidden, timelineHidden],
   );
+  const collectionStatusById = useMemo(
+    () =>
+      Object.fromEntries((syncStatus?.collections ?? []).map((item) => [item.collectionId, item])),
+    [syncStatus],
+  );
 
   useEffect(() => {
     const restoredSession = loadWorkspaceSession();
@@ -166,7 +219,12 @@ export default function App() {
       try {
         const next = await api.openWorkspace(session.workspacePath);
         if (!cancelled) {
-          applyWorkspace(next, session.collectionId, session.endpointId);
+          const prepared = await prepareWorkspaceWithGit(next, session.repoUrl);
+          if (!prepared) {
+            setStatus("Git repository setup is required to open this workspace.");
+            return;
+          }
+          applyWorkspace(prepared, session.collectionId, session.endpointId);
           setStatus("Ready");
         }
       } catch (error) {
@@ -188,6 +246,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    window.localStorage.setItem(SYNC_PREFS_KEY, JSON.stringify(syncPreferences));
+  }, [syncPreferences]);
+
+  useEffect(() => {
     if (!workspace) {
       return;
     }
@@ -196,8 +258,9 @@ export default function App() {
       workspacePath: workspace.path,
       collectionId: selectedCollectionId,
       endpointId: selectedEndpointId,
+      repoUrl: repoUrl.trim() || null,
     });
-  }, [workspace, selectedCollectionId, selectedEndpointId]);
+  }, [workspace, selectedCollectionId, selectedEndpointId, repoUrl]);
 
   useEffect(() => {
     setOpenTabs([]);
@@ -239,6 +302,54 @@ export default function App() {
       .then(setCollectionAutomation)
       .catch((error) => setStatus(String(error)));
   }, [workspace?.path, selectedCollectionId]);
+
+  useEffect(() => {
+    if (!workspace || !repoUrl.trim()) {
+      setSyncStatus(null);
+      return;
+    }
+
+    void refreshSyncStatus(true);
+  }, [workspace?.path, repoUrl]);
+
+  useEffect(() => {
+    if (!workspace || !syncPreferences.every30Seconds) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshSyncStatus(true);
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
+  }, [workspace?.path, syncPreferences.every30Seconds, repoUrl]);
+
+  useEffect(() => {
+    if (!workspace || !syncPreferences.onStartup || !syncStatus) {
+      return;
+    }
+
+    if (startupSyncWorkspaceRef.current === workspace.path) {
+      return;
+    }
+
+    startupSyncWorkspaceRef.current = workspace.path;
+    if (syncStatus.state !== "synced") {
+      void performSync(false);
+    }
+  }, [workspace?.path, syncPreferences.onStartup, syncStatus?.checkedAt]);
+
+  useEffect(() => {
+    if (toasts.length === 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setToasts((current) => current.slice(0, -1));
+    }, 2600);
+
+    return () => window.clearTimeout(timer);
+  }, [toasts]);
 
   useEffect(() => {
     if (!workspace || !selectedCollectionId || !selectedEndpointId) {
@@ -301,6 +412,74 @@ export default function App() {
     ]);
   }
 
+  function pushToast(title: string, tone: ToastMessage["tone"] = "success") {
+    setToasts((current) => [{ id: `${Date.now()}-${current.length}`, title, tone }, ...current].slice(0, 3));
+  }
+
+  async function refreshSyncStatus(silent = false) {
+    if (!workspace) {
+      return null;
+    }
+
+    try {
+      const next = await api.getSyncStatus(workspace.path);
+      setSyncStatus(next);
+      if (next.repoUrl) {
+        setRepoUrl(next.repoUrl);
+      }
+      if (!silent) {
+        setStatus(syncHeadline(next));
+      }
+      return next;
+    } catch (error) {
+      if (!silent) {
+        const message = String(error);
+        setStatus(message);
+        appendConsole(message, "error");
+      }
+      return null;
+    }
+  }
+
+  function formatLastSyncedLabel() {
+    if (!lastSyncedAt) {
+      return "Not yet";
+    }
+
+    const elapsed = Math.max(0, Date.now() - new Date(lastSyncedAt).getTime());
+    const minutes = Math.floor(elapsed / 60_000);
+    if (minutes < 1) {
+      return "just now";
+    }
+    if (minutes === 1) {
+      return "1 min ago";
+    }
+    if (minutes < 60) {
+      return `${minutes} min ago`;
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) {
+      return "1 hour ago";
+    }
+    return `${hours} hours ago`;
+  }
+
+  function syncHeadline(value: SyncStatusResult) {
+    switch (value.state) {
+      case "remote_updates":
+        return `${value.remoteChanges} updates available`;
+      case "local_changes":
+        return `${value.localChanges} local changes`;
+      case "sync_required":
+        return "Sync required";
+      case "conflict":
+        return "Review changes";
+      case "synced":
+      default:
+        return "Up to date";
+    }
+  }
+
   function requestTextPrompt(options: {
     title: string;
     label: string;
@@ -342,6 +521,59 @@ export default function App() {
       return fallback?.trim() || null;
     }
     return null;
+  }
+
+  async function requestRepoUrl(requiredForPath: string, defaultValue?: string | null): Promise<string | null> {
+    const value = (
+      await requestTextPrompt({
+        title: "Connect Git Repository",
+        label: `Repository URL for ${requiredForPath}`,
+        defaultValue: (defaultValue ?? repoUrl.trim()) || "https://github.com/org/repo.git",
+        confirmText: "Pull Latest",
+      })
+    )?.trim();
+
+    return value || null;
+  }
+
+  async function prepareWorkspaceWithGit(
+    next: WorkspaceIndex,
+    initialRepoUrl?: string | null,
+  ): Promise<WorkspaceIndex | null> {
+    const discoveredRemoteUrl = await api.getGitRemoteUrl(next.path).catch(() => null);
+    const configuredRepoUrl =
+      initialRepoUrl?.trim() ||
+      discoveredRemoteUrl?.trim() ||
+      (workspace?.path === next.path ? repoUrl.trim() : "");
+
+    const resolvedRepoUrl = configuredRepoUrl || (await requestRepoUrl(next.path, configuredRepoUrl));
+    if (!resolvedRepoUrl) {
+      return null;
+    }
+
+    setRepoUrl(resolvedRepoUrl);
+
+    const syncResult = await runAction("Pulling latest workspace from git...", () =>
+      (async () => {
+        setIsSyncing(true);
+        try {
+          return await api.runGitAction(next.path, resolvedRepoUrl, "pull");
+        } finally {
+          setIsSyncing(false);
+        }
+      })(),
+    );
+    if (!syncResult) {
+      return null;
+    }
+
+    appendConsole(`Connected ${resolvedRepoUrl} on ${syncResult.branch}.`, "success");
+    if (syncResult.output.trim()) {
+      appendConsole(syncResult.output, "info");
+    }
+    setLastSyncedAt(new Date().toISOString());
+
+    return runAction("Refreshing workspace after pull...", () => api.openWorkspace(next.path));
   }
 
   function applyWorkspace(
@@ -480,6 +712,52 @@ export default function App() {
     setSidebarHidden((current) => !current);
   }
 
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((current) => {
+      if (current) {
+        setSidebarWidth(expandedSidebarWidth);
+        return false;
+      }
+
+      setExpandedSidebarWidth(sidebarWidth);
+      setSidebarWidth(SIDEBAR_COLLAPSED_WIDTH);
+      return true;
+    });
+  }
+
+  function handleSidebarWidthChange(size: number) {
+    setSidebarWidth(size);
+    if (size > SIDEBAR_COLLAPSED_WIDTH) {
+      setExpandedSidebarWidth(size);
+      if (sidebarCollapsed) {
+        setSidebarCollapsed(false);
+      }
+    }
+  }
+
+  function clearWorkspaceViewForSwitch() {
+    setWorkspace(null);
+    setSelectedCollectionId(null);
+    setSelectedEndpointId(null);
+    setSelectedEnvironmentId(null);
+    setDraftRequest(null);
+    setCollectionAutomation(EMPTY_COLLECTION_AUTOMATION);
+    setEndpointScripts(EMPTY_SCRIPTS);
+    setResponse(null);
+    setResponseError(null);
+    setSelectedHistoryPath(null);
+    setDiffRows([]);
+    setOpenTabs([]);
+    setSyncStatus(null);
+    setRepoUrl("");
+    setLastSyncedAt(null);
+    setReviewSyncOpen(false);
+    setActiveCollectionTab("variables");
+    setActiveRequestTab("body");
+    setActiveResponseTab("response");
+    setActiveBottomTab("response");
+  }
+
   function toggleTimelinePanel() {
     if (!selectedEndpoint) {
       return;
@@ -494,6 +772,134 @@ export default function App() {
       }
       return !current;
     });
+  }
+
+  async function requestChangeSummary(kind: "upload" | "sync") {
+    const requested = await requestTextPrompt({
+      title: kind === "upload" ? "Describe Local Changes" : "Describe Changes Before Sync",
+      label: "What changed locally?",
+      defaultValue: `Workspace update ${new Date().toISOString().slice(0, 19).replace("T", " ")}`,
+      confirmText: kind === "upload" ? "Upload Changes" : "Sync Workspace",
+    });
+
+    if (requested === null) {
+      setStatus(kind === "upload" ? "Upload cancelled." : "Sync cancelled.");
+      return null;
+    }
+
+    const value = requested.trim();
+    if (!value) {
+      setStatus("A short description is required.");
+      appendConsole("A short description is required.", "warning");
+      return null;
+    }
+
+    return value;
+  }
+
+  async function performSync(fromToolbar = true) {
+    if (!workspace) {
+      const message = "Open a workspace before syncing.";
+      setStatus(message);
+      appendConsole(message, "warning");
+      return;
+    }
+
+    const target = repoUrl.trim();
+    if (!target) {
+      const message = "Connect a repository before syncing.";
+      setStatus(message);
+      appendConsole(message, "warning");
+      return;
+    }
+
+    const nextStatus = (await refreshSyncStatus(true)) ?? syncStatus;
+    if (!nextStatus) {
+      return;
+    }
+
+    if ((nextStatus.state === "sync_required" || nextStatus.state === "conflict") && fromToolbar) {
+      setReviewSyncOpen(true);
+      return;
+    }
+
+    const gitStatus = await runAction("Checking workspace changes...", () => api.getGitStatus(workspace.path));
+    if (!gitStatus) {
+      return;
+    }
+
+    let action: "pull" | "push" | "sync" = "sync";
+    if (nextStatus.state === "remote_updates") {
+      action = "pull";
+    } else if (nextStatus.state === "local_changes") {
+      action = "push";
+    }
+
+    let changeSummary: string | undefined;
+    if (gitStatus.dirty && (action === "push" || action === "sync")) {
+      changeSummary = await requestChangeSummary(action === "push" ? "upload" : "sync") ?? undefined;
+      if (!changeSummary) {
+        return;
+      }
+    }
+
+    const message =
+      action === "pull"
+        ? "Downloading updates..."
+        : action === "push"
+          ? "Uploading changes..."
+          : "Synchronizing workspace...";
+
+    const result = await runAction(message, async () => {
+      setIsSyncing(true);
+      try {
+        return await api.runGitAction(workspace.path, target, action, changeSummary);
+      } finally {
+        setIsSyncing(false);
+      }
+    });
+    if (!result) {
+      return;
+    }
+
+    setLastSyncedAt(new Date().toISOString());
+    await refreshSyncStatus(true);
+    setReviewSyncOpen(false);
+    const successMessage =
+      action === "pull"
+        ? "Workspace updated"
+        : action === "push"
+          ? "Workspace synchronized"
+          : "Changes combined and synchronized";
+    setStatus(successMessage);
+    appendConsole(successMessage, "success");
+    if (result.output.trim()) {
+      appendConsole(result.output, "info");
+    }
+    pushToast(successMessage, "success");
+  }
+
+  function maybeAutoSync() {
+    if (syncPreferences.onSave) {
+      void performSync(false);
+    } else {
+      void refreshSyncStatus(true);
+    }
+  }
+
+  async function captureSaveSnapshot(label: string) {
+    if (!workspace) {
+      return;
+    }
+
+    try {
+      const result = await api.saveWorkspaceSnapshot(workspace.path, label);
+      if (result) {
+        appendConsole(`Saved snapshot: ${result.split("\n")[0]}.`, "success");
+      }
+    } catch (error) {
+      appendConsole(`Snapshot save failed: ${String(error)}`, "warning");
+    }
   }
 
   const paletteCommands = useMemo<CommandPaletteCommand[]>(
@@ -725,9 +1131,18 @@ export default function App() {
     if (!path) {
       return;
     }
-    const next = await runAction("Opening workspace...", () => api.openWorkspace(path));
+    clearWorkspaceViewForSwitch();
+    let next = await runAction("Opening workspace...", () => api.openWorkspace(path));
+    if (!next) {
+      next = await runAction("Initializing workspace...", () => api.createWorkspace(path));
+    }
     if (next) {
-      applyWorkspace(next, null, null);
+      const prepared = await prepareWorkspaceWithGit(next);
+      if (prepared) {
+        applyWorkspace(prepared, null, null);
+      } else {
+        setStatus("A repository is only needed the first time this workspace is connected.");
+      }
     }
   }
 
@@ -744,11 +1159,17 @@ export default function App() {
     if (name === null) {
       return;
     }
+    clearWorkspaceViewForSwitch();
     const next = await runAction("Creating workspace...", () =>
       api.createWorkspace(path, name.trim() || undefined),
     );
     if (next) {
-      applyWorkspace(next, null, null);
+      const prepared = await prepareWorkspaceWithGit(next);
+      if (prepared) {
+        applyWorkspace(prepared, null, null);
+      } else {
+        setStatus("Connect a repository once to finish workspace setup.");
+      }
     }
   }
 
@@ -894,6 +1315,8 @@ export default function App() {
     if (next) {
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
       appendConsole(`Saved request ${draftRequest.name}.`, "success");
+      await captureSaveSnapshot(`Saved ${draftRequest.name} at`);
+      maybeAutoSync();
     }
   }
 
@@ -904,6 +1327,8 @@ export default function App() {
     const next = await runAction("Saving globals.bik...", () => api.saveGlobals(workspace.path, workspace.globals));
     if (next) {
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
+      await captureSaveSnapshot("Saved globals at");
+      maybeAutoSync();
     }
   }
 
@@ -916,6 +1341,8 @@ export default function App() {
     );
     if (next) {
       applyWorkspace(next, selectedCollection.id, selectedEndpointId);
+      await captureSaveSnapshot(`Saved ${selectedCollection.name} variables at`);
+      maybeAutoSync();
     }
   }
 
@@ -928,6 +1355,8 @@ export default function App() {
     );
     if (next) {
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
+      await captureSaveSnapshot(`Saved ${selectedEnvironment.name} environment at`);
+      maybeAutoSync();
     }
   }
 
@@ -941,6 +1370,8 @@ export default function App() {
       await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "post", endpointScripts.post);
     });
     appendConsole("Endpoint scripts saved.", "success");
+    await captureSaveSnapshot("Saved endpoint scripts at");
+    maybeAutoSync();
   }
 
   function handleGlobalVariablesChange(variables: Record<string, string>) {
@@ -1054,6 +1485,8 @@ export default function App() {
       await api.saveCollectionAutomationScript(workspace.path, selectedCollectionId, "assert", collectionAutomation.assert);
     });
     appendConsole("Collection automation updated.", "success");
+    await captureSaveSnapshot("Saved collection automation at");
+    maybeAutoSync();
   }
 
   function renderMainContent() {
@@ -1281,7 +1714,9 @@ export default function App() {
           <AppToolbar
             workspaceName={workspace?.name ?? null}
             status={status}
-            isBusy={isBusy}
+            isSyncing={isSyncing}
+            syncStatus={syncStatus}
+            lastSyncedLabel={formatLastSyncedLabel()}
             environments={[
               { value: "", label: "No environment" },
               ...(workspace?.environments ?? []).map((environment) => ({
@@ -1297,20 +1732,25 @@ export default function App() {
             onCreateCollection={() => void handleCreateCollection()}
             onCreateRequest={() => void handleCreateEndpoint()}
             onSendRequest={() => void handleSendRequest()}
+            onSync={() => void performSync(true)}
+            onReviewChanges={() => setReviewSyncOpen(true)}
             onEnvironmentChange={(value) => setSelectedEnvironmentId(value || null)}
             onToggleSidebar={toggleSidebarPanel}
             onToggleTimeline={toggleTimelinePanel}
             onToggleConsole={toggleConsolePanel}
             onOpenPalette={() => setCommandPaletteOpen(true)}
-            onOpenSettings={() => setStatus("Settings panel is not implemented yet.")}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         }
         sidebar={
           <Sidebar
             workspace={workspace}
+            collectionStatuses={collectionStatusById}
             selectedCollectionId={selectedCollectionId}
             selectedEndpointId={selectedEndpointId}
+            collapsed={sidebarCollapsed}
             onClose={() => setSidebarHidden(true)}
+            onToggleCollapsed={toggleSidebarCollapsed}
             onOpenWorkspace={handleOpenWorkspace}
             onCreateWorkspace={handleCreateWorkspace}
             onCreateCollection={handleCreateCollection}
@@ -1334,6 +1774,10 @@ export default function App() {
             onRestore={handleRestoreHistory}
           />
         }
+        sidebarWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth}
+        sidebarMinWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MIN_WIDTH}
+        sidebarMaxWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MAX_WIDTH}
+        onSidebarWidthChange={handleSidebarWidthChange}
         showSidebar={!sidebarHidden}
         showRightPanel={Boolean(selectedEndpoint) && !timelineHidden}
       />
@@ -1479,6 +1923,126 @@ export default function App() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {reviewSyncOpen && syncStatus && (
+        <div className="prompt-backdrop" role="presentation">
+          <div className="prompt-dialog sync-review-dialog">
+            <h2>Review Changes</h2>
+            <div className="sync-review-summary">
+              <div>
+                <strong>{syncStatus.localChanges}</strong>
+                <span>local changes</span>
+              </div>
+              <div>
+                <strong>{syncStatus.remoteChanges}</strong>
+                <span>updates available</span>
+              </div>
+            </div>
+            <div className="sync-review-grid">
+              <section>
+                <strong>Local Changes</strong>
+                <div className="sync-file-list">
+                  {syncStatus.localChangeFiles.length === 0 ? (
+                    <span>No local changes</span>
+                  ) : (
+                    syncStatus.localChangeFiles.map((file) => <code key={file}>{file}</code>)
+                  )}
+                </div>
+              </section>
+              <section>
+                <strong>Available Updates</strong>
+                <div className="sync-file-list">
+                  {syncStatus.remoteChangeFiles.length === 0 ? (
+                    <span>No remote updates</span>
+                  ) : (
+                    syncStatus.remoteChangeFiles.map((file) => <code key={file}>{file}</code>)
+                  )}
+                </div>
+              </section>
+            </div>
+            <div className="prompt-actions">
+              <button type="button" onClick={() => setReviewSyncOpen(false)}>
+                Close
+              </button>
+              <button type="button" className="primary" onClick={() => void performSync(false)}>
+                Sync
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="prompt-backdrop" role="presentation">
+          <div className="prompt-dialog settings-dialog">
+            <h2>Settings</h2>
+            <div className="settings-section">
+              <strong>Synchronization</strong>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={syncPreferences.every30Seconds}
+                  onChange={(event) =>
+                    setSyncPreferences((current) => ({ ...current, every30Seconds: event.currentTarget.checked }))
+                  }
+                />
+                <span>Auto Sync every 30 seconds</span>
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={syncPreferences.onStartup}
+                  onChange={(event) =>
+                    setSyncPreferences((current) => ({ ...current, onStartup: event.currentTarget.checked }))
+                  }
+                />
+                <span>Auto Sync on startup</span>
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={syncPreferences.onSave}
+                  onChange={(event) =>
+                    setSyncPreferences((current) => ({ ...current, onSave: event.currentTarget.checked }))
+                  }
+                />
+                <span>Auto Sync on save</span>
+              </label>
+            </div>
+            <div className="settings-section">
+              <strong>Repository</strong>
+              <details className="settings-details">
+                <summary>Advanced Git</summary>
+                <label>
+                  <span>Repository URL</span>
+                  <input
+                    value={repoUrl}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    onChange={(event) => setRepoUrl(event.currentTarget.value)}
+                  />
+                </label>
+              </details>
+            </div>
+            <div className="prompt-actions">
+              <button type="button" onClick={() => setSettingsOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toasts.length > 0 && (
+        <div className="toast-stack" role="status" aria-live="polite">
+          {toasts.map((toast) => (
+            <div key={toast.id} className={`toast ${toast.tone}`}>
+              {toast.title}
+            </div>
+          ))}
         </div>
       )}
     </>

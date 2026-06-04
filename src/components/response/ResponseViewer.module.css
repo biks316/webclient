@@ -30,7 +30,8 @@
 
 .content,
 .editorWrap,
-.empty {
+.empty,
+.emptyQuiet {
   min-height: 0;
   height: 100%;
 }
@@ -45,6 +46,13 @@
 .empty {
   display: grid;
   place-items: center;
+}
+
+.emptyQuiet {
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  font-size: 11px;
 }
 
 .timeline {

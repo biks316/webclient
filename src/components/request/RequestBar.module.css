@@ -1,18 +1,23 @@
 .bar {
   display: grid;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 3px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
   background: #1a2028;
 }
 
 .header,
 .requestRow,
-.rightMeta,
-.footerActions {
+.rightMeta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+}
+
+.bar button {
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
 }
 
 .header {
@@ -29,18 +34,18 @@
 .identity {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex: 1;
 }
 
 .name {
-  max-width: 320px;
-  height: 24px;
-  font-size: 13px;
+  max-width: 240px;
+  height: 20px;
+  font-size: 12px;
   font-weight: 600;
   border: 0;
   background: transparent;
-  padding: 0 4px;
+  padding: 0 1px;
   box-shadow: none;
 }
 
@@ -50,18 +55,19 @@
 }
 
 .environmentSelect {
-  width: 154px;
+  width: 126px;
 }
 
 .variablePill {
-  height: 24px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 6px;
   border-radius: 4px;
   border: 1px solid var(--border);
   color: var(--text-muted);
   background: var(--field);
+  font-size: 11px;
 }
 
 .requestRow {
@@ -70,18 +76,22 @@
 }
 
 .methodSelect {
-  width: 88px;
+  width: 78px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .url {
   flex: 1;
-  height: 26px;
+  height: 22px;
   border-radius: 4px;
   font-family: "SFMono-Regular", Consolas, monospace;
 }
 
-.footerActions {
-  justify-content: flex-end;
+.iconAction {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
 }

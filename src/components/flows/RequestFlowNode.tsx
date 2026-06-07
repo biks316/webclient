@@ -10,6 +10,7 @@ interface RequestFlowNodeProps {
   lastResponse: RunResponse | null;
   running: boolean;
   onClick: () => void;
+  onContextMenu: () => void;
   onStartDrag: (event: MouseEvent<HTMLDivElement>) => void;
   onStartConnect: (nodeId: string) => void;
   onUpdateConnectionPoint: (event: MouseEvent<HTMLElement>) => void;
@@ -23,6 +24,7 @@ export function RequestFlowNode({
   lastResponse,
   running,
   onClick,
+  onContextMenu,
   onStartDrag,
   onStartConnect,
   onUpdateConnectionPoint,
@@ -34,6 +36,10 @@ export function RequestFlowNode({
       className={`${styles.requestNode} ${active ? styles.requestNodeActive : ""}`}
       style={{ left: node.position.x, top: node.position.y }}
       onClick={onClick}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onContextMenu();
+      }}
       onMouseDown={onStartDrag}
     >
       <button

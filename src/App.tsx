@@ -21,6 +21,7 @@ import {
 import { runRequestScript } from "./services/scriptRunner";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
+import { findMissingVariablesInRequest } from "./services/variableResolver";
 import { cloneJson, findCollection, findEndpoint, firstCollection } from "./services/workspaceService";
 import {
   BikRequest,
@@ -172,9 +173,22 @@ export default function App() {
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
   const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [flowHistoryAvailability, setFlowHistoryAvailability] = useState({ canUndo: false, canRedo: false });
   const startupSyncWorkspaceRef = useRef<string | null>(null);
   const lastSavedFlowDraftRef = useRef<string | null>(null);
   const hasWorkspace = Boolean(workspace?.path);
+
+  useEffect(() => {
+    function handleFlowHistory(event: Event) {
+      const detail = (event as CustomEvent<{ canUndo: boolean; canRedo: boolean }>).detail;
+      setFlowHistoryAvailability({
+        canUndo: Boolean(detail?.canUndo),
+        canRedo: Boolean(detail?.canRedo),
+      });
+    }
+    window.addEventListener("bikapi:flow-history", handleFlowHistory);
+    return () => window.removeEventListener("bikapi:flow-history", handleFlowHistory);
+  }, []);
 
   const selectedCollection = useMemo(
     () => findCollection(workspace, selectedCollectionId),
@@ -1561,6 +1575,146 @@ export default function App() {
     }
   }
 
+  async function handleRenameCollection(collectionId: string) {
+    if (!workspace) {
+      return;
+    }
+    const collection = workspace.collections.find((item) => item.id === collectionId);
+    if (!collection) {
+      return;
+    }
+    const name = (await requestTextPrompt({
+      title: "Rename Collection",
+      label: "Collection name",
+      defaultValue: collection.name,
+      confirmText: "Rename",
+    }))?.trim();
+    if (!name || name === collection.name) {
+      return;
+    }
+    const next = await runAction("Renaming collection...", () => api.renameCollection(workspace.path, collectionId, name));
+    if (next) {
+      applyWorkspace(next, collectionId, selectedEndpointId);
+      pushToast("Collection renamed", "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleDeleteCollection(collectionId: string) {
+    if (!workspace) {
+      return;
+    }
+    const collection = workspace.collections.find((item) => item.id === collectionId);
+    if (!collection || !window.confirm(`Delete collection "${collection.name}" and all requests/flows inside it?`)) {
+      return;
+    }
+    const next = await runAction("Deleting collection...", () => api.deleteCollection(workspace.path, collectionId));
+    if (next) {
+      applyWorkspace(next, null, null);
+      pushToast("Collection deleted", "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleRenameRequest(collectionId: string, endpointId: string) {
+    if (!workspace) {
+      return;
+    }
+    const endpoint = findEndpoint(workspace, collectionId, endpointId);
+    if (!endpoint) {
+      return;
+    }
+    const name = (await requestTextPrompt({
+      title: "Rename Request",
+      label: "Request name",
+      defaultValue: endpoint.name,
+      confirmText: "Rename",
+    }))?.trim();
+    if (!name || name === endpoint.name) {
+      return;
+    }
+    const next = await runAction("Renaming request...", () => api.renameRequest(workspace.path, collectionId, endpointId, name));
+    if (next) {
+      applyWorkspace(next, collectionId, endpointId);
+      pushToast("Request renamed", "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleDeleteRequest(collectionId: string, endpointId: string) {
+    if (!workspace) {
+      return;
+    }
+    const collection = workspace.collections.find((item) => item.id === collectionId);
+    const endpoint = collection?.endpoints.find((item) => item.id === endpointId);
+    if (!collection || !endpoint) {
+      return;
+    }
+    const usageCount = collection.flows.reduce(
+      (count, flow) => count + flow.flow.nodes.filter((node) => node.requestId === endpointId).length,
+      0,
+    );
+    const warning = usageCount > 0
+      ? `\n\nThis request is used in ${usageCount} flow node${usageCount === 1 ? "" : "s"}. Delete will remove those nodes from flows.`
+      : "";
+    if (!window.confirm(`Delete request "${endpoint.name}"?${warning}`)) {
+      return;
+    }
+    const next = await runAction("Deleting request...", () => api.deleteRequest(workspace.path, collectionId, endpointId));
+    if (next) {
+      applyWorkspace(next, collectionId, null);
+      pushToast("Request deleted", "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleRenameFlow(collectionId: string, flowId: string) {
+    if (!workspace) {
+      return;
+    }
+    const flow = workspace.collections.find((item) => item.id === collectionId)?.flows.find((item) => item.id === flowId);
+    if (!flow) {
+      return;
+    }
+    const name = (await requestTextPrompt({
+      title: "Rename Flow",
+      label: "Flow name",
+      defaultValue: flow.name,
+      confirmText: "Rename",
+    }))?.trim();
+    if (!name || name === flow.name) {
+      return;
+    }
+    const next = await runAction("Renaming flow...", () => api.renameFlow(workspace.path, collectionId, flowId, name));
+    if (next) {
+      setWorkspace(next);
+      setSelectedCollectionId(collectionId);
+      setSelectedEndpointId(null);
+      setSelectedFlowId(flowId);
+      pushToast("Flow renamed", "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleDeleteFlow(collectionId: string, flowId: string) {
+    if (!workspace) {
+      return;
+    }
+    const flow = workspace.collections.find((item) => item.id === collectionId)?.flows.find((item) => item.id === flowId);
+    if (!flow || !window.confirm(`Delete flow "${flow.name}"?`)) {
+      return;
+    }
+    const next = await runAction("Deleting flow...", () => api.deleteFlow(workspace.path, collectionId, flowId));
+    if (next) {
+      setWorkspace(next);
+      setSelectedCollectionId(collectionId);
+      setSelectedEndpointId(null);
+      setSelectedFlowId(null);
+      pushToast("Flow deleted", "success");
+      maybeAutoSync();
+    }
+  }
+
   async function handleRestoreHistory(path: string) {
     const historicalRequest = await runAction("Restoring historical version...", async () => {
       const entry = await api.readHistoryEntry(path);
@@ -1575,8 +1729,95 @@ export default function App() {
     }
   }
 
-  function handleCopyCollection(collection: CollectionIndex) {
-    void copyJson("Collection", collection);
+  async function handleDuplicateCollection(collectionId: string) {
+    if (!workspace) {
+      return;
+    }
+    const collection = workspace.collections.find((item) => item.id === collectionId);
+    if (!collection) {
+      return;
+    }
+    const name = (await requestTextPrompt({
+      title: "Duplicate Collection",
+      label: "Collection name",
+      defaultValue: `${collection.name} Copy`,
+      confirmText: "Duplicate",
+    }))?.trim();
+    if (!name) {
+      return;
+    }
+    const next = await runAction("Duplicating collection...", () =>
+      api.duplicateCollection(workspace.path, collectionId, name),
+    );
+    if (next) {
+      const created = next.collections.find((item) => item.name === name);
+      applyWorkspace(next, created?.id ?? collectionId, null);
+      pushToast("Collection duplicated", "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleDuplicateRequest(collectionId: string, endpointId: string) {
+    if (!workspace) {
+      return;
+    }
+    const endpoint = findEndpoint(workspace, collectionId, endpointId);
+    if (!endpoint) {
+      return;
+    }
+    const name = (await requestTextPrompt({
+      title: "Duplicate Request",
+      label: "Request name",
+      defaultValue: `${endpoint.name} Copy`,
+      confirmText: "Duplicate",
+    }))?.trim();
+    if (!name) {
+      return;
+    }
+    const next = await runAction("Duplicating request...", () =>
+      api.duplicateRequest(workspace.path, collectionId, endpointId, name),
+    );
+    if (next) {
+      const created = next.collections
+        .find((collection) => collection.id === collectionId)
+        ?.endpoints.find((item) => item.name === name);
+      applyWorkspace(next, collectionId, created?.id ?? endpointId);
+      pushToast("Request duplicated", "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleDuplicateFlow(collectionId: string, flowId: string) {
+    if (!workspace) {
+      return;
+    }
+    const flow = workspace.collections.find((item) => item.id === collectionId)?.flows.find((item) => item.id === flowId);
+    if (!flow) {
+      return;
+    }
+    const name = (await requestTextPrompt({
+      title: "Duplicate Flow",
+      label: "Flow name",
+      defaultValue: `${flow.name} Copy`,
+      confirmText: "Duplicate",
+    }))?.trim();
+    if (!name) {
+      return;
+    }
+    const next = await runAction("Duplicating flow...", () =>
+      api.duplicateFlow(workspace.path, collectionId, flowId, name),
+    );
+    if (next) {
+      const created = next.collections
+        .find((collection) => collection.id === collectionId)
+        ?.flows.find((item) => item.name === name);
+      setWorkspace(next);
+      setSelectedCollectionId(collectionId);
+      setSelectedEndpointId(null);
+      setSelectedFlowId(created?.id ?? flowId);
+      pushToast("Flow duplicated", "success");
+      maybeAutoSync();
+    }
   }
 
   function handleExportCollection(collection: CollectionIndex) {
@@ -1719,6 +1960,20 @@ export default function App() {
     }
 
     const requestToSend = cloneJson(draftRequest);
+    const missingVariables = findMissingVariablesInRequest(requestToSend, {
+      globals: workspace.globals,
+      environment: selectedEnvironment,
+      collection: selectedCollection,
+      requestVariables: requestToSend.variables,
+    });
+    if (missingVariables.length > 0) {
+      const message = `Missing variable: ${missingVariables.map((variable) => variable.name).join(", ")}`;
+      setStatus(message);
+      pushToast(message, "warning");
+      if (!window.confirm(`${message}\n\nSend anyway with unresolved templates?`)) {
+        return;
+      }
+    }
     const scriptVariables = {
       ...workspace.globals,
       ...selectedCollection.variables,
@@ -2072,7 +2327,11 @@ export default function App() {
               sidebarHidden={sidebarHidden}
               timelineHidden={timelineHidden}
               consoleHidden={consoleHidden}
+              canUndo={flowHistoryAvailability.canUndo}
+              canRedo={flowHistoryAvailability.canRedo}
               onCreateCollection={() => void handleCreateCollection()}
+              onUndo={() => window.dispatchEvent(new Event("bikapi:flow-undo"))}
+              onRedo={() => window.dispatchEvent(new Event("bikapi:flow-redo"))}
               onCreateRequest={() => void handleCreateEndpoint()}
               onSendRequest={() => void handleSendRequest()}
               onSync={() => void performSync(true)}
@@ -2103,12 +2362,20 @@ export default function App() {
               onCreateCollection={handleCreateCollection}
               onCreateEndpoint={handleCreateEndpoint}
               onCreateFlow={handleCreateFlow}
-              onCopyCollection={handleCopyCollection}
+              onDuplicateCollection={(collectionId) => void handleDuplicateCollection(collectionId)}
               onExportCollection={handleExportCollection}
               onSelectCollection={selectCollection}
               onSelectEndpoint={selectEndpointTab}
               onSelectFlow={selectFlow}
               onOpenEndpointHistory={openEndpointHistory}
+              onRenameCollection={(collectionId) => void handleRenameCollection(collectionId)}
+              onDeleteCollection={(collectionId) => void handleDeleteCollection(collectionId)}
+              onRenameRequest={(collectionId, endpointId) => void handleRenameRequest(collectionId, endpointId)}
+              onDuplicateRequest={(collectionId, endpointId) => void handleDuplicateRequest(collectionId, endpointId)}
+              onDeleteRequest={(collectionId, endpointId) => void handleDeleteRequest(collectionId, endpointId)}
+              onRenameFlow={(collectionId, flowId) => void handleRenameFlow(collectionId, flowId)}
+              onDuplicateFlow={(collectionId, flowId) => void handleDuplicateFlow(collectionId, flowId)}
+              onDeleteFlow={(collectionId, flowId) => void handleDeleteFlow(collectionId, flowId)}
             />
           }
           main={renderMainContent()}

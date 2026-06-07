@@ -8,6 +8,7 @@ import { ResponseJsonTree } from "./ResponseJsonTree";
 import { TargetPicker } from "./TargetPicker";
 import { mappingLabel } from "./EdgeLabel";
 import { edgeSource, edgeTarget } from "../../services/flowLayoutService";
+import { VariableContext } from "../../services/variableResolver";
 import styles from "./FlowBuilder.module.css";
 
 interface MappingPanelProps {
@@ -19,6 +20,8 @@ interface MappingPanelProps {
   onChange: (edge: FlowEdge) => void;
   onDiscoveredResponse: (nodeId: string, response: RunResponse) => void;
   warning?: string | null;
+  onDeleteEdge: () => void;
+  variableContext?: VariableContext;
 }
 
 function edgeWithLabel(edge: FlowEdge, mappings: FlowMapping[]): FlowEdge {
@@ -35,6 +38,8 @@ export function MappingPanel({
   onChange,
   onDiscoveredResponse,
   warning,
+  onDeleteEdge,
+  variableContext,
 }: MappingPanelProps) {
   const [sourcePath, setSourcePath] = useState("");
   const [targetType, setTargetType] = useState<TargetType>("variable");
@@ -130,6 +135,7 @@ export function MappingPanel({
         <span>{mappingLabel(edge)}</span>
       </header>
       {warning && <p className={styles.flowWarning}>{warning}</p>}
+      <button type="button" onClick={onDeleteEdge}>Delete connection</button>
 
       <div className={styles.visualMappingGrid}>
         <section>
@@ -154,6 +160,7 @@ export function MappingPanel({
             targetPath={targetPath}
             transformType={transformType}
             template={template}
+            variableContext={variableContext}
             onChange={(next) => {
               setTargetType(next.targetType);
               setTargetKey(next.targetKey);
@@ -174,9 +181,10 @@ export function MappingPanel({
             <span>{mapping.sourceLabel} → {mapping.targetKey || mapping.targetType}</span>
             <button
               type="button"
+              title="Delete mapping"
               onClick={() => onChange(edgeWithLabel(edge, edge.mappings.filter((_, itemIndex) => itemIndex !== index)))}
             >
-              Remove
+              Trash
             </button>
           </div>
         ))}

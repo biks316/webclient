@@ -230,6 +230,35 @@ pub struct SaveVariablesPayload {
     pub variables: HashMap<String, String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameEntityPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    #[serde(default)]
+    pub entity_id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteEntityPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    #[serde(default)]
+    pub entity_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateEntityPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    #[serde(default)]
+    pub entity_id: String,
+    pub name: String,
+}
+
 #[tauri::command]
 pub fn create_workspace(path: String, name: Option<String>) -> CommandResult<WorkspaceIndex> {
     create_workspace_at_path(PathBuf::from(path), name)
@@ -450,6 +479,175 @@ pub fn save_flow(payload: SaveFlowPayload) -> CommandResult<WorkspaceIndex> {
         .join(&payload.flow.id);
     ensure_dir(&flow_dir)?;
     write_json(&flow_dir.join("flow.bik"), &payload.flow)?;
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn rename_collection(payload: RenameEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let collection_path = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("collection.bik");
+    let mut collection = read_variable_file(&collection_path)?;
+    collection.name = payload.name;
+    write_json(&collection_path, &collection)?;
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn delete_collection(payload: DeleteEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let collection_dir = root.join("collections").join(&payload.collection_id);
+    if collection_dir.exists() {
+        fs::remove_dir_all(&collection_dir)
+            .map_err(|error| format!("Failed to delete {}: {error}", collection_dir.display()))?;
+    }
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn rename_request(payload: RenameEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let endpoint_dir = endpoint_dir(&root, &payload.collection_id, &payload.entity_id);
+    let request_path = endpoint_dir.join("request.bik");
+    let mut request = read_request(&request_path)?;
+    request.name = payload.name;
+    write_json(&request_path, &request)?;
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn delete_request(payload: DeleteEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let endpoint_dir = endpoint_dir(&root, &payload.collection_id, &payload.entity_id);
+    if endpoint_dir.exists() {
+        fs::remove_dir_all(&endpoint_dir)
+            .map_err(|error| format!("Failed to delete {}: {error}", endpoint_dir.display()))?;
+    }
+
+    let flows_dir = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("flows");
+    if flows_dir.exists() {
+        for entry in fs::read_dir(&flows_dir).map_err(|error| error.to_string())? {
+            let entry = entry.map_err(|error| error.to_string())?;
+            let flow_file = entry.path().join("flow.bik");
+            if !flow_file.exists() {
+                continue;
+            }
+            let mut flow = read_flow_definition(&flow_file)?;
+            let removed: Vec<String> = flow
+                .nodes
+                .iter()
+                .filter(|node| node.request_id == payload.entity_id)
+                .map(|node| node.id.clone())
+                .collect();
+            if removed.is_empty() {
+                continue;
+            }
+            flow.nodes.retain(|node| node.request_id != payload.entity_id);
+            flow.edges.retain(|edge| {
+                !removed.contains(&edge.source)
+                    && !removed.contains(&edge.from)
+                    && !removed.contains(&edge.target)
+                    && !removed.contains(&edge.to)
+            });
+            write_json(&flow_file, &flow)?;
+        }
+    }
+
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn rename_flow(payload: RenameEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let flow_file = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("flows")
+        .join(&payload.entity_id)
+        .join("flow.bik");
+    let mut flow = read_flow_definition(&flow_file)?;
+    flow.name = payload.name;
+    write_json(&flow_file, &flow)?;
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn delete_flow(payload: DeleteEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let flow_dir = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("flows")
+        .join(&payload.entity_id);
+    if flow_dir.exists() {
+        fs::remove_dir_all(&flow_dir)
+            .map_err(|error| format!("Failed to delete {}: {error}", flow_dir.display()))?;
+    }
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn duplicate_collection(payload: DuplicateEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let collections_dir = root.join("collections");
+    let source_dir = collections_dir.join(&payload.collection_id);
+    let new_id = unique_child_id(&collections_dir, &slugify(&payload.name));
+    let target_dir = collections_dir.join(&new_id);
+    copy_dir_all(&source_dir, &target_dir)?;
+
+    let collection_file = target_dir.join("collection.bik");
+    let mut collection = read_variable_file(&collection_file)?;
+    collection.id = new_id;
+    collection.name = payload.name;
+    write_json(&collection_file, &collection)?;
+
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn duplicate_request(payload: DuplicateEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let endpoints_dir = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("endpoints");
+    let source_dir = endpoints_dir.join(&payload.entity_id);
+    let new_id = unique_child_id(&endpoints_dir, &slugify(&payload.name));
+    let target_dir = endpoints_dir.join(&new_id);
+    copy_dir_all(&source_dir, &target_dir)?;
+
+    let request_file = target_dir.join("request.bik");
+    let mut request = read_request(&request_file)?;
+    request.id = new_id;
+    request.name = payload.name;
+    write_json(&request_file, &request)?;
+
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn duplicate_flow(payload: DuplicateEntityPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let flows_dir = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("flows");
+    let source_dir = flows_dir.join(&payload.entity_id);
+    let new_id = unique_child_id(&flows_dir, &slugify(&payload.name));
+    let target_dir = flows_dir.join(&new_id);
+    copy_dir_all(&source_dir, &target_dir)?;
+
+    let flow_file = target_dir.join("flow.bik");
+    let mut flow = read_flow_definition(&flow_file)?;
+    flow.id = new_id;
+    flow.name = payload.name;
+    write_json(&flow_file, &flow)?;
+
     scan_workspace(&root)
 }
 
@@ -805,4 +1003,22 @@ fn unique_child_id(parent: &Path, desired: &str) -> String {
         index += 1;
     }
     candidate
+}
+
+fn copy_dir_all(source: &Path, target: &Path) -> CommandResult<()> {
+    ensure_dir(target)?;
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("Failed to read {}: {error}", source.display()))?
+    {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let entry_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if entry_path.is_dir() {
+          copy_dir_all(&entry_path, &target_path)?;
+        } else {
+          fs::copy(&entry_path, &target_path)
+            .map_err(|error| format!("Failed to copy {}: {error}", entry_path.display()))?;
+        }
+    }
+    Ok(())
 }

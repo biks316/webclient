@@ -1,9 +1,12 @@
 import { MutableRefObject, useEffect, useRef, useState } from "react";
+import { VariableContext } from "../services/variableResolver";
+import { VariableInput } from "./variables/VariableInput";
 
 interface KeyValueEditorProps {
   values: Record<string, string>;
   keyPlaceholder: string;
   valuePlaceholder: string;
+  variableContext?: VariableContext;
   onChange: (values: Record<string, string>) => void;
 }
 
@@ -17,6 +20,7 @@ export function KeyValueEditor({
   values,
   keyPlaceholder,
   valuePlaceholder,
+  variableContext,
   onChange,
 }: KeyValueEditorProps) {
   const nextIdRef = useRef(0);
@@ -86,14 +90,26 @@ export function KeyValueEditor({
             placeholder={keyPlaceholder}
             onChange={(event) => replaceKey(row.id, event.target.value)}
           />
-          <input
-            value={row.value}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder={valuePlaceholder}
-            onChange={(event) => replaceValue(row.id, event.target.value)}
-          />
+          {variableContext ? (
+            <VariableInput
+              value={row.value}
+              variableContext={variableContext}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder={valuePlaceholder}
+              onChange={(value) => replaceValue(row.id, value)}
+            />
+          ) : (
+            <input
+              value={row.value}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder={valuePlaceholder}
+              onChange={(event) => replaceValue(row.id, event.target.value)}
+            />
+          )}
           <button type="button" title="Remove" onClick={() => removeRow(row.id)}>
             x
           </button>

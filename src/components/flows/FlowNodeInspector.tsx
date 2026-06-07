@@ -1,18 +1,21 @@
 import { useMemo, useState } from "react";
 import { BikRequest, FlowDefinition, FlowNode } from "../../types/bik";
 import { edgeSource, edgeTarget } from "../../services/flowLayoutService";
+import { extractVariableNames, resolveTemplate, VariableContext } from "../../services/variableResolver";
 import styles from "./FlowBuilder.module.css";
 
 interface FlowNodeInspectorProps {
   node: FlowNode;
   request: BikRequest;
   flow: FlowDefinition;
+  variableContext?: VariableContext;
   onRunStep: () => void;
+  onDeleteNode: () => void;
 }
 
 type InspectorTab = "request" | "response" | "mappings" | "variables";
 
-export function FlowNodeInspector({ node, request, flow, onRunStep }: FlowNodeInspectorProps) {
+export function FlowNodeInspector({ node, request, flow, variableContext = {}, onRunStep, onDeleteNode }: FlowNodeInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("request");
   const incomingMappings = useMemo(
     () => flow.edges.filter((edge) => edgeTarget(edge) === node.id).flatMap((edge) => edge.mappings),
@@ -22,6 +25,11 @@ export function FlowNodeInspector({ node, request, flow, onRunStep }: FlowNodeIn
     () => flow.edges.filter((edge) => edgeSource(edge) === node.id).flatMap((edge) => edge.mappings),
     [flow.edges, node.id],
   );
+  const usedText = `${request.url}\n${JSON.stringify(request.headers)}\n${JSON.stringify(request.queryParams)}\n${JSON.stringify(request.body)}`;
+  const usedVariables = extractVariableNames(usedText).map((name) => resolveTemplate(`{{${name}}}`, {
+    ...variableContext,
+    requestVariables: request.variables,
+  }).variables[0]);
 
   return (
     <aside className={styles.mappingPanel}>
@@ -44,6 +52,7 @@ export function FlowNodeInspector({ node, request, flow, onRunStep }: FlowNodeIn
           <strong>Body</strong>
           <pre>{JSON.stringify(request.body, null, 2)}</pre>
           <button type="button" onClick={onRunStep}>Run this step</button>
+          <button type="button" onClick={onDeleteNode}>Delete node</button>
         </div>
       )}
 
@@ -69,8 +78,12 @@ export function FlowNodeInspector({ node, request, flow, onRunStep }: FlowNodeIn
 
       {tab === "variables" && (
         <div className={styles.nodeDetails}>
-          <strong>Variables used</strong>
-          <pre>{JSON.stringify(request.variables, null, 2)}</pre>
+          <strong>Variables used by this request</strong>
+          <pre>{JSON.stringify(usedVariables, null, 2)}</pre>
+          <strong>Missing variables</strong>
+          <pre>{JSON.stringify(usedVariables.filter((variable) => !variable.found), null, 2)}</pre>
+          <strong>Runtime variables created by outgoing mappings</strong>
+          <pre>{JSON.stringify(outgoingMappings.filter((mapping) => mapping.targetType === "variable"), null, 2)}</pre>
         </div>
       )}
     </aside>

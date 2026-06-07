@@ -1,4 +1,6 @@
 import { TargetType, TransformType, targetPathFor, templateFor } from "../../services/mappingSuggestionService";
+import { VariableContext } from "../../services/variableResolver";
+import { VariableInput } from "../variables/VariableInput";
 import styles from "./FlowBuilder.module.css";
 
 interface TargetPickerProps {
@@ -7,6 +9,7 @@ interface TargetPickerProps {
   targetPath: string;
   transformType: TransformType;
   template: string;
+  variableContext?: VariableContext;
   onChange: (next: {
     targetType: TargetType;
     targetKey: string;
@@ -30,6 +33,7 @@ export function TargetPicker({
   targetKey,
   transformType,
   template,
+  variableContext,
   onChange,
 }: TargetPickerProps) {
   const selectedTarget = TARGET_OPTIONS.find((option) => option.id === targetType) ?? TARGET_OPTIONS[0];
@@ -67,7 +71,11 @@ export function TargetPicker({
       {selectedTarget.needsKey && (
         <label>
           <span>Target key</span>
-          <input value={targetKey} onChange={(event) => emit({ targetKey: event.currentTarget.value })} />
+          {variableContext ? (
+            <VariableInput value={targetKey} variableContext={variableContext} onChange={(targetKey) => emit({ targetKey })} />
+          ) : (
+            <input value={targetKey} onChange={(event) => emit({ targetKey: event.currentTarget.value })} />
+          )}
         </label>
       )}
       <label>
@@ -84,7 +92,11 @@ export function TargetPicker({
       {transformType === "template" && (
         <label>
           <span>Template</span>
-          <input value={template} onChange={(event) => emit({ template: event.currentTarget.value })} />
+          {variableContext ? (
+            <VariableInput value={template} variableContext={variableContext} onChange={(template) => emit({ template })} />
+          ) : (
+            <input value={template} onChange={(event) => emit({ template: event.currentTarget.value })} />
+          )}
         </label>
       )}
     </div>

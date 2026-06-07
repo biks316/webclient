@@ -2,6 +2,8 @@ import { Copy, Download, Save, Send } from "lucide-react";
 import { VariableFile } from "../../types/bik";
 import { MethodBadge } from "../common/MethodBadge";
 import { CompactSelect } from "../common/CompactSelect";
+import { VariableContext } from "../../services/variableResolver";
+import { VariableInput } from "../variables/VariableInput";
 import styles from "./RequestBar.module.css";
 
 interface RequestBarProps {
@@ -11,6 +13,7 @@ interface RequestBarProps {
   environments: VariableFile[];
   selectedEnvironmentId: string | null;
   selectedEnvironmentName: string | null;
+  variableContext: VariableContext;
   isBusy: boolean;
   sendDisabled?: boolean;
   onNameChange: (value: string) => void;
@@ -33,6 +36,7 @@ export function RequestBar({
   environments,
   selectedEnvironmentId,
   selectedEnvironmentName,
+  variableContext,
   isBusy,
   sendDisabled = false,
   onNameChange,
@@ -83,13 +87,14 @@ export function RequestBar({
 
       <div className={styles.requestRow}>
         <CompactSelect value={method} options={methodOptions} className={styles.methodSelect} onChange={onMethodChange} />
-        <input
+        <VariableInput
           className={styles.url}
           value={url}
+          variableContext={variableContext}
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          onChange={(event) => onUrlChange(event.currentTarget.value)}
+          onChange={onUrlChange}
         />
         <button type="button" onClick={onSave}>
           <Save size={14} />

@@ -35,18 +35,27 @@ interface SidebarProps {
   onCreateCollection: () => void;
   onCreateEndpoint: (collectionId?: string) => void;
   onCreateFlow: (collectionId?: string) => void;
-  onCopyCollection: (collection: CollectionIndex) => void;
+  onDuplicateCollection: (collectionId: string) => void;
   onExportCollection: (collection: CollectionIndex) => void;
   onSelectCollection: (collectionId: string) => void;
   onSelectEndpoint: (collectionId: string, endpointId: string) => void;
   onSelectFlow: (collectionId: string, flowId: string) => void;
   onOpenEndpointHistory: (collectionId: string, endpointId: string) => void;
+  onRenameCollection: (collectionId: string) => void;
+  onDeleteCollection: (collectionId: string) => void;
+  onRenameRequest: (collectionId: string, endpointId: string) => void;
+  onDuplicateRequest: (collectionId: string, endpointId: string) => void;
+  onDeleteRequest: (collectionId: string, endpointId: string) => void;
+  onRenameFlow: (collectionId: string, flowId: string) => void;
+  onDuplicateFlow: (collectionId: string, flowId: string) => void;
+  onDeleteFlow: (collectionId: string, flowId: string) => void;
 }
 
 interface EndpointContextMenuState {
-  kind: "endpoint";
+  kind: "endpoint" | "flow";
   collectionId: string;
-  endpointId: string;
+  endpointId?: string;
+  flowId?: string;
   top: number;
   left: number;
 }
@@ -70,12 +79,20 @@ export function Sidebar({
   onCreateCollection,
   onCreateEndpoint,
   onCreateFlow,
-  onCopyCollection,
+  onDuplicateCollection,
   onExportCollection,
   onSelectCollection,
   onSelectEndpoint,
   onSelectFlow,
   onOpenEndpointHistory,
+  onRenameCollection,
+  onDeleteCollection,
+  onRenameRequest,
+  onDuplicateRequest,
+  onDeleteRequest,
+  onRenameFlow,
+  onDuplicateFlow,
+  onDeleteFlow,
 }: SidebarProps) {
   const [search, setSearch] = useState("");
   const [contextMenu, setContextMenu] = useState<EndpointContextMenuState | CollectionContextMenuState | null>(null);
@@ -301,19 +318,17 @@ export function Sidebar({
                               {
                                 label: "Rename",
                                 icon: <Settings2 size={12} />,
-                                disabled: true,
-                                onSelect: () => undefined,
+                                onSelect: () => onRenameCollection(collection.id),
                               },
                               {
                                 label: "Duplicate",
                                 icon: <Copy size={12} />,
-                                onSelect: () => onCopyCollection(collection),
+                                onSelect: () => onDuplicateCollection(collection.id),
                               },
                               {
                                 label: "Delete",
                                 icon: <Settings2 size={12} />,
-                                disabled: true,
-                                onSelect: () => undefined,
+                                onSelect: () => onDeleteCollection(collection.id),
                               },
                               {
                                 label: "Export collection",
@@ -389,6 +404,16 @@ export function Sidebar({
                                 type="button"
                                 className={`${styles.treeRow} ${styles.endpointRow} ${active ? styles.active : ""}`}
                                 onClick={() => handleSelectFlow(collection.id, flow.id)}
+                                onContextMenu={(event) => {
+                                  event.preventDefault();
+                                  setContextMenu({
+                                    kind: "flow",
+                                    collectionId: collection.id,
+                                    flowId: flow.id,
+                                    top: event.clientY,
+                                    left: event.clientX,
+                                  });
+                                }}
                                 title={flow.name}
                               >
                                 <Route size={12} className={styles.flowIcon} />
@@ -435,24 +460,105 @@ export function Sidebar({
             style={{ top: contextMenu.top, left: contextMenu.left, position: "fixed" }}
           >
             {contextMenu.kind === "endpoint" ? (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setContextMenu(null);
-                  onOpenEndpointHistory(contextMenu.collectionId, contextMenu.endpointId);
-                }}
-              >
-                <span>See history</span>
-              </button>
-            ) : (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.endpointId) {
+                      onRenameRequest(contextMenu.collectionId, contextMenu.endpointId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>Rename</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.endpointId) {
+                      onDuplicateRequest(contextMenu.collectionId, contextMenu.endpointId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>Duplicate</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.endpointId) {
+                      onDeleteRequest(contextMenu.collectionId, contextMenu.endpointId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>Delete</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.endpointId) {
+                      onOpenEndpointHistory(contextMenu.collectionId, contextMenu.endpointId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>See history</span>
+                </button>
+              </>
+            ) : contextMenu.kind === "flow" ? (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.flowId) {
+                      onRenameFlow(contextMenu.collectionId, contextMenu.flowId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>Rename</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.flowId) {
+                      onDuplicateFlow(contextMenu.collectionId, contextMenu.flowId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>Duplicate</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.flowId) {
+                      onDeleteFlow(contextMenu.collectionId, contextMenu.flowId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>Delete</span>
+                </button>
+              </>
+            ) : (() => {
+              const collectionMenu = contextMenu as CollectionContextMenuState;
+              return (
               <>
                 <button
                   type="button"
                   role="menuitem"
                   onClick={() => {
                     setContextMenu(null);
-                    onCreateEndpoint(contextMenu.collection.id);
+                    onCreateEndpoint(collectionMenu.collection.id);
                   }}
                 >
                   <span>New request</span>
@@ -460,7 +566,14 @@ export function Sidebar({
                 <button type="button" role="menuitem" disabled>
                   <span>New folder</span>
                 </button>
-                <button type="button" role="menuitem" disabled>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setContextMenu(null);
+                    onRenameCollection(collectionMenu.collection.id);
+                  }}
+                >
                   <span>Rename</span>
                 </button>
                 <button
@@ -468,16 +581,24 @@ export function Sidebar({
                   role="menuitem"
                   onClick={() => {
                     setContextMenu(null);
-                    onCopyCollection(contextMenu.collection);
+                    onDuplicateCollection(collectionMenu.collection.id);
                   }}
                 >
                   <span>Duplicate</span>
                 </button>
-                <button type="button" role="menuitem" disabled>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setContextMenu(null);
+                    onDeleteCollection(collectionMenu.collection.id);
+                  }}
+                >
                   <span>Delete</span>
                 </button>
               </>
-            )}
+              );
+            })()}
           </div>,
           document.body,
         )}

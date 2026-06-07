@@ -49,7 +49,6 @@ pub async fn send_request(payload: SendRequestPayload) -> CommandResult<RunRespo
 
     let mut variables = HashMap::new();
     variables.extend(workspace.globals.clone());
-    variables.extend(collection.variables.clone());
 
     if let Some(environment_id) = payload.environment_id {
         if let Some(environment) = workspace
@@ -61,6 +60,7 @@ pub async fn send_request(payload: SendRequestPayload) -> CommandResult<RunRespo
         }
     }
 
+    variables.extend(collection.variables.clone());
     variables.extend(request.variables.clone());
 
     let resolved = resolve_request(&request, &variables);

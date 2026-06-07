@@ -23,6 +23,8 @@ interface FlowCanvasProps {
   onDropEndpoint: (payload: DragEndpointPayload, position: { x: number; y: number }) => void;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => void;
   onConnectNodes: (from: string, to: string) => void;
+  onDeleteNode: (nodeId: string) => void;
+  onDeleteEdge: (edgeId: string) => void;
 }
 
 export type DragEndpointPayload = RequestDragPayload;
@@ -87,6 +89,8 @@ export function FlowCanvas({
   onDropEndpoint,
   onMoveNode,
   onConnectNodes,
+  onDeleteNode,
+  onDeleteEdge,
 }: FlowCanvasProps) {
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [connectionPoint, setConnectionPoint] = useState<{ x: number; y: number } | null>(null);
@@ -280,6 +284,10 @@ export function FlowCanvas({
               className={`${styles.edgePath} ${selectedEdgeId === edge.id ? styles.edgePathActive : ""}`}
               markerEnd="url(#flow-arrow)"
               onClick={() => onSelectEdge(edge.id)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                onDeleteEdge(edge.id);
+              }}
             />
           );
         })}
@@ -304,8 +312,8 @@ export function FlowCanvas({
             from={from}
             to={to}
             active={selectedEdgeId === edge.id}
-            onClick={() => onSelectEdge(edge.id)}
-          />
+          onClick={() => onSelectEdge(edge.id)}
+        />
         );
       })}
       {flow.nodes.map((node) => (
@@ -325,6 +333,7 @@ export function FlowCanvas({
           } : null)}
           running={runningNodeIds.has(node.id)}
           onClick={() => onSelectNode(node.id)}
+          onContextMenu={() => onDeleteNode(node.id)}
           onStartDrag={(event) => {
             const target = event.currentTarget.getBoundingClientRect();
             setDragging({

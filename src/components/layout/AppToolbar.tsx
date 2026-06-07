@@ -5,11 +5,13 @@ import {
   LayoutPanelLeft,
   PanelsRightBottom,
   Plus,
+  Redo2,
   RefreshCw,
   Search,
   Send,
   Settings2,
   TerminalSquare,
+  Undo2,
 } from "lucide-react";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { CompactSelect } from "../common/CompactSelect";
@@ -28,7 +30,11 @@ interface AppToolbarProps {
   sidebarHidden: boolean;
   timelineHidden: boolean;
   consoleHidden: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   onCreateCollection: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onCreateRequest: () => void;
   onSendRequest: () => void;
   onSync: () => void;
@@ -54,7 +60,11 @@ export function AppToolbar({
   sidebarHidden,
   timelineHidden,
   consoleHidden,
+  canUndo,
+  canRedo,
   onCreateCollection,
+  onUndo,
+  onRedo,
   onCreateRequest,
   onSendRequest,
   onSync,
@@ -168,6 +178,12 @@ export function AppToolbar({
           <Plus size={13} />
           Collection
         </button>
+        <IconButton title="Undo" onClick={onUndo} disabled={!canUndo}>
+          <Undo2 size={13} />
+        </IconButton>
+        <IconButton title="Redo" onClick={onRedo} disabled={!canRedo}>
+          <Redo2 size={13} />
+        </IconButton>
         <button type="button" className={styles.toolButton} onClick={onCreateRequest}>
           <Plus size={13} />
           Request

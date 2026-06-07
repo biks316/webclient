@@ -73,6 +73,87 @@ export function createFlow(
   return invoke("create_flow", { workspacePath, collectionId, name });
 }
 
+export function renameCollection(
+  workspacePath: string,
+  collectionId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("rename_collection", { payload: { workspacePath, collectionId, name } });
+}
+
+export function deleteCollection(workspacePath: string, collectionId: string): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("delete_collection", { payload: { workspacePath, collectionId } });
+}
+
+export function duplicateCollection(
+  workspacePath: string,
+  collectionId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("duplicate_collection", { payload: { workspacePath, collectionId, name } });
+}
+
+export function renameRequest(
+  workspacePath: string,
+  collectionId: string,
+  requestId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("rename_request", { payload: { workspacePath, collectionId, entityId: requestId, name } });
+}
+
+export function deleteRequest(
+  workspacePath: string,
+  collectionId: string,
+  requestId: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("delete_request", { payload: { workspacePath, collectionId, entityId: requestId } });
+}
+
+export function duplicateRequest(
+  workspacePath: string,
+  collectionId: string,
+  requestId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("duplicate_request", { payload: { workspacePath, collectionId, entityId: requestId, name } });
+}
+
+export function renameFlow(
+  workspacePath: string,
+  collectionId: string,
+  flowId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("rename_flow", { payload: { workspacePath, collectionId, entityId: flowId, name } });
+}
+
+export function deleteFlow(
+  workspacePath: string,
+  collectionId: string,
+  flowId: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("delete_flow", { payload: { workspacePath, collectionId, entityId: flowId } });
+}
+
+export function duplicateFlow(
+  workspacePath: string,
+  collectionId: string,
+  flowId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("duplicate_flow", { payload: { workspacePath, collectionId, entityId: flowId, name } });
+}
+
 export async function createEndpointWithRequest(
   workspacePath: string,
   collectionId: string,

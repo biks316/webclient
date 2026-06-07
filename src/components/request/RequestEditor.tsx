@@ -9,6 +9,8 @@ import { AuthEditor } from "./AuthEditor";
 import { ScriptsEditor } from "./ScriptsEditor";
 import { TestsEditor } from "./TestsEditor";
 import { BikRequest, CollectionAutomation, DiffRow, RunResponse, Scripts, VariableFile } from "../../types/bik";
+import { VariableContext } from "../../services/variableResolver";
+import { VariablePanel } from "../variables/VariablePanel";
 import styles from "./RequestEditor.module.css";
 
 interface RequestEditorProps {
@@ -94,7 +96,7 @@ export function RequestEditor({
 }: RequestEditorProps) {
   const [bodyText, setBodyText] = useState("");
   const [bodyError, setBodyError] = useState<string | null>(null);
-  const [variableMode, setVariableMode] = useState<"globals" | "collection" | "environment" | null>(null);
+  const [variableMode, setVariableMode] = useState<"globals" | "collection" | "environment" | "panel" | null>(null);
 
   useEffect(() => {
     if (!request || BODYLESS_METHODS.has(request.method.toUpperCase())) {
@@ -121,6 +123,19 @@ export function RequestEditor({
   }
 
   const currentRequest = request;
+  const variableContext: VariableContext = {
+    globals: globalVariables,
+    environment: selectedEnvironment,
+    collection: {
+      id: "collection",
+      name: "Collection",
+      path: "",
+      variables: collectionVariables,
+      endpoints: [],
+      flows: [],
+    },
+    requestVariables: currentRequest.variables,
+  };
 
   function update(patch: Partial<BikRequest>) {
     onRequestChange({ ...currentRequest, ...patch });
@@ -169,11 +184,23 @@ export function RequestEditor({
   function renderLeftPane() {
     switch (activeTab) {
       case "params":
-        return <ParamsEditor values={currentRequest.queryParams} onChange={(queryParams) => update({ queryParams })} />;
+        return (
+          <ParamsEditor
+            values={currentRequest.queryParams}
+            variableContext={variableContext}
+            onChange={(queryParams) => update({ queryParams })}
+          />
+        );
       case "auth":
         return <AuthEditor />;
       case "headers":
-        return <HeadersEditor values={currentRequest.headers} onChange={(headers) => update({ headers })} />;
+        return (
+          <HeadersEditor
+            values={currentRequest.headers}
+            variableContext={variableContext}
+            onChange={(headers) => update({ headers })}
+          />
+        );
       case "scripts":
         return (
           <ScriptsEditor
@@ -208,7 +235,13 @@ export function RequestEditor({
       case "body":
       default:
         return hasRequestBody ? (
-          <BodyEditor bodyText={bodyText} bodyError={bodyError} onChange={parseBody} onFormat={formatBody} />
+          <BodyEditor
+            bodyText={bodyText}
+            bodyError={bodyError}
+            variableContext={variableContext}
+            onChange={parseBody}
+            onFormat={formatBody}
+          />
         ) : (
           <div className={styles.bodyPlaceholder}>
             <span>No request body</span>
@@ -240,6 +273,7 @@ export function RequestEditor({
         environments={environments}
         selectedEnvironmentId={selectedEnvironmentId}
         selectedEnvironmentName={selectedEnvironment?.name ?? null}
+        variableContext={variableContext}
         isBusy={isBusy}
         sendDisabled={!canSend}
         onNameChange={(name) => update({ name })}
@@ -273,6 +307,7 @@ export function RequestEditor({
           <button type="button" onClick={() => setVariableMode("environment")} disabled={!selectedEnvironment}>
             Env vars
           </button>
+          <button type="button" onClick={() => setVariableMode("panel")}>Variables</button>
         </div>
       </div>
 
@@ -283,6 +318,19 @@ export function RequestEditor({
       {variableMode && (
         <div className="prompt-backdrop" role="presentation">
           <div className="prompt-dialog variable-dialog">
+            {variableMode === "panel" ? (
+              <>
+                <div className={styles.variableHeader}>
+                  <strong>Variables</strong>
+                  <button type="button" onClick={() => setVariableMode(null)}>Close</button>
+                </div>
+                <VariablePanel
+                  context={variableContext}
+                  usedText={`${currentRequest.url}\n${JSON.stringify(currentRequest.headers)}\n${JSON.stringify(currentRequest.queryParams)}\n${bodyText}`}
+                />
+              </>
+            ) : (
+            <>
             <div className={styles.variableHeader}>
               <strong>
                 {variableMode === "globals"
@@ -310,6 +358,8 @@ export function RequestEditor({
                 }}
               />
             </div>
+            </>
+            )}
           </div>
         </div>
       )}

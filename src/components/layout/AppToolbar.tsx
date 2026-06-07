@@ -2,7 +2,6 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  FolderOpen,
   LayoutPanelLeft,
   PanelsRightBottom,
   Plus,
@@ -12,13 +11,14 @@ import {
   Settings2,
   TerminalSquare,
 } from "lucide-react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { CompactSelect } from "../common/CompactSelect";
 import { IconButton } from "../common/IconButton";
 import { SyncStatusResult } from "../../types/bik";
 import styles from "./AppToolbar.module.css";
 
 interface AppToolbarProps {
-  workspaceName: string | null;
+  workspaceSwitcher: ReactNode;
   status: string;
   isSyncing: boolean;
   syncStatus: SyncStatusResult | null;
@@ -28,12 +28,13 @@ interface AppToolbarProps {
   sidebarHidden: boolean;
   timelineHidden: boolean;
   consoleHidden: boolean;
-  onOpenWorkspace: () => void;
   onCreateCollection: () => void;
   onCreateRequest: () => void;
   onSendRequest: () => void;
   onSync: () => void;
   onReviewChanges: () => void;
+  onKeepLocalOnly: () => void;
+  onConnectGitHub: () => void;
   onEnvironmentChange: (value: string) => void;
   onToggleSidebar: () => void;
   onToggleTimeline: () => void;
@@ -43,7 +44,7 @@ interface AppToolbarProps {
 }
 
 export function AppToolbar({
-  workspaceName,
+  workspaceSwitcher,
   status,
   isSyncing,
   syncStatus,
@@ -53,12 +54,13 @@ export function AppToolbar({
   sidebarHidden,
   timelineHidden,
   consoleHidden,
-  onOpenWorkspace,
   onCreateCollection,
   onCreateRequest,
   onSendRequest,
   onSync,
   onReviewChanges,
+  onKeepLocalOnly,
+  onConnectGitHub,
   onEnvironmentChange,
   onToggleSidebar,
   onToggleTimeline,
@@ -67,6 +69,31 @@ export function AppToolbar({
   onOpenSettings,
 }: AppToolbarProps) {
   const syncMeta = getSyncMeta(syncStatus);
+  const [syncMenuOpen, setSyncMenuOpen] = useState(false);
+  const syncMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!syncMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!syncMenuRef.current?.contains(event.target as Node)) {
+        setSyncMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [syncMenuOpen]);
+
+  function handleSyncClick() {
+    if (syncStatus?.state === "not_git") {
+      setSyncMenuOpen((value) => !value);
+      return;
+    }
+    onSync();
+  }
 
   return (
     <header className={styles.toolbar}>
@@ -74,9 +101,7 @@ export function AppToolbar({
         <IconButton title="Toggle collections" onClick={onToggleSidebar} className={!sidebarHidden ? styles.active : ""}>
           <LayoutPanelLeft size={13} />
         </IconButton>
-        <IconButton title="Open workspace" onClick={onOpenWorkspace}>
-          <FolderOpen size={13} />
-        </IconButton>
+        {workspaceSwitcher}
         <button type="button" className={styles.command} onClick={onOpenPalette}>
           <Search size={12} />
           <span>Command Palette</span>
@@ -86,7 +111,6 @@ export function AppToolbar({
 
       <div className={styles.center}>
         <div className={styles.workspaceSummary}>
-          <strong>{workspaceName ?? "BikAPI"}</strong>
           <span>Last synced: {lastSyncedLabel}</span>
           <span>Status: {syncMeta.label}</span>
         </div>
@@ -95,19 +119,43 @@ export function AppToolbar({
       <div className={styles.trailing}>
         <div className={styles.syncBar}>
           <div className={`${styles.syncStatus} ${styles[syncMeta.tone]}`}>
-            <span className={styles.statusDot} />
-            <syncMeta.Icon size={12} className={isSyncing ? styles.spinning : ""} />
-            <span>{syncMeta.summary}</span>
-          </div>
-          {(syncStatus?.state === "sync_required" || syncStatus?.state === "conflict") && (
+          <span className={styles.statusDot} />
+          <syncMeta.Icon size={12} className={isSyncing ? styles.spinning : ""} />
+          <span>{syncMeta.summary}</span>
+        </div>
+          {syncStatus?.state === "sync_required" && (
             <button type="button" className={styles.reviewButton} onClick={onReviewChanges}>
               Review Changes
             </button>
           )}
-          <button type="button" className={styles.syncButton} onClick={onSync} disabled={isSyncing}>
-            <RefreshCw size={12} className={isSyncing ? styles.spinning : ""} />
-            Sync
-          </button>
+          <div className={styles.syncMenuWrap} ref={syncMenuRef}>
+            <button type="button" className={styles.syncButton} onClick={handleSyncClick} disabled={isSyncing}>
+              <RefreshCw size={12} className={isSyncing ? styles.spinning : ""} />
+              Sync
+            </button>
+            {syncMenuOpen && (
+              <div className={styles.syncMenu}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSyncMenuOpen(false);
+                    onKeepLocalOnly();
+                  }}
+                >
+                  Keep local only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSyncMenuOpen(false);
+                    onConnectGitHub();
+                  }}
+                >
+                  Connect to GitHub
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <CompactSelect
           value={selectedEnvironmentId}
@@ -147,15 +195,15 @@ function getSyncMeta(syncStatus: SyncStatusResult | null) {
     case "remote_updates":
       return {
         tone: "orange",
-        label: "New changes available",
-        summary: `${syncStatus.remoteChanges} updates available`,
+        label: "Updates available",
+        summary: "Updates available",
         Icon: ArrowDown,
       };
     case "local_changes":
       return {
         tone: "blue",
-        label: "Local changes pending",
-        summary: `${syncStatus.localChanges} local changes`,
+        label: "Local changes",
+        summary: "Local changes",
         Icon: ArrowUp,
       };
     case "sync_required":
@@ -168,8 +216,22 @@ function getSyncMeta(syncStatus: SyncStatusResult | null) {
     case "conflict":
       return {
         tone: "red",
-        label: "Review changes",
-        summary: "Review changes",
+        label: "Conflict",
+        summary: "Conflict",
+        Icon: RefreshCw,
+      };
+    case "offline":
+      return {
+        tone: "orange",
+        label: "Offline",
+        summary: "Offline",
+        Icon: RefreshCw,
+      };
+    case "not_git":
+      return {
+        tone: "blue",
+        label: "Local only",
+        summary: "Local only",
         Icon: RefreshCw,
       };
     case "synced":

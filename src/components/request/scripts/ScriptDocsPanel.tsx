@@ -1,0 +1,57 @@
+interface ScriptDocsPanelProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function ScriptDocsPanel({ collapsed, onToggle }: ScriptDocsPanelProps) {
+  if (collapsed) {
+    return (
+      <button type="button" className="script-docs-rail" onClick={onToggle}>
+        Docs
+      </button>
+    );
+  }
+
+  return (
+    <aside className="script-docs-panel">
+      <header>
+        <div>
+          <strong>Documentation</strong>
+          <span>Variables, functions, examples</span>
+        </div>
+        <button type="button" onClick={onToggle}>Collapse</button>
+      </header>
+
+      <section>
+        <h3>Variables</h3>
+        <code>request.url</code>
+        <code>request.headers</code>
+        <code>request.queryParams</code>
+        <code>response.status</code>
+        <code>response.body</code>
+      </section>
+
+      <section>
+        <h3>Functions</h3>
+        <code>ctx.set("token", value)</code>
+        <code>ctx.get("token")</code>
+        <code>bik.setHeader("X-Trace", value)</code>
+        <code>bik.setQueryParam("page", 1)</code>
+        <code>bik.setBody({"{ id: 1 }"})</code>
+      </section>
+
+      <section>
+        <h3>Examples</h3>
+        <pre>{`ctx.set("token", value)
+
+const token = ctx.get("token")
+
+request.url = "https://api.example.com"
+
+if (response.status >= 400) {
+  console.error(response.body)
+}`}</pre>
+      </section>
+    </aside>
+  );
+}

@@ -23,6 +23,20 @@ pub struct GitRemotePayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct InitializeGitRepositoryPayload {
+    pub workspace_path: String,
+    pub commit_message: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneWorkspacePayload {
+    pub repo_url: String,
+    pub destination_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SaveSnapshotPayload {
     pub workspace_path: String,
     pub label: Option<String>,
@@ -81,7 +95,7 @@ pub fn run_git_action(payload: GitActionPayload) -> CommandResult<GitActionResul
       return Err("Repository URL is required.".to_string());
     }
 
-    ensure_repo(workspace)?;
+    require_repo(workspace)?;
     ensure_origin_remote(workspace, repo_url)?;
 
     let branch = current_branch(workspace)?;
@@ -104,6 +118,71 @@ pub fn run_git_action(payload: GitActionPayload) -> CommandResult<GitActionResul
       repo_url: repo_url.to_string(),
       output,
     })
+}
+
+#[tauri::command]
+pub fn initialize_git_repository(payload: InitializeGitRepositoryPayload) -> CommandResult<GitActionResult> {
+  let workspace = Path::new(&payload.workspace_path);
+  if !workspace.exists() {
+    return Err("Workspace path does not exist.".to_string());
+  }
+
+  ensure_repo(workspace)?;
+  let branch = current_branch(workspace)?;
+  let message = payload
+    .commit_message
+    .as_deref()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .unwrap_or("Initial BikAPI workspace");
+
+  stage_changes_safely(workspace)?;
+  let output = if has_staged_changes(workspace)? {
+    run_git(workspace, &["commit", "-m", message])?
+  } else {
+    "Repository initialized.".to_string()
+  };
+
+  Ok(GitActionResult {
+    action: "initialize".to_string(),
+    branch,
+    repo_url: String::new(),
+    output,
+  })
+}
+
+#[tauri::command]
+pub fn clone_workspace(payload: CloneWorkspacePayload) -> CommandResult<String> {
+  let repo_url = payload.repo_url.trim();
+  if repo_url.is_empty() {
+    return Err("Repository URL is required.".to_string());
+  }
+
+  let destination = PathBuf::from(payload.destination_path);
+  if destination.exists() {
+    let mut entries = destination.read_dir().map_err(|error| error.to_string())?;
+    if entries.next().transpose().map_err(|error| error.to_string())?.is_some() {
+      return Err("Destination folder must be empty.".to_string());
+    }
+  } else if let Some(parent) = destination.parent() {
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+  }
+
+  let output = Command::new("git")
+    .args(["clone", repo_url, &destination.to_string_lossy()])
+    .output()
+    .map_err(|error| format!("Failed to run git: {error}"))?;
+
+  if !output.status.success() {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    return Err(if stderr.is_empty() {
+      String::from_utf8_lossy(&output.stdout).trim().to_string()
+    } else {
+      stderr
+    });
+  }
+
+  Ok(destination.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -133,7 +212,7 @@ pub fn get_git_status(payload: GitRemotePayload) -> CommandResult<GitStatusResul
     return Err("Workspace path does not exist.".to_string());
   }
 
-  ensure_repo(workspace)?;
+  require_repo(workspace)?;
 
   Ok(GitStatusResult {
     branch: current_branch(workspace)?,
@@ -150,17 +229,52 @@ pub fn get_sync_status(payload: GitRemotePayload) -> CommandResult<SyncStatusRes
   }
 
   let workspace_index = scan_workspace(workspace)?;
-  ensure_repo(workspace)?;
+  if !is_git_workspace(workspace) {
+    return Ok(SyncStatusResult {
+      state: "not_git".to_string(),
+      branch: String::new(),
+      repo_url: None,
+      local_changes: 0,
+      remote_changes: 0,
+      local_change_files: Vec::new(),
+      remote_change_files: Vec::new(),
+      collections: build_collection_statuses(workspace, &workspace_index.collections, &[], &[]),
+      remote_empty: true,
+      checked_at: Utc::now().to_rfc3339(),
+    });
+  }
+
   let branch = current_branch(workspace)?;
   let conflict = has_conflicts(workspace)?;
   let repo_url = get_origin_remote_url(workspace)?;
 
   let (remote_empty, local_files, remote_files) = if let Some(repo_url) = repo_url.as_deref() {
-    fetch_origin(workspace)?;
-    let remote_empty = !remote_has_heads(workspace, repo_url)?;
-    let local_files = collect_local_change_files(workspace, repo_url, &branch, remote_empty)?;
-    let remote_files = collect_remote_change_files(workspace, repo_url, &branch, remote_empty)?;
-    (remote_empty, local_files, remote_files)
+    match fetch_origin(workspace)
+      .and_then(|_| remote_has_heads(workspace, repo_url))
+      .and_then(|has_heads| {
+        let remote_empty = !has_heads;
+        let local_files = collect_local_change_files(workspace, repo_url, &branch, remote_empty)?;
+        let remote_files = collect_remote_change_files(workspace, repo_url, &branch, remote_empty)?;
+        Ok((remote_empty, local_files, remote_files))
+      }) {
+      Ok(values) => values,
+      Err(_) => {
+        let local_files = collect_local_only_files(workspace).unwrap_or_default();
+        let collections = build_collection_statuses(workspace, &workspace_index.collections, &local_files, &[]);
+        return Ok(SyncStatusResult {
+          state: "offline".to_string(),
+          branch,
+          repo_url: Some(repo_url.to_string()),
+          local_changes: local_files.len(),
+          remote_changes: 0,
+          local_change_files: local_files,
+          remote_change_files: Vec::new(),
+          collections,
+          remote_empty: false,
+          checked_at: Utc::now().to_rfc3339(),
+        });
+      }
+    }
   } else {
     let local_files = collect_local_only_files(workspace)?;
     (true, local_files, Vec::new())
@@ -190,7 +304,9 @@ pub fn save_workspace_snapshot(payload: SaveSnapshotPayload) -> CommandResult<Op
     return Err("Workspace path does not exist.".to_string());
   }
 
-  ensure_repo(workspace)?;
+  if !is_git_workspace(workspace) {
+    return Ok(None);
+  }
   if !working_tree_dirty(workspace)? {
     return Ok(None);
   }
@@ -214,13 +330,21 @@ pub fn save_workspace_snapshot(payload: SaveSnapshotPayload) -> CommandResult<Op
 }
 
 fn ensure_repo(workspace: &Path) -> CommandResult<()> {
-  if workspace.join(".git").exists() {
+  if is_git_workspace(workspace) {
     return Ok(());
   }
 
   run_git(workspace, &["init"])?;
   run_git(workspace, &["symbolic-ref", "HEAD", "refs/heads/main"])?;
   Ok(())
+}
+
+fn require_repo(workspace: &Path) -> CommandResult<()> {
+  if is_git_workspace(workspace) {
+    Ok(())
+  } else {
+    Err("This workspace is local only.".to_string())
+  }
 }
 
 fn ensure_origin_remote(workspace: &Path, repo_url: &str) -> CommandResult<()> {
@@ -616,6 +740,10 @@ fn stage_changes_safely(workspace: &Path) -> CommandResult<()> {
 fn should_skip_path(workspace: &Path, relative_path: &str) -> bool {
   let absolute = workspace.join(relative_path);
   absolute.join(".git").exists() || fs::read_to_string(absolute.join(".git")).is_ok()
+}
+
+fn is_git_workspace(workspace: &Path) -> bool {
+  workspace.join(".git").exists()
 }
 
 #[derive(Debug)]

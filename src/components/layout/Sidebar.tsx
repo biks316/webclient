@@ -4,7 +4,6 @@ import {
   ChevronsRight,
   Copy,
   Folder,
-  FolderOpen,
   Gauge,
   Plus,
   Route,
@@ -18,29 +17,29 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ActionMenu } from "../ActionMenu";
-import { EmptyState } from "../common/EmptyState";
 import { IconButton } from "../common/IconButton";
 import { MethodBadge } from "../common/MethodBadge";
-import { CollectionListCard } from "./CollectionListCard";
 import { CollectionIndex, SyncCollectionStatus, WorkspaceIndex } from "../../types/bik";
+import { RequestDragPayload, setCurrentRequestDrag } from "../../services/requestDragStore";
 import styles from "./Sidebar.module.css";
 
 interface SidebarProps {
-  workspace: WorkspaceIndex | null;
+  workspace: WorkspaceIndex;
   collectionStatuses: Record<string, SyncCollectionStatus>;
   selectedCollectionId: string | null;
   selectedEndpointId: string | null;
+  selectedFlowId: string | null;
   collapsed: boolean;
   onClose: () => void;
   onToggleCollapsed: () => void;
-  onOpenWorkspace: () => void;
-  onCreateWorkspace: () => void;
   onCreateCollection: () => void;
   onCreateEndpoint: (collectionId?: string) => void;
+  onCreateFlow: (collectionId?: string) => void;
   onCopyCollection: (collection: CollectionIndex) => void;
   onExportCollection: (collection: CollectionIndex) => void;
   onSelectCollection: (collectionId: string) => void;
   onSelectEndpoint: (collectionId: string, endpointId: string) => void;
+  onSelectFlow: (collectionId: string, flowId: string) => void;
   onOpenEndpointHistory: (collectionId: string, endpointId: string) => void;
 }
 
@@ -64,17 +63,18 @@ export function Sidebar({
   collectionStatuses,
   selectedCollectionId,
   selectedEndpointId,
+  selectedFlowId,
   collapsed,
   onClose,
   onToggleCollapsed,
-  onOpenWorkspace,
-  onCreateWorkspace,
   onCreateCollection,
   onCreateEndpoint,
+  onCreateFlow,
   onCopyCollection,
   onExportCollection,
   onSelectCollection,
   onSelectEndpoint,
+  onSelectFlow,
   onOpenEndpointHistory,
 }: SidebarProps) {
   const [search, setSearch] = useState("");
@@ -84,9 +84,6 @@ export function Sidebar({
   const query = search.trim().toLowerCase();
 
   const filteredCollections = useMemo(() => {
-    if (!workspace) {
-      return [];
-    }
     if (!query) {
       return workspace.collections;
     }
@@ -97,9 +94,14 @@ export function Sidebar({
         const endpoints = collection.endpoints.filter((endpoint) =>
           `${endpoint.name} ${endpoint.request.method}`.toLowerCase().includes(query),
         );
-        return matchesCollection ? collection : { ...collection, endpoints };
+        const flows = collection.flows.filter((flow) => flow.name.toLowerCase().includes(query));
+        return matchesCollection ? collection : { ...collection, endpoints, flows };
       })
-      .filter((collection) => collection.endpoints.length > 0 || collection.name.toLowerCase().includes(query));
+      .filter((collection) =>
+        collection.endpoints.length > 0 ||
+        collection.flows.length > 0 ||
+        collection.name.toLowerCase().includes(query),
+      );
   }, [workspace, query]);
 
   useEffect(() => {
@@ -140,14 +142,32 @@ export function Sidebar({
     setExpandedCollectionId(isExpanded ? null : collectionId);
   }
 
-  function handleSelectCollection(collectionId: string) {
-    setExpandedCollectionId(collectionId);
+  function handleSelectCollection(collectionId: string, isExpanded: boolean) {
+    handleToggleCollection(collectionId, isExpanded);
     onSelectCollection(collectionId);
   }
 
   function handleSelectEndpoint(collectionId: string, endpointId: string) {
     setExpandedCollectionId(collectionId);
     onSelectEndpoint(collectionId, endpointId);
+  }
+
+  function handleSelectFlow(collectionId: string, flowId: string) {
+    setExpandedCollectionId(collectionId);
+    onSelectFlow(collectionId, flowId);
+  }
+
+  function dragPayload(collection: CollectionIndex, endpoint: CollectionIndex["endpoints"][number]): RequestDragPayload {
+    const requestId = endpoint.request.id || endpoint.id;
+    return {
+      collectionId: collection.id,
+      requestId,
+      requestName: endpoint.name,
+      name: endpoint.name,
+      method: endpoint.request.method,
+      url: endpoint.request.url,
+      path: endpoint.path,
+    };
   }
 
   return (
@@ -160,22 +180,12 @@ export function Sidebar({
             </div>
             {!collapsed && (
               <div className={styles.brandCopy}>
-                <span>{workspace ? "Workspace" : "BikAPI"}</span>
-                <strong>{workspace?.name ?? "Collections"}</strong>
+                <span>Workspace</span>
+                <strong>{workspace.name}</strong>
               </div>
             )}
           </div>
           <div className={styles.brandActions}>
-            {workspace && !collapsed && (
-              <>
-                <IconButton className={styles.headerActionButton} title="Switch workspace" onClick={onOpenWorkspace}>
-                  <FolderOpen size={14} />
-                </IconButton>
-                <IconButton className={styles.headerActionButton} title="Open new workspace" onClick={onCreateWorkspace}>
-                  <Plus size={14} />
-                </IconButton>
-              </>
-            )}
             <IconButton
               className={styles.headerActionButton}
               title={collapsed ? "Expand collections panel" : "Collapse collections panel"}
@@ -189,190 +199,213 @@ export function Sidebar({
           </div>
         </div>
 
-        {!workspace ? (
-          <div className={styles.emptyWrap}>
-            <EmptyState
-              title="Open a workspace"
-              description="Start from an existing folder or create a new local .bik workspace."
-              actionLabel="Open workspace"
-              onAction={onOpenWorkspace}
-              icon={FolderOpen}
+        <div className={styles.searchBox} title={collapsed ? "Search collections or requests" : undefined}>
+          <Search size={14} />
+          {!collapsed && (
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.currentTarget.value)}
+              placeholder="Search collections or requests"
             />
-            <button type="button" onClick={onCreateWorkspace}>
-              <Plus size={14} />
-              New workspace
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className={styles.searchBox} title={collapsed ? "Search collections or requests" : undefined}>
-              <Search size={14} />
-              {!collapsed && (
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.currentTarget.value)}
-                  placeholder="Search collections or requests"
-                />
-              )}
-            </div>
+          )}
+        </div>
 
-            <div className={styles.workspaceMeta}>
-              {!collapsed && <strong className={styles.workspaceLabel}>Workspace</strong>}
-              <IconButton title="New collection" onClick={onCreateCollection}>
-                <Plus size={14} />
-              </IconButton>
-            </div>
+        <div className={styles.workspaceMeta}>
+          {!collapsed && <strong className={styles.workspaceLabel}>Workspace</strong>}
+          <IconButton title="New collection" onClick={onCreateCollection}>
+            <Plus size={14} />
+          </IconButton>
+        </div>
 
-            <div className={styles.treeScroll}>
-              {collapsed ? (
-                <div className={styles.tree}>
-                  {filteredCollections.map((collection) => {
-                    const activeCollection = selectedCollectionId === collection.id;
-                    return (
-                      <button
-                        key={collection.id}
-                        type="button"
-                        className={`${styles.collectionIconButton} ${activeCollection ? styles.collectionIconButtonActive : ""}`}
-                        onClick={() => handleSelectCollection(collection.id)}
-                        title={collection.name}
+        <div className={styles.treeScroll}>
+          {collapsed ? (
+            <div className={styles.tree}>
+              {filteredCollections.map((collection) => {
+                const activeCollection = selectedCollectionId === collection.id;
+                const isExpanded = expandedCollectionId === collection.id;
+
+                return (
+                  <button
+                    key={collection.id}
+                    type="button"
+                    className={`${styles.collectionIconButton} ${activeCollection ? styles.collectionIconButtonActive : ""}`}
+                    onClick={() => handleSelectCollection(collection.id, isExpanded)}
+                    title={collection.name}
+                  >
+                    <Folder size={15} />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles.sidebarTreePanel}>
+              <div className={styles.sidebarSectionTitle}>COLLECTIONS</div>
+              <div className={styles.tree}>
+                {filteredCollections.map((collection) => {
+                  const activeCollection = selectedCollectionId === collection.id;
+                  const isExpanded = query.length > 0 ? true : expandedCollectionId === collection.id;
+                  const syncStatus = collectionStatuses[collection.id];
+
+                  return (
+                    <section className={styles.collectionTreeItem} key={collection.id}>
+                      <div
+                        className={`${styles.treeRow} ${activeCollection ? styles.active : ""}`}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setContextMenu({
+                            kind: "collection",
+                            collection,
+                            top: event.clientY,
+                            left: event.clientX,
+                          });
+                        }}
                       >
-                        <Folder size={15} />
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <CollectionListCard title="Collections">
-                  <div className={styles.tree}>
-                    {filteredCollections.map((collection) => {
-                      const activeCollection = selectedCollectionId === collection.id;
-                      const isExpanded = query.length > 0 ? true : expandedCollectionId === collection.id;
-                      const syncStatus = collectionStatuses[collection.id];
-
-                      return (
-                        <section
-                          className={`${styles.collection} ${isExpanded ? styles.collectionExpanded : styles.collectionCollapsed}`}
-                          key={collection.id}
+                        <button
+                          type="button"
+                          className={styles.collectionRowButton}
+                          onClick={() => handleSelectCollection(collection.id, isExpanded)}
+                          title={syncStatus ? `${collection.name} • ${syncLabel(syncStatus)}` : collection.name}
                         >
-                          <div className={`${styles.collectionRow} ${activeCollection ? styles.activeCollection : ""}`}>
-                            <button
-                              type="button"
-                              className={styles.collectionToggle}
-                              onClick={() => handleToggleCollection(collection.id, isExpanded)}
-                              aria-label={`${isExpanded ? "Collapse" : "Expand"} ${collection.name}`}
-                              aria-expanded={isExpanded}
-                            >
-                              <ChevronRight
-                                size={12}
-                                className={`${styles.folderIcon} ${isExpanded ? styles.folderIconExpanded : ""}`}
-                              />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.collectionButton}
-                              onClick={() => handleSelectCollection(collection.id)}
-                              title={syncStatus ? `${collection.name} • ${syncLabel(syncStatus)}` : collection.name}
-                              onContextMenu={(event) => {
-                                event.preventDefault();
-                                setContextMenu({
-                                  kind: "collection",
-                                  collection,
-                                  top: event.clientY,
-                                  left: event.clientX,
-                                });
-                              }}
-                            >
-                              <span className={styles.collectionCopy}>
-                                <strong>{collection.name}</strong>
-                              </span>
-                            </button>
-                            <div className={styles.rowActions}>
-                              <IconButton title={`New request in ${collection.name}`} onClick={() => onCreateEndpoint(collection.id)}>
-                                <Plus size={12} />
-                              </IconButton>
-                              <ActionMenu
-                                label={`${collection.name} options`}
-                                items={[
-                                  {
-                                    label: "New request",
-                                    icon: <Plus size={12} />,
-                                    onSelect: () => onCreateEndpoint(collection.id),
-                                  },
-                                  {
-                                    label: "New folder",
-                                    icon: <Plus size={12} />,
-                                    disabled: true,
-                                    onSelect: () => undefined,
-                                  },
-                                  {
-                                    label: "Rename",
-                                    icon: <Settings2 size={12} />,
-                                    disabled: true,
-                                    onSelect: () => undefined,
-                                  },
-                                  {
-                                    label: "Duplicate",
-                                    icon: <Copy size={12} />,
-                                    onSelect: () => onCopyCollection(collection),
-                                  },
-                                  {
-                                    label: "Delete",
-                                    icon: <Settings2 size={12} />,
-                                    disabled: true,
-                                    onSelect: () => undefined,
-                                  },
-                                  {
-                                    label: "Export collection",
-                                    icon: <Settings2 size={12} />,
-                                    onSelect: () => onExportCollection(collection),
-                                  },
-                                ]}
-                              />
-                            </div>
+                          <ChevronRight
+                            size={12}
+                            className={`${styles.chevron} ${isExpanded ? styles.chevronOpen : ""}`}
+                          />
+                          <span className={styles.rowTitle}>{collection.name}</span>
+                        </button>
+                        <div className={styles.rowActions}>
+                          <IconButton
+                            title={`New request in ${collection.name}`}
+                            onClick={() => onCreateEndpoint(collection.id)}
+                          >
+                            <Plus size={12} />
+                          </IconButton>
+                          <ActionMenu
+                            label={`${collection.name} options`}
+                            items={[
+                              {
+                                label: "New request",
+                                icon: <Plus size={12} />,
+                                onSelect: () => onCreateEndpoint(collection.id),
+                              },
+                              {
+                                label: "New flow",
+                                icon: <Route size={12} />,
+                                onSelect: () => onCreateFlow(collection.id),
+                              },
+                              {
+                                label: "New folder",
+                                icon: <Plus size={12} />,
+                                disabled: true,
+                                onSelect: () => undefined,
+                              },
+                              {
+                                label: "Rename",
+                                icon: <Settings2 size={12} />,
+                                disabled: true,
+                                onSelect: () => undefined,
+                              },
+                              {
+                                label: "Duplicate",
+                                icon: <Copy size={12} />,
+                                onSelect: () => onCopyCollection(collection),
+                              },
+                              {
+                                label: "Delete",
+                                icon: <Settings2 size={12} />,
+                                disabled: true,
+                                onSelect: () => undefined,
+                              },
+                              {
+                                label: "Export collection",
+                                icon: <Settings2 size={12} />,
+                                onSelect: () => onExportCollection(collection),
+                              },
+                            ]}
+                          />
+                        </div>
+                      </div>
+
+                      <div className={`${styles.collectionChildren} ${isExpanded ? styles.collectionChildrenOpen : ""}`}>
+                        <div className={styles.endpointList}>
+                          <div className={styles.treeGroupLabel}>Requests</div>
+                          {collection.endpoints.map((endpoint) => {
+                            const active = activeCollection && selectedEndpointId === endpoint.id;
+                            return (
+                              <div
+                                key={endpoint.id}
+                                role="button"
+                                tabIndex={0}
+                                draggable
+                                className={`${styles.treeRow} ${styles.endpointRow} ${active ? styles.active : ""}`}
+                                onPointerDown={() => {
+                                  setCurrentRequestDrag(dragPayload(collection, endpoint));
+                                }}
+                                onDragStart={(event) => {
+                                  const requestId = endpoint.request.id || endpoint.id;
+                                  console.log("[DND] dragStart request", requestId, endpoint.name);
+                                  const payload = dragPayload(collection, endpoint);
+                                  setCurrentRequestDrag(payload);
+                                  event.dataTransfer.setData("application/bikapi-request", JSON.stringify(payload));
+                                  event.dataTransfer.setData("application/bikapi-endpoint", JSON.stringify(payload));
+                                  event.dataTransfer.setData("text/plain", requestId);
+                                  event.dataTransfer.effectAllowed = "copy";
+                                }}
+                                onClick={() => handleSelectEndpoint(collection.id, endpoint.id)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    handleSelectEndpoint(collection.id, endpoint.id);
+                                  }
+                                }}
+                                onContextMenu={(event) => {
+                                  event.preventDefault();
+                                  setContextMenu({
+                                    kind: "endpoint",
+                                    collectionId: collection.id,
+                                    endpointId: endpoint.id,
+                                    top: event.clientY,
+                                    left: event.clientX,
+                                  });
+                                }}
+                                title={`${endpoint.name} (right click for history)`}
+                              >
+                                <MethodBadge method={endpoint.request.method} compact className={styles.methodBadge} />
+                                <span className={styles.rowTitle}>{endpoint.name}</span>
+                              </div>
+                            );
+                          })}
+                          {collection.endpoints.length === 0 && <div className={styles.emptyFolder}>No requests</div>}
+                          <div className={styles.treeGroupHeader}>
+                            <span>Flows</span>
+                            <IconButton title={`New flow in ${collection.name}`} onClick={() => onCreateFlow(collection.id)}>
+                              <Plus size={12} />
+                            </IconButton>
                           </div>
-                          <div className={`${styles.collectionBody} ${isExpanded ? styles.collectionBodyExpanded : ""}`}>
-                            <div className={styles.endpointList}>
-                              {collection.endpoints.map((endpoint) => {
-                                const active = activeCollection && selectedEndpointId === endpoint.id;
-                                return (
-                                  <button
-                                    key={endpoint.id}
-                                    type="button"
-                                    className={`${styles.endpoint} ${active ? styles.endpointActive : ""}`}
-                                    onClick={() => handleSelectEndpoint(collection.id, endpoint.id)}
-                                    onContextMenu={(event) => {
-                                      event.preventDefault();
-                                      setContextMenu({
-                                        kind: "endpoint",
-                                        collectionId: collection.id,
-                                        endpointId: endpoint.id,
-                                        top: event.clientY,
-                                        left: event.clientX,
-                                      });
-                                    }}
-                                    title={`${endpoint.name} (right click for history)`}
-                                  >
-                                    <MethodBadge
-                                      method={endpoint.request.method}
-                                      compact
-                                      className={styles.endpointMethodBadge}
-                                    />
-                                    <span>{endpoint.name}</span>
-                                  </button>
-                                );
-                              })}
-                              {collection.endpoints.length === 0 && <div className={styles.emptyFolder}>No requests</div>}
-                            </div>
-                          </div>
-                        </section>
-                      );
-                    })}
-                  </div>
-                </CollectionListCard>
-              )}
+                          {collection.flows.map((flow) => {
+                            const active = activeCollection && selectedFlowId === flow.id;
+                            return (
+                              <button
+                                key={flow.id}
+                                type="button"
+                                className={`${styles.treeRow} ${styles.endpointRow} ${active ? styles.active : ""}`}
+                                onClick={() => handleSelectFlow(collection.id, flow.id)}
+                                title={flow.name}
+                              >
+                                <Route size={12} className={styles.flowIcon} />
+                                <span className={styles.rowTitle}>{flow.name}</span>
+                              </button>
+                            );
+                          })}
+                          {collection.flows.length === 0 && <div className={styles.emptyFolder}>No flows</div>}
+                        </div>
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
 
         <div className={styles.bottomNav}>
           <button type="button" className={styles.bottomNavActive} title="Console">
@@ -462,23 +495,12 @@ function syncLabel(status: SyncCollectionStatus) {
       return "Sync required";
     case "conflict":
       return "Review changes";
+    case "offline":
+      return "Offline";
+    case "not_git":
+      return "Local only";
     case "synced":
     default:
       return "Synced";
-  }
-}
-
-function syncTone(state: SyncCollectionStatus["state"]) {
-  switch (state) {
-    case "local_changes":
-      return "blue";
-    case "remote_updates":
-      return "orange";
-    case "sync_required":
-    case "conflict":
-      return "red";
-    case "synced":
-    default:
-      return "green";
   }
 }

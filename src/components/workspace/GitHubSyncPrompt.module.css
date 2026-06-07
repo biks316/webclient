@@ -1,0 +1,67 @@
+.dialog {
+  width: min(560px, calc(100vw - 28px));
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: #20262f;
+  box-shadow: var(--shadow-hard);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header h2,
+.header p {
+  margin: 0;
+}
+
+.header h2 {
+  font-size: 15px;
+}
+
+.header p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.closeButton {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+}
+
+.options {
+  display: grid;
+  gap: 8px;
+}
+
+.option {
+  min-height: 72px;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 10px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.option span {
+  display: grid;
+  gap: 3px;
+}
+
+.option strong {
+  font-size: 12px;
+}
+
+.option small {
+  color: var(--text-muted);
+  line-height: 1.35;
+}

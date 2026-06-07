@@ -45,7 +45,7 @@ export function Sidebar({
         <div className="sidebar-actions">
           <button type="button" onClick={onOpenWorkspace}>
             <FolderOpen size={16} />
-            Open workspace
+            Open local workspace
           </button>
           <button type="button" onClick={onCreateWorkspace}>
             <Plus size={16} />

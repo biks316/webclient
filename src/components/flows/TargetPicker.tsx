@@ -1,0 +1,92 @@
+import { TargetType, TransformType, targetPathFor, templateFor } from "../../services/mappingSuggestionService";
+import styles from "./FlowBuilder.module.css";
+
+interface TargetPickerProps {
+  targetType: TargetType;
+  targetKey: string;
+  targetPath: string;
+  transformType: TransformType;
+  template: string;
+  onChange: (next: {
+    targetType: TargetType;
+    targetKey: string;
+    targetPath: string;
+    transformType: TransformType;
+    template: string;
+  }) => void;
+}
+
+const TARGET_OPTIONS: Array<{ id: TargetType; label: string; needsKey: boolean }> = [
+  { id: "variable", label: "Variable", needsKey: true },
+  { id: "header", label: "Header", needsKey: true },
+  { id: "body", label: "Body field", needsKey: true },
+  { id: "query", label: "Query param", needsKey: true },
+  { id: "auth", label: "Auth token", needsKey: false },
+  { id: "url", label: "URL path variable", needsKey: false },
+];
+
+export function TargetPicker({
+  targetType,
+  targetKey,
+  transformType,
+  template,
+  onChange,
+}: TargetPickerProps) {
+  const selectedTarget = TARGET_OPTIONS.find((option) => option.id === targetType) ?? TARGET_OPTIONS[0];
+
+  function emit(patch: Partial<Parameters<TargetPickerProps["onChange"]>[0]>) {
+    const nextTargetType = patch.targetType ?? targetType;
+    const nextTargetKey = patch.targetKey ?? targetKey;
+    const nextTransformType = patch.transformType ?? transformType;
+    const nextTemplate =
+      patch.template ?? (patch.transformType ? templateFor(patch.transformType) : template);
+    onChange({
+      targetType: nextTargetType,
+      targetKey: nextTargetKey,
+      targetPath: targetPathFor(nextTargetType, nextTargetKey),
+      transformType: nextTransformType,
+      template: nextTemplate,
+    });
+  }
+
+  return (
+    <div className={styles.targetPicker}>
+      <span>Target</span>
+      <div className={styles.targetOptions}>
+        {TARGET_OPTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            className={targetType === option.id ? styles.targetOptionActive : ""}
+            onClick={() => emit({ targetType: option.id })}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {selectedTarget.needsKey && (
+        <label>
+          <span>Target key</span>
+          <input value={targetKey} onChange={(event) => emit({ targetKey: event.currentTarget.value })} />
+        </label>
+      )}
+      <label>
+        <span>Transform</span>
+        <select
+          value={transformType}
+          onChange={(event) => emit({ transformType: event.currentTarget.value as TransformType })}
+        >
+          <option value="raw">Raw value</option>
+          <option value="bearer">Bearer token</option>
+          <option value="template">Template</option>
+        </select>
+      </label>
+      {transformType === "template" && (
+        <label>
+          <span>Template</span>
+          <input value={template} onChange={(event) => emit({ template: event.currentTarget.value })} />
+        </label>
+      )}
+    </div>
+  );
+}

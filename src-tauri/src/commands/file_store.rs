@@ -57,6 +57,7 @@ pub struct SaveExamplePayload {
 pub struct Scripts {
     pub pre: String,
     pub post: String,
+    pub helpers: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -83,6 +84,24 @@ pub struct AppState {
     pub collection_id: Option<String>,
     pub endpoint_id: Option<String>,
     pub panel_visibility: PanelVisibility,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentWorkspace {
+    pub name: String,
+    pub path: String,
+    pub last_opened_at: String,
+    pub sync_type: String,
+    pub remote_url: Option<String>,
+    #[serde(default, skip_serializing)]
+    pub missing: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentWorkspaceList {
+    pub recent_workspaces: Vec<RecentWorkspace>,
 }
 
 #[tauri::command]
@@ -116,6 +135,47 @@ pub fn save_app_state(payload: AppState) -> CommandResult<()> {
 }
 
 #[tauri::command]
+pub fn read_recent_workspaces() -> CommandResult<RecentWorkspaceList> {
+    let path = recent_workspaces_path()?;
+    if !path.exists() {
+        return Ok(RecentWorkspaceList {
+            recent_workspaces: Vec::new(),
+        });
+    }
+
+    let value = read_json(&path)?;
+    let mut list: RecentWorkspaceList = serde_json::from_value(value).map_err(|error| error.to_string())?;
+    for workspace in &mut list.recent_workspaces {
+        workspace.missing = !PathBuf::from(&workspace.path).exists();
+    }
+    Ok(list)
+}
+
+#[tauri::command]
+pub fn save_recent_workspaces(payload: RecentWorkspaceList) -> CommandResult<()> {
+    let path = recent_workspaces_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    let recent_workspaces = payload
+        .recent_workspaces
+        .into_iter()
+        .map(|mut workspace| {
+            workspace.missing = false;
+            workspace
+        })
+        .collect::<Vec<_>>();
+
+    write_json(
+        &path,
+        &json!({
+            "recentWorkspaces": recent_workspaces
+        }),
+    )
+}
+
+#[tauri::command]
 pub fn read_scripts(payload: EndpointPayload) -> CommandResult<Scripts> {
     let dir = endpoint_dir(
         &PathBuf::from(payload.workspace_path),
@@ -125,6 +185,7 @@ pub fn read_scripts(payload: EndpointPayload) -> CommandResult<Scripts> {
     Ok(Scripts {
         pre: read_optional_text(&dir.join("pre.js"))?,
         post: read_optional_text(&dir.join("post.js"))?,
+        helpers: read_optional_text(&dir.join("helpers.js"))?,
     })
 }
 
@@ -133,7 +194,8 @@ pub fn save_script(payload: SaveScriptPayload) -> CommandResult<()> {
     let file_name = match payload.script_name.as_str() {
         "pre" => "pre.js",
         "post" => "post.js",
-        _ => return Err("scriptName must be pre or post".to_string()),
+        "helpers" => "helpers.js",
+        _ => return Err("scriptName must be pre, post, or helpers".to_string()),
     };
     let dir = endpoint_dir(
         &PathBuf::from(payload.workspace_path),
@@ -241,4 +303,29 @@ fn app_state_path() -> CommandResult<PathBuf> {
         .or_else(|| std::env::var_os("USERPROFILE"))
         .ok_or_else(|| "Could not resolve a home directory for app state.".to_string())?;
     Ok(PathBuf::from(home).join(".bikapi").join("app-state.json"))
+}
+
+fn recent_workspaces_path() -> CommandResult<PathBuf> {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .ok_or_else(|| "Could not resolve a home directory for recent workspaces.".to_string())?;
+    let home = PathBuf::from(home);
+
+    let config_dir = if cfg!(target_os = "macos") {
+        home.join("Library")
+            .join("Application Support")
+            .join("BikAPI")
+    } else if cfg!(target_os = "windows") {
+        std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData").join("Roaming"))
+            .join("BikAPI")
+    } else {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(".config"))
+            .join("BikAPI")
+    };
+
+    Ok(config_dir.join("recent-workspaces.bik"))
 }

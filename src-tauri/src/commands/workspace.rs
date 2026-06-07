@@ -72,12 +72,109 @@ pub struct EndpointIndex {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct FlowPosition {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowNode {
+    pub id: String,
+    #[serde(default = "default_request_node_type")]
+    #[serde(rename = "type")]
+    pub kind: String,
+    #[serde(default)]
+    pub request_path: String,
+    pub request_id: String,
+    #[serde(default)]
+    pub name: String,
+    pub position: FlowPosition,
+    #[serde(default)]
+    pub last_run: Option<Value>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowMapping {
+    #[serde(default)]
+    pub source: String,
+    #[serde(default)]
+    pub target: String,
+    #[serde(default)]
+    pub transform: String,
+    #[serde(default)]
+    pub source_path: String,
+    #[serde(default)]
+    pub source_label: String,
+    #[serde(default)]
+    pub target_type: String,
+    #[serde(default)]
+    pub target_key: String,
+    #[serde(default)]
+    pub target_path: String,
+    #[serde(default)]
+    pub target_variable: String,
+    #[serde(default)]
+    pub transform_type: String,
+    #[serde(default)]
+    pub template: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowEdge {
+    pub id: String,
+    #[serde(default)]
+    pub source: String,
+    #[serde(default)]
+    pub target: String,
+    #[serde(default)]
+    pub from: String,
+    #[serde(default)]
+    pub to: String,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub mappings: Vec<FlowMapping>,
+}
+
+fn default_request_node_type() -> String {
+    "request".to_string()
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowDefinition {
+    pub bik_version: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub nodes: Vec<FlowNode>,
+    #[serde(default)]
+    pub edges: Vec<FlowEdge>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowIndex {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub flow: FlowDefinition,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CollectionIndex {
     pub id: String,
     pub name: String,
     pub path: String,
     pub variables: HashMap<String, String>,
     pub endpoints: Vec<EndpointIndex>,
+    pub flows: Vec<FlowIndex>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -101,6 +198,29 @@ pub struct SaveRequestPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FlowPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    pub flow_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveFlowPayload {
+    pub workspace_path: String,
+    pub collection_id: String,
+    pub flow: FlowDefinition,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateWorkspaceInDirectoryPayload {
+    pub parent_path: String,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SaveVariablesPayload {
     pub workspace_path: String,
     #[serde(default)]
@@ -112,7 +232,23 @@ pub struct SaveVariablesPayload {
 
 #[tauri::command]
 pub fn create_workspace(path: String, name: Option<String>) -> CommandResult<WorkspaceIndex> {
-    let root = PathBuf::from(path);
+    create_workspace_at_path(PathBuf::from(path), name)
+}
+
+#[tauri::command]
+pub fn create_workspace_in_directory(
+    payload: CreateWorkspaceInDirectoryPayload,
+) -> CommandResult<WorkspaceIndex> {
+    let name = payload.name.trim();
+    if name.is_empty() {
+        return Err("Workspace name is required.".to_string());
+    }
+
+    let root = PathBuf::from(payload.parent_path).join(name);
+    create_workspace_at_path(root, Some(name.to_string()))
+}
+
+fn create_workspace_at_path(root: PathBuf, name: Option<String>) -> CommandResult<WorkspaceIndex> {
     ensure_dir(&root)?;
     ensure_dir(&root.join("environments"))?;
     ensure_dir(&root.join("collections"))?;
@@ -161,6 +297,7 @@ pub fn create_collection(workspace_path: String, name: String) -> CommandResult<
     let collection_dir = root.join("collections").join(&collection_id);
     ensure_dir(&collection_dir)?;
     ensure_dir(&collection_dir.join("endpoints"))?;
+    ensure_dir(&collection_dir.join("flows"))?;
 
     write_json(
         &collection_dir.join("collection.bik"),
@@ -232,7 +369,38 @@ pub fn create_endpoint(
     write_json(&endpoint_dir.join("request.bik"), &request)?;
     fs::write(endpoint_dir.join("pre.js"), "").map_err(|error| error.to_string())?;
     fs::write(endpoint_dir.join("post.js"), "").map_err(|error| error.to_string())?;
+    fs::write(endpoint_dir.join("helpers.js"), "").map_err(|error| error.to_string())?;
 
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn create_flow(
+    workspace_path: String,
+    collection_id: String,
+    name: String,
+) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(workspace_path);
+    let flows_dir = root
+        .join("collections")
+        .join(&collection_id)
+        .join("flows");
+    ensure_dir(&flows_dir)?;
+
+    let flow_id = unique_child_id(&flows_dir, &slugify(&name));
+    let flow_dir = flows_dir.join(&flow_id);
+    ensure_dir(&flow_dir)?;
+
+    let flow = FlowDefinition {
+        bik_version: BIK_VERSION.to_string(),
+        kind: "flow".to_string(),
+        id: flow_id,
+        name,
+        nodes: Vec::new(),
+        edges: Vec::new(),
+    };
+
+    write_json(&flow_dir.join("flow.bik"), &flow)?;
     scan_workspace(&root)
 }
 
@@ -257,6 +425,31 @@ pub fn save_request(payload: SaveRequestPayload) -> CommandResult<WorkspaceIndex
     }
 
     write_json(&request_path, &payload.request)?;
+    scan_workspace(&root)
+}
+
+#[tauri::command]
+pub fn read_flow(payload: FlowPayload) -> CommandResult<FlowDefinition> {
+    let root = PathBuf::from(payload.workspace_path);
+    let flow_path = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("flows")
+        .join(&payload.flow_id)
+        .join("flow.bik");
+    read_flow_definition(&flow_path)
+}
+
+#[tauri::command]
+pub fn save_flow(payload: SaveFlowPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let flow_dir = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("flows")
+        .join(&payload.flow.id);
+    ensure_dir(&flow_dir)?;
+    write_json(&flow_dir.join("flow.bik"), &payload.flow)?;
     scan_workspace(&root)
 }
 
@@ -411,12 +604,14 @@ fn scan_collections(path: &Path) -> CommandResult<Vec<CollectionIndex>> {
 
         let collection = read_variable_file(&collection_file)?;
         let endpoints = scan_endpoints(&collection_dir.join("endpoints"))?;
+        let flows = scan_flows(&collection_dir.join("flows"))?;
         collections.push(CollectionIndex {
             id: collection.id,
             name: collection.name,
             path: collection_dir.to_string_lossy().to_string(),
             variables: collection.variables,
             endpoints,
+            flows,
         });
     }
     collections.sort_by(|left, right| left.name.cmp(&right.name));
@@ -455,6 +650,37 @@ fn scan_endpoints(path: &Path) -> CommandResult<Vec<EndpointIndex>> {
     }
     endpoints.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(endpoints)
+}
+
+fn scan_flows(path: &Path) -> CommandResult<Vec<FlowIndex>> {
+    let mut flows = Vec::new();
+    if !path.exists() {
+        return Ok(flows);
+    }
+
+    for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let flow_path = entry.path();
+        if !flow_path.is_dir() {
+            continue;
+        }
+
+        let flow_file = flow_path.join("flow.bik");
+        if !flow_file.exists() {
+            continue;
+        }
+
+        let flow = read_flow_definition(&flow_file)?;
+        flows.push(FlowIndex {
+            id: flow.id.clone(),
+            name: flow.name.clone(),
+            path: flow_path.to_string_lossy().to_string(),
+            flow,
+        });
+    }
+
+    flows.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(flows)
 }
 
 fn scan_named_entries(path: &Path) -> CommandResult<Vec<HistoryEntry>> {
@@ -507,6 +733,11 @@ fn read_variable_file(path: &Path) -> CommandResult<VariableFile> {
 pub fn read_request(path: &Path) -> CommandResult<BikRequest> {
     let value = read_json(path)?;
     serde_json::from_value(value).map_err(|error| format!("Invalid request file: {error}"))
+}
+
+fn read_flow_definition(path: &Path) -> CommandResult<FlowDefinition> {
+    let value = read_json(path)?;
+    serde_json::from_value(value).map_err(|error| format!("Invalid flow file: {error}"))
 }
 
 fn file_modified_at(path: &Path) -> CommandResult<String> {

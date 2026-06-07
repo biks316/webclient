@@ -175,7 +175,21 @@ export function RequestEditor({
       case "headers":
         return <HeadersEditor values={currentRequest.headers} onChange={(headers) => update({ headers })} />;
       case "scripts":
-        return <ScriptsEditor scripts={scripts} onChange={onScriptsChange} onSave={onSaveScripts} />;
+        return (
+          <ScriptsEditor
+            scripts={scripts}
+            request={currentRequest}
+            response={response}
+            variables={{
+              ...globalVariables,
+              ...collectionVariables,
+              ...(selectedEnvironment?.variables ?? {}),
+              ...currentRequest.variables,
+            }}
+            onChange={onScriptsChange}
+            onSave={onSaveScripts}
+          />
+        );
       case "docs":
         return (
           <EmptyState

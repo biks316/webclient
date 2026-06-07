@@ -1,17 +1,24 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { Braces, FlaskConical, Plus, SquareCode } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CollectionPanel, CollectionPanelTab } from "./components/CollectionPanel";
-import { EmptyState } from "./components/common/EmptyState";
 import { AppShell } from "./components/layout/AppShell";
+import { FlowBuilder } from "./components/flows/FlowBuilder";
 import { AppToolbar } from "./components/layout/AppToolbar";
 import { BottomConsole, BottomDockTab, ConsoleEntry } from "./components/layout/BottomConsole";
 import { CommandPalette, CommandPaletteCommand } from "./components/layout/CommandPalette";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopTabs } from "./components/layout/TopTabs";
+import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
 import { RequestEditor } from "./components/request/RequestEditor";
-import { ResponseViewer } from "./components/response/ResponseViewer";
 import { RightTimelinePanel } from "./components/layout/RightTimelinePanel";
+import { GitHubSyncPrompt } from "./components/workspace/GitHubSyncPrompt";
+import { WorkspaceSwitcher } from "./components/workspace/WorkspaceSwitcher";
+import {
+  loadRecentWorkspaces,
+  rememberWorkspace,
+  removeRecentWorkspace,
+} from "./services/recentWorkspaceService";
+import { runRequestScript } from "./services/scriptRunner";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
 import { cloneJson, findCollection, findEndpoint, firstCollection } from "./services/workspaceService";
@@ -20,6 +27,8 @@ import {
   CollectionAutomation,
   CollectionIndex,
   DiffRow,
+  FlowDefinition,
+  RecentWorkspace,
   RunResponse,
   Scripts,
   SyncStatusResult,
@@ -27,7 +36,7 @@ import {
 } from "./types/bik";
 
 const EMPTY_COLLECTION_AUTOMATION: CollectionAutomation = { pre: "", post: "", test: "", assert: "" };
-const EMPTY_SCRIPTS: Scripts = { pre: "", post: "" };
+const EMPTY_SCRIPTS: Scripts = { pre: "", post: "", helpers: "" };
 const REQUEST_VERSION = "1.0";
 const DEFAULT_REQUEST_URL = "https://example.com/";
 const DEFAULT_SIDEBAR_WIDTH = 260;
@@ -36,12 +45,6 @@ const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 280;
 const SYNC_PREFS_KEY = "bikapi:sync-preferences";
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-const COLLECTION_TABS: Array<{ id: CollectionPanelTab; label: string; icon: typeof Braces }> = [
-  { id: "variables", label: "Variables", icon: Braces },
-  { id: "scripts", label: "Scripts", icon: SquareCode },
-  { id: "tests", label: "Tests", icon: FlaskConical },
-];
-
 interface TextPromptState {
   title: string;
   label: string;
@@ -88,6 +91,22 @@ interface ToastMessage {
 type RequestEditorTab = "params" | "auth" | "headers" | "body" | "scripts" | "docs" | "tests";
 type ResponseTab = "response" | "headers" | "timeline" | "tests";
 type HiddenPanel = "sidebar" | "timeline" | "console";
+type WorkspaceViewState = "NO_WORKSPACE" | "WORKSPACE_LOADING" | "WORKSPACE_READY" | "WORKSPACE_ERROR";
+
+interface NewWorkspaceFormState {
+  name: string;
+  parentPath: string;
+  initializeGit: boolean;
+  remoteUrl: string;
+  error: string | null;
+}
+
+interface CloneWorkspaceFormState {
+  repoUrl: string;
+  parentPath: string;
+  directoryName: string;
+  error: string | null;
+}
 
 function loadSyncPreferences(): SyncPreferences {
   try {
@@ -109,11 +128,14 @@ function loadSyncPreferences(): SyncPreferences {
 
 export default function App() {
   const [workspace, setWorkspace] = useState<WorkspaceIndex | null>(null);
+  const [workspaceState, setWorkspaceState] = useState<WorkspaceViewState>("NO_WORKSPACE");
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
+  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
-  const [activeCollectionTab, setActiveCollectionTab] = useState<CollectionPanelTab>("variables");
   const [draftRequest, setDraftRequest] = useState<BikRequest | null>(null);
+  const [draftFlow, setDraftFlow] = useState<FlowDefinition | null>(null);
   const [collectionAutomation, setCollectionAutomation] =
     useState<CollectionAutomation>(EMPTY_COLLECTION_AUTOMATION);
   const [endpointScripts, setEndpointScripts] = useState<Scripts>(EMPTY_SCRIPTS);
@@ -126,6 +148,10 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [textPrompt, setTextPrompt] = useState<TextPromptState | null>(null);
   const [endpointPrompt, setEndpointPrompt] = useState<EndpointPromptState | null>(null);
+  const [newWorkspaceForm, setNewWorkspaceForm] = useState<NewWorkspaceFormState | null>(null);
+  const [cloneWorkspaceForm, setCloneWorkspaceForm] = useState<CloneWorkspaceFormState | null>(null);
+  const [githubSyncPromptOpen, setGithubSyncPromptOpen] = useState(false);
+  const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspace[]>([]);
   const [openTabs, setOpenTabs] = useState<OpenEndpointTab[]>([]);
   const [activeRequestTab, setActiveRequestTab] = useState<RequestEditorTab>("body");
   const [activeResponseTab, setActiveResponseTab] = useState<ResponseTab>("response");
@@ -147,6 +173,8 @@ export default function App() {
   const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const startupSyncWorkspaceRef = useRef<string | null>(null);
+  const lastSavedFlowDraftRef = useRef<string | null>(null);
+  const hasWorkspace = Boolean(workspace?.path);
 
   const selectedCollection = useMemo(
     () => findCollection(workspace, selectedCollectionId),
@@ -155,6 +183,10 @@ export default function App() {
   const selectedEndpoint = useMemo(
     () => findEndpoint(workspace, selectedCollectionId, selectedEndpointId),
     [workspace, selectedCollectionId, selectedEndpointId],
+  );
+  const selectedFlow = useMemo(
+    () => selectedCollection?.flows.find((flow) => flow.id === selectedFlowId) ?? null,
+    [selectedCollection, selectedFlowId],
   );
   const selectedEnvironment = useMemo(
     () =>
@@ -205,8 +237,13 @@ export default function App() {
   );
 
   useEffect(() => {
+    void loadRecentWorkspaces().then(setRecentWorkspaces);
+  }, []);
+
+  useEffect(() => {
     const restoredSession = loadWorkspaceSession();
     if (!restoredSession) {
+      setWorkspaceState("NO_WORKSPACE");
       return;
     }
     const session = restoredSession;
@@ -214,23 +251,23 @@ export default function App() {
     let cancelled = false;
 
     async function restoreWorkspace() {
+      setWorkspaceState("WORKSPACE_LOADING");
+      setWorkspaceError(null);
       setIsBusy(true);
       setStatus("Opening last workspace...");
       try {
         const next = await api.openWorkspace(session.workspacePath);
         if (!cancelled) {
-          const prepared = await prepareWorkspaceWithGit(next, session.repoUrl);
-          if (!prepared) {
-            setStatus("Git repository setup is required to open this workspace.");
-            return;
-          }
-          applyWorkspace(prepared, session.collectionId, session.endpointId);
+          await openWorkspaceFromIndex(next, session.collectionId, session.endpointId);
           setStatus("Ready");
         }
       } catch (error) {
         if (!cancelled) {
           saveWorkspaceSession(null);
-          setStatus(`Last workspace unavailable: ${String(error)}`);
+          const message = `Last workspace unavailable: ${String(error)}`;
+          setWorkspaceError(message);
+          setWorkspaceState("WORKSPACE_ERROR");
+          setStatus(message);
         }
       } finally {
         if (!cancelled) {
@@ -292,6 +329,34 @@ export default function App() {
   }, [selectedEndpoint?.path]);
 
   useEffect(() => {
+    const nextDraft = selectedFlow ? cloneJson(selectedFlow.flow) : null;
+    setDraftFlow(nextDraft);
+    lastSavedFlowDraftRef.current = nextDraft ? JSON.stringify(nextDraft) : null;
+    if (selectedFlow) {
+      setResponse(null);
+      setResponseError(null);
+      setActiveBottomTab("console");
+    }
+  }, [selectedFlow?.path]);
+
+  useEffect(() => {
+    if (!workspace || !selectedCollectionId || !selectedFlowId || !draftFlow) {
+      return;
+    }
+
+    const serialized = JSON.stringify(draftFlow);
+    if (serialized === lastSavedFlowDraftRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void saveFlowDraftSilently(selectedCollectionId, draftFlow);
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [workspace?.path, selectedCollectionId, selectedFlowId, draftFlow]);
+
+  useEffect(() => {
     if (!workspace || !selectedCollectionId) {
       setCollectionAutomation(EMPTY_COLLECTION_AUTOMATION);
       return;
@@ -304,13 +369,13 @@ export default function App() {
   }, [workspace?.path, selectedCollectionId]);
 
   useEffect(() => {
-    if (!workspace || !repoUrl.trim()) {
+    if (!workspace) {
       setSyncStatus(null);
       return;
     }
 
     void refreshSyncStatus(true);
-  }, [workspace?.path, repoUrl]);
+  }, [workspace?.path]);
 
   useEffect(() => {
     if (!workspace || !syncPreferences.every30Seconds) {
@@ -334,7 +399,7 @@ export default function App() {
     }
 
     startupSyncWorkspaceRef.current = workspace.path;
-    if (syncStatus.state !== "synced") {
+    if (syncStatus.state === "local_changes" || syncStatus.state === "remote_updates") {
       void performSync(false);
     }
   }, [workspace?.path, syncPreferences.onStartup, syncStatus?.checkedAt]);
@@ -412,6 +477,12 @@ export default function App() {
     ]);
   }
 
+  function appendScriptConsole(message: string, level: "log" | "info" | "warn" | "error") {
+    const tone: ConsoleEntry["tone"] =
+      level === "error" ? "error" : level === "warn" ? "warning" : "info";
+    appendConsole(`[script] ${message}`, tone);
+  }
+
   function pushToast(title: string, tone: ToastMessage["tone"] = "success") {
     setToasts((current) => [{ id: `${Date.now()}-${current.length}`, title, tone }, ...current].slice(0, 3));
   }
@@ -421,12 +492,14 @@ export default function App() {
       return null;
     }
 
+    return refreshSyncStatusForPath(workspace.path, silent);
+  }
+
+  async function refreshSyncStatusForPath(workspacePath: string, silent = false) {
     try {
-      const next = await api.getSyncStatus(workspace.path);
+      const next = await api.getSyncStatus(workspacePath);
       setSyncStatus(next);
-      if (next.repoUrl) {
-        setRepoUrl(next.repoUrl);
-      }
+      setRepoUrl(next.repoUrl ?? "");
       if (!silent) {
         setStatus(syncHeadline(next));
       }
@@ -467,13 +540,17 @@ export default function App() {
   function syncHeadline(value: SyncStatusResult) {
     switch (value.state) {
       case "remote_updates":
-        return `${value.remoteChanges} updates available`;
+        return "Updates available";
       case "local_changes":
-        return `${value.localChanges} local changes`;
+        return "Local changes";
       case "sync_required":
         return "Sync required";
       case "conflict":
-        return "Review changes";
+        return "Conflict";
+      case "offline":
+        return "Offline";
+      case "not_git":
+        return "Local only";
       case "synced":
       default:
         return "Up to date";
@@ -514,7 +591,7 @@ export default function App() {
       }
     } catch {
       const fallback = await requestTextPrompt({
-        title: "Open Workspace",
+        title: "Open local workspace",
         label: "Workspace folder path",
         confirmText: "Open",
       });
@@ -523,57 +600,33 @@ export default function App() {
     return null;
   }
 
-  async function requestRepoUrl(requiredForPath: string, defaultValue?: string | null): Promise<string | null> {
-    const value = (
-      await requestTextPrompt({
-        title: "Connect Git Repository",
-        label: `Repository URL for ${requiredForPath}`,
-        defaultValue: (defaultValue ?? repoUrl.trim()) || "https://github.com/org/repo.git",
-        confirmText: "Pull Latest",
-      })
-    )?.trim();
-
-    return value || null;
+  function joinPath(parentPath: string, childName: string) {
+    const trimmedParent = parentPath.replace(/[\\/]+$/, "");
+    if (!trimmedParent) {
+      return childName;
+    }
+    const separator = trimmedParent.includes("\\") && !trimmedParent.includes("/") ? "\\" : "/";
+    return `${trimmedParent}${separator}${childName}`;
   }
 
-  async function prepareWorkspaceWithGit(
+  function repoFolderName(url: string) {
+    const cleaned = url.trim().replace(/\/+$/, "");
+    const segment = cleaned.split("/").pop()?.replace(/\.git$/i, "") ?? "";
+    return segment.trim() || "bikapi-workspace";
+  }
+
+  async function openWorkspaceFromIndex(
     next: WorkspaceIndex,
-    initialRepoUrl?: string | null,
-  ): Promise<WorkspaceIndex | null> {
-    const discoveredRemoteUrl = await api.getGitRemoteUrl(next.path).catch(() => null);
-    const configuredRepoUrl =
-      initialRepoUrl?.trim() ||
-      discoveredRemoteUrl?.trim() ||
-      (workspace?.path === next.path ? repoUrl.trim() : "");
-
-    const resolvedRepoUrl = configuredRepoUrl || (await requestRepoUrl(next.path, configuredRepoUrl));
-    if (!resolvedRepoUrl) {
-      return null;
-    }
-
-    setRepoUrl(resolvedRepoUrl);
-
-    const syncResult = await runAction("Pulling latest workspace from git...", () =>
-      (async () => {
-        setIsSyncing(true);
-        try {
-          return await api.runGitAction(next.path, resolvedRepoUrl, "pull");
-        } finally {
-          setIsSyncing(false);
-        }
-      })(),
-    );
-    if (!syncResult) {
-      return null;
-    }
-
-    appendConsole(`Connected ${resolvedRepoUrl} on ${syncResult.branch}.`, "success");
-    if (syncResult.output.trim()) {
-      appendConsole(syncResult.output, "info");
-    }
-    setLastSyncedAt(new Date().toISOString());
-
-    return runAction("Refreshing workspace after pull...", () => api.openWorkspace(next.path));
+    preferredCollectionId: string | null = null,
+    preferredEndpointId: string | null = null,
+  ) {
+    applyWorkspace(next, preferredCollectionId, preferredEndpointId);
+    setWorkspaceState("WORKSPACE_READY");
+    setWorkspaceError(null);
+    const remoteUrl = await api.getGitRemoteUrl(next.path).catch(() => null);
+    setRepoUrl(remoteUrl ?? "");
+    setRecentWorkspaces(await rememberWorkspace(next, remoteUrl));
+    void refreshSyncStatusForPath(next.path, true);
   }
 
   function applyWorkspace(
@@ -586,13 +639,44 @@ export default function App() {
     const nextEndpoint = findEndpoint(next, nextCollection?.id ?? null, preferredEndpointId);
     setSelectedCollectionId(nextCollection?.id ?? null);
     setSelectedEndpointId(nextEndpoint?.id ?? null);
-    setActiveCollectionTab("variables");
+    setSelectedFlowId(null);
     setSelectedEnvironmentId((currentEnvironmentId) =>
       currentEnvironmentId &&
       next.environments.some((environment) => environment.id === currentEnvironmentId)
         ? currentEnvironmentId
         : null,
     );
+  }
+
+  async function saveFlowDraftSilently(collectionId: string, flow: FlowDefinition) {
+    if (!workspace) {
+      return false;
+    }
+
+    const serialized = JSON.stringify(flow);
+    if (serialized === lastSavedFlowDraftRef.current) {
+      return true;
+    }
+
+    try {
+      const next = await api.saveFlow(workspace.path, collectionId, flow);
+      lastSavedFlowDraftRef.current = serialized;
+      setWorkspace((current) => (current?.path === next.path ? next : current));
+      return true;
+    } catch (error) {
+      const message = `Flow autosave failed: ${String(error)}`;
+      setStatus(message);
+      appendConsole(message, "error");
+      return false;
+    }
+  }
+
+  function persistCurrentFlowDraft() {
+    if (!selectedCollectionId || !selectedFlowId || !draftFlow) {
+      return;
+    }
+
+    void saveFlowDraftSilently(selectedCollectionId, draftFlow);
   }
 
   async function runAction<T>(message: string, action: () => Promise<T>): Promise<T | null> {
@@ -660,18 +744,25 @@ export default function App() {
   }
 
   function selectEndpointTab(collectionId: string, endpointId: string) {
+    persistCurrentFlowDraft();
     setSelectedCollectionId(collectionId);
     setSelectedEndpointId(endpointId);
+    setSelectedFlowId(null);
   }
 
   function selectCollection(collectionId: string) {
+    persistCurrentFlowDraft();
     setSelectedCollectionId(collectionId);
     setSelectedEndpointId(null);
+    setSelectedFlowId(null);
   }
 
-  function selectCollectionTab(tab: CollectionPanelTab) {
+  function selectFlow(collectionId: string, flowId: string) {
+    persistCurrentFlowDraft();
+    setSelectedCollectionId(collectionId);
     setSelectedEndpointId(null);
-    setActiveCollectionTab(tab);
+    setSelectedFlowId(flowId);
+    setActiveRequestTab("body");
   }
 
   function closeEndpointTab(collectionId: string, endpointId: string) {
@@ -692,6 +783,7 @@ export default function App() {
       selectEndpointTab(fallback.collectionId, fallback.endpointId);
     } else {
       setSelectedEndpointId(null);
+      setSelectedFlowId(null);
     }
   }
 
@@ -736,11 +828,16 @@ export default function App() {
   }
 
   function clearWorkspaceViewForSwitch() {
+    saveWorkspaceSession(null);
     setWorkspace(null);
+    setWorkspaceState("NO_WORKSPACE");
+    setWorkspaceError(null);
     setSelectedCollectionId(null);
     setSelectedEndpointId(null);
+    setSelectedFlowId(null);
     setSelectedEnvironmentId(null);
     setDraftRequest(null);
+    setDraftFlow(null);
     setCollectionAutomation(EMPTY_COLLECTION_AUTOMATION);
     setEndpointScripts(EMPTY_SCRIPTS);
     setResponse(null);
@@ -751,8 +848,8 @@ export default function App() {
     setSyncStatus(null);
     setRepoUrl("");
     setLastSyncedAt(null);
+    startupSyncWorkspaceRef.current = null;
     setReviewSyncOpen(false);
-    setActiveCollectionTab("variables");
     setActiveRequestTab("body");
     setActiveResponseTab("response");
     setActiveBottomTab("response");
@@ -805,16 +902,30 @@ export default function App() {
       return;
     }
 
-    const target = repoUrl.trim();
-    if (!target) {
-      const message = "Connect a repository before syncing.";
+    const nextStatus = (await refreshSyncStatus(true)) ?? syncStatus;
+    if (!nextStatus) {
+      return;
+    }
+
+    if (nextStatus.state === "not_git") {
+      const message = "This workspace is local only.";
+      setStatus(message);
+      appendConsole(message, "info");
+      pushToast(message, "info");
+      return;
+    }
+
+    if (nextStatus.state === "offline") {
+      const message = "You appear to be offline.";
       setStatus(message);
       appendConsole(message, "warning");
       return;
     }
 
-    const nextStatus = (await refreshSyncStatus(true)) ?? syncStatus;
-    if (!nextStatus) {
+    if (nextStatus.state === "synced") {
+      const message = "Up to date";
+      setStatus(message);
+      appendConsole("No updates found.", "info");
       return;
     }
 
@@ -823,8 +934,11 @@ export default function App() {
       return;
     }
 
-    const gitStatus = await runAction("Checking workspace changes...", () => api.getGitStatus(workspace.path));
-    if (!gitStatus) {
+    const target = nextStatus.repoUrl?.trim() || repoUrl.trim();
+    if (!target) {
+      const message = "This workspace is local only.";
+      setStatus(message);
+      appendConsole(message, "info");
       return;
     }
 
@@ -836,7 +950,7 @@ export default function App() {
     }
 
     let changeSummary: string | undefined;
-    if (gitStatus.dirty && (action === "push" || action === "sync")) {
+    if (nextStatus.localChanges > 0 && (action === "push" || action === "sync")) {
       changeSummary = await requestChangeSummary(action === "push" ? "upload" : "sync") ?? undefined;
       if (!changeSummary) {
         return;
@@ -867,10 +981,10 @@ export default function App() {
     setReviewSyncOpen(false);
     const successMessage =
       action === "pull"
-        ? "Workspace updated"
+        ? "Download complete"
         : action === "push"
-          ? "Workspace synchronized"
-          : "Changes combined and synchronized";
+          ? "Upload complete"
+          : "Sync complete";
     setStatus(successMessage);
     appendConsole(successMessage, "success");
     if (result.output.trim()) {
@@ -906,7 +1020,7 @@ export default function App() {
     () => [
       {
         id: "open-workspace",
-        label: "Open Workspace",
+        label: "Open Local Workspace",
         shortcut: "Ctrl/Cmd+O",
         run: () => void handleOpenWorkspace(),
       },
@@ -1131,46 +1245,177 @@ export default function App() {
     if (!path) {
       return;
     }
+
     clearWorkspaceViewForSwitch();
-    let next = await runAction("Opening workspace...", () => api.openWorkspace(path));
-    if (!next) {
-      next = await runAction("Initializing workspace...", () => api.createWorkspace(path));
-    }
+    setWorkspaceState("WORKSPACE_LOADING");
+    const next = await runAction("Opening workspace...", () => api.openWorkspace(path));
     if (next) {
-      const prepared = await prepareWorkspaceWithGit(next);
-      if (prepared) {
-        applyWorkspace(prepared, null, null);
-      } else {
-        setStatus("A repository is only needed the first time this workspace is connected.");
-      }
+      await openWorkspaceFromIndex(next);
+      return;
     }
+
+    setWorkspaceError(`Could not open workspace at ${path}.`);
+    setWorkspaceState("WORKSPACE_ERROR");
   }
 
-  async function handleCreateWorkspace() {
-    const path = await chooseFolder();
-    if (!path) {
-      return;
-    }
-    const name = await requestTextPrompt({
-      title: "New Workspace",
-      label: "Workspace name",
-      defaultValue: "BikAPI Workspace",
+  function handleCreateWorkspace(initializeGit = false) {
+    setNewWorkspaceForm({
+      name: "BikAPI Workspace",
+      parentPath: "",
+      initializeGit,
+      remoteUrl: "",
+      error: null,
     });
-    if (name === null) {
+  }
+
+  function handleContinueWithGitHubSync() {
+    setGithubSyncPromptOpen(true);
+  }
+
+  function handleCloneFromGitHub() {
+    setGithubSyncPromptOpen(false);
+    handleCloneWorkspace();
+  }
+
+  function handleCreateGitHubSyncedWorkspace() {
+    setGithubSyncPromptOpen(false);
+    handleCreateWorkspace(true);
+  }
+
+  async function handleOpenRecentWorkspace(recentWorkspace: RecentWorkspace) {
+    if (recentWorkspace.missing) {
       return;
     }
+
     clearWorkspaceViewForSwitch();
-    const next = await runAction("Creating workspace...", () =>
-      api.createWorkspace(path, name.trim() || undefined),
-    );
+    setWorkspaceState("WORKSPACE_LOADING");
+    const next = await runAction("Opening workspace...", () => api.openWorkspace(recentWorkspace.path));
     if (next) {
-      const prepared = await prepareWorkspaceWithGit(next);
-      if (prepared) {
-        applyWorkspace(prepared, null, null);
-      } else {
-        setStatus("Connect a repository once to finish workspace setup.");
+      await openWorkspaceFromIndex(next, null, null);
+      setStatus("Workspace ready.");
+      return;
+    }
+
+    setWorkspaceError(`Could not open workspace at ${recentWorkspace.path}.`);
+    setWorkspaceState("WORKSPACE_ERROR");
+    setRecentWorkspaces(await loadRecentWorkspaces());
+  }
+
+  async function handleRemoveRecentWorkspace(path: string) {
+    setRecentWorkspaces(await removeRecentWorkspace(path));
+  }
+
+  async function submitNewWorkspace() {
+    if (!newWorkspaceForm) {
+      return;
+    }
+
+    const name = newWorkspaceForm.name.trim();
+    const parentPath = newWorkspaceForm.parentPath.trim();
+    if (!name || !parentPath) {
+      setNewWorkspaceForm({ ...newWorkspaceForm, error: "Workspace name and folder location are required." });
+      return;
+    }
+
+    clearWorkspaceViewForSwitch();
+    setWorkspaceState("WORKSPACE_LOADING");
+    setNewWorkspaceForm(null);
+    const next = await runAction("Creating workspace...", () => api.createWorkspaceInDirectory(parentPath, name));
+    if (!next) {
+      setWorkspaceError("Could not create workspace.");
+      setWorkspaceState("WORKSPACE_ERROR");
+      return;
+    }
+
+    if (newWorkspaceForm.initializeGit) {
+      const initialized = await runAction("Initializing workspace history...", () =>
+        api.initializeGitRepository(next.path, "Initial BikAPI workspace"),
+      );
+      if (!initialized) {
+        setWorkspaceError("Workspace created, but history setup failed.");
+        setWorkspaceState("WORKSPACE_ERROR");
+        return;
+      }
+      appendConsole("Workspace history initialized.", "success");
+
+      const remoteUrl = newWorkspaceForm.remoteUrl.trim();
+      if (remoteUrl) {
+        const pushed = await runAction("Uploading initial workspace...", () =>
+          api.runGitAction(next.path, remoteUrl, "push"),
+        );
+        if (!pushed) {
+          setWorkspaceError("Workspace created, but upload setup failed.");
+          setWorkspaceState("WORKSPACE_ERROR");
+          return;
+        }
+        appendConsole("Initial workspace uploaded.", "success");
       }
     }
+
+    await openWorkspaceFromIndex(next);
+    setStatus("Workspace ready.");
+  }
+
+  function handleCloneWorkspace() {
+    setCloneWorkspaceForm({
+      repoUrl: "",
+      parentPath: "",
+      directoryName: "",
+      error: null,
+    });
+  }
+
+  async function submitCloneWorkspace() {
+    if (!cloneWorkspaceForm) {
+      return;
+    }
+
+    const repo = cloneWorkspaceForm.repoUrl.trim();
+    const parentPath = cloneWorkspaceForm.parentPath.trim();
+    const directoryName = (cloneWorkspaceForm.directoryName.trim() || repoFolderName(repo)).trim();
+    if (!repo || !parentPath || !directoryName) {
+      setCloneWorkspaceForm({
+        ...cloneWorkspaceForm,
+        error: "Repository URL and folder location are required.",
+      });
+      return;
+    }
+
+    clearWorkspaceViewForSwitch();
+    setWorkspaceState("WORKSPACE_LOADING");
+    setCloneWorkspaceForm(null);
+    const destinationPath = joinPath(parentPath, directoryName);
+    const clonedPath = await runAction("Cloning workspace...", () => api.cloneWorkspace(repo, destinationPath));
+    if (!clonedPath) {
+      setWorkspaceError("Could not clone workspace.");
+      setWorkspaceState("WORKSPACE_ERROR");
+      return;
+    }
+
+    let next = await runAction("Opening cloned workspace...", () => api.openWorkspace(clonedPath));
+    if (!next) {
+      const shouldCreateWorkspace = window.confirm(
+        "This repo is not a BikAPI workspace. Create workspace files here?",
+      );
+      if (!shouldCreateWorkspace) {
+        setWorkspaceError("Cloned repository does not contain workspace.bik.");
+        setWorkspaceState("WORKSPACE_ERROR");
+        return;
+      }
+
+      next = await runAction("Creating BikAPI workspace files...", () =>
+        api.createWorkspace(clonedPath, directoryName),
+      );
+      if (!next) {
+        setWorkspaceError("Cloned repository could not be prepared as a BikAPI workspace.");
+        setWorkspaceState("WORKSPACE_ERROR");
+        return;
+      }
+    }
+
+    await openWorkspaceFromIndex(next);
+    setRepoUrl(repo);
+    setStatus("Workspace ready.");
   }
 
   async function handleCreateCollection() {
@@ -1256,6 +1501,63 @@ export default function App() {
       const matchingEndpoints = collection?.endpoints.filter((item) => item.name === request.name);
       const endpoint = matchingEndpoints?.[matchingEndpoints.length - 1];
       applyWorkspace(next, targetCollectionId, endpoint?.id ?? null);
+    }
+  }
+
+  async function handleCreateFlow(collectionId?: string) {
+    if (!workspace) {
+      return;
+    }
+
+    const targetCollectionId = collectionId ?? selectedCollectionId ?? workspace.collections[0]?.id;
+    if (!targetCollectionId) {
+      setStatus("Create a collection first.");
+      return;
+    }
+
+    const name = (
+      await requestTextPrompt({
+        title: "New Flow",
+        label: "Flow name",
+        defaultValue: "Booking Flow",
+        confirmText: "Create",
+      })
+    )?.trim();
+    if (!name) {
+      return;
+    }
+
+    const existingFlowIds = new Set(
+      workspace.collections.find((collection) => collection.id === targetCollectionId)?.flows.map((flow) => flow.id) ?? [],
+    );
+    const next = await runAction("Creating flow...", () => api.createFlow(workspace.path, targetCollectionId, name));
+    if (next) {
+      const collection = next.collections.find((item) => item.id === targetCollectionId);
+      const createdFlow = collection?.flows.find((flow) => !existingFlowIds.has(flow.id));
+      applyWorkspace(next, targetCollectionId, null);
+      setSelectedFlowId(createdFlow?.id ?? null);
+      appendConsole(`Created flow ${name}.`, "success");
+      maybeAutoSync();
+    }
+  }
+
+  async function handleSaveFlow() {
+    if (!workspace || !selectedCollectionId || !draftFlow) {
+      return;
+    }
+
+    const next = await runAction("Saving flow.bik...", () =>
+      api.saveFlow(workspace.path, selectedCollectionId, draftFlow),
+    );
+    if (next) {
+      lastSavedFlowDraftRef.current = JSON.stringify(draftFlow);
+      setWorkspace(next);
+      setSelectedCollectionId(selectedCollectionId);
+      setSelectedEndpointId(null);
+      setSelectedFlowId(draftFlow.id);
+      appendConsole(`Saved flow ${draftFlow.name}.`, "success");
+      await captureSaveSnapshot(`Saved ${draftFlow.name} flow at`);
+      maybeAutoSync();
     }
   }
 
@@ -1368,6 +1670,7 @@ export default function App() {
     await runAction("Saving endpoint scripts...", async () => {
       await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "pre", endpointScripts.pre);
       await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "post", endpointScripts.post);
+      await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "helpers", endpointScripts.helpers);
     });
     appendConsole("Endpoint scripts saved.", "success");
     await captureSaveSnapshot("Saved endpoint scripts at");
@@ -1411,9 +1714,17 @@ export default function App() {
   }
 
   async function handleSendRequest() {
-    if (!workspace || !selectedCollectionId || !selectedEndpointId || !draftRequest) {
+    if (!workspace || !selectedCollectionId || !selectedEndpointId || !selectedCollection || !draftRequest) {
       return;
     }
+
+    const requestToSend = cloneJson(draftRequest);
+    const scriptVariables = {
+      ...workspace.globals,
+      ...selectedCollection.variables,
+      ...(selectedEnvironment?.variables ?? {}),
+      ...requestToSend.variables,
+    };
 
     setIsBusy(true);
     setResponse(null);
@@ -1422,17 +1733,62 @@ export default function App() {
     appendConsole(`Sending ${draftRequest.method} ${draftRequest.url}...`);
 
     try {
+      await runRequestScript({
+        name: "Collection",
+        phase: "pre",
+        script: collectionAutomation.pre,
+        request: requestToSend,
+        variables: scriptVariables,
+        onLog: appendScriptConsole,
+      });
+      await runRequestScript({
+        name: "Endpoint",
+        phase: "pre",
+        script: endpointScripts.pre,
+        helpers: endpointScripts.helpers,
+        request: requestToSend,
+        variables: scriptVariables,
+        onLog: appendScriptConsole,
+      });
+      setDraftRequest(cloneJson(requestToSend));
+
       const result = await api.sendRequest(
         workspace.path,
         selectedCollectionId,
         selectedEndpointId,
         selectedEnvironmentId,
-        draftRequest,
+        requestToSend,
       );
       setResponse(result);
       setActiveResponseTab("response");
       setStatus(`Received ${result.status} ${result.statusText || ""} from ${result.resolvedUrl}`.trim());
       appendConsole(`Response ${result.status} in ${result.responseTimeMs} ms from ${result.resolvedUrl}.`, result.status >= 400 ? "error" : "success");
+
+      try {
+        await runRequestScript({
+          name: "Endpoint",
+          phase: "post",
+          script: endpointScripts.post,
+          helpers: endpointScripts.helpers,
+          request: requestToSend,
+          response: result,
+          variables: scriptVariables,
+          onLog: appendScriptConsole,
+        });
+        await runRequestScript({
+          name: "Collection",
+          phase: "post",
+          script: collectionAutomation.post,
+          request: requestToSend,
+          response: result,
+          variables: scriptVariables,
+          onLog: appendScriptConsole,
+        });
+      } catch (error) {
+        const message = String(error);
+        setStatus(message);
+        appendConsole(message, "error");
+      }
     } catch (error) {
       const message = String(error);
       setResponseError(message);
@@ -1490,6 +1846,43 @@ export default function App() {
   }
 
   function renderMainContent() {
+    if (workspace && selectedCollection && draftFlow) {
+      return (
+        <AppShell.CenterColumn
+          top={
+            <TopTabs
+              tabs={openEndpointTabs.map((tab) => ({
+                id: `${tab.collectionId}:${tab.endpointId}`,
+                collectionId: tab.collectionId,
+                endpointId: tab.endpointId,
+                method: tab.endpoint.request.method,
+                name: tab.endpoint.name,
+                active: false,
+                dirty: false,
+              }))}
+              hiddenPanels={hiddenPanels}
+              onSelect={selectEndpointTab}
+              onClose={closeEndpointTab}
+              onCreate={() => void handleCreateEndpoint(selectedCollection.id)}
+              onRestorePanel={restorePanel}
+            />
+          }
+          content={
+            <FlowBuilder
+              workspacePath={workspace.path}
+              collection={selectedCollection}
+              flow={draftFlow}
+              environmentId={selectedEnvironmentId}
+              onChange={setDraftFlow}
+              onSave={() => void handleSaveFlow()}
+            />
+          }
+          bottom={undefined}
+          bottomCollapsed={false}
+        />
+      );
+    }
+
     if (draftRequest) {
       return (
         <AppShell.CenterColumn
@@ -1581,69 +1974,6 @@ export default function App() {
       );
     }
 
-    if (selectedCollection) {
-      return (
-        <AppShell.CenterColumn
-          top={
-            <TopTabs
-              tabs={openEndpointTabs.map((tab) => ({
-                id: `${tab.collectionId}:${tab.endpointId}`,
-                collectionId: tab.collectionId,
-                endpointId: tab.endpointId,
-                method: tab.endpoint.request.method,
-                name: tab.endpoint.name,
-                active: tab.collectionId === selectedCollectionId && tab.endpointId === selectedEndpointId,
-                dirty: false,
-              }))}
-              hiddenPanels={hiddenPanels}
-              onSelect={selectEndpointTab}
-              onClose={closeEndpointTab}
-              onCreate={() => void handleCreateEndpoint(selectedCollection.id)}
-              onRestorePanel={restorePanel}
-            />
-          }
-          content={
-            <CollectionPanel
-              collection={selectedCollection}
-              activeTab={activeCollectionTab}
-              automation={collectionAutomation}
-              isBusy={isBusy}
-              onTabChange={selectCollectionTab}
-              onCreateEndpoint={handleCreateEndpoint}
-              onVariablesChange={handleCollectionVariablesChange}
-              onAutomationChange={setCollectionAutomation}
-              onSaveVariables={handleSaveCollectionVariables}
-              onSaveAutomation={handleSaveCollectionAutomation}
-            />
-          }
-          bottom={consoleHidden ? undefined : (
-            <BottomConsole
-              collapsed={consoleCollapsed}
-              entries={consoleEntries}
-              status={status}
-              activeTab={activeBottomTab}
-              response={response}
-              responseError={responseError}
-              responseBusy={isBusy}
-              responseTab={activeResponseTab}
-              diffRows={diffRows}
-              selectedHistoryPath={selectedHistoryPath}
-              flowItems={flowItems}
-              onToggleCollapsed={() => setConsoleCollapsed((value) => !value)}
-              onClear={() => setConsoleEntries([])}
-              onClose={() => setConsoleHidden(true)}
-              onTabChange={setActiveBottomTab}
-              onResponseTabChange={setActiveResponseTab}
-              onSaveExample={handleSaveExample}
-              onCopyResponse={handleCopyResponse}
-              onExportResponse={handleExportResponse}
-            />
-          )}
-          bottomCollapsed={!consoleHidden && consoleCollapsed}
-        />
-      );
-    }
-
     return (
       <AppShell.CenterColumn
         top={
@@ -1666,17 +1996,18 @@ export default function App() {
         }
         content={
           <div className="workspace-empty">
-            <EmptyState
-              title={workspace ? "Select a request to start editing" : "Open a workspace"}
-              description={
-                workspace
-                  ? "Choose an endpoint from the left sidebar, or create a new request tab."
-                  : "Open or create a local workspace to edit and run .bik requests."
-              }
-              actionLabel={workspace ? "Create request" : "Open workspace"}
-              onAction={workspace ? () => void handleCreateEndpoint() : () => void handleOpenWorkspace()}
-              icon={workspace ? Plus : undefined}
-            />
+            <div className="workspace-ready-empty">
+              <h2>Select a request</h2>
+              <p>Choose a request from the sidebar or create a new one.</p>
+              <div className="workspace-ready-actions">
+                <button type="button" className="primary" onClick={() => void handleCreateEndpoint()}>
+                  New request
+                </button>
+                <button type="button" onClick={() => void handleCreateCollection()}>
+                  New collection
+                </button>
+              </div>
+            </div>
           </div>
         }
         bottom={consoleHidden ? undefined : (
@@ -1709,83 +2040,128 @@ export default function App() {
 
   return (
     <>
-      <AppShell
-        toolbar={
-          <AppToolbar
-            workspaceName={workspace?.name ?? null}
-            status={status}
-            isSyncing={isSyncing}
-            syncStatus={syncStatus}
-            lastSyncedLabel={formatLastSyncedLabel()}
-            environments={[
-              { value: "", label: "No environment" },
-              ...(workspace?.environments ?? []).map((environment) => ({
-                value: environment.id,
-                label: environment.name,
-              })),
-            ]}
-            selectedEnvironmentId={selectedEnvironmentId ?? ""}
-            sidebarHidden={sidebarHidden}
-            timelineHidden={timelineHidden}
-            consoleHidden={consoleHidden}
-            onOpenWorkspace={() => void handleOpenWorkspace()}
-            onCreateCollection={() => void handleCreateCollection()}
-            onCreateRequest={() => void handleCreateEndpoint()}
-            onSendRequest={() => void handleSendRequest()}
-            onSync={() => void performSync(true)}
-            onReviewChanges={() => setReviewSyncOpen(true)}
-            onEnvironmentChange={(value) => setSelectedEnvironmentId(value || null)}
-            onToggleSidebar={toggleSidebarPanel}
-            onToggleTimeline={toggleTimelinePanel}
-            onToggleConsole={toggleConsolePanel}
-            onOpenPalette={() => setCommandPaletteOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
-        }
-        sidebar={
-          <Sidebar
-            workspace={workspace}
-            collectionStatuses={collectionStatusById}
-            selectedCollectionId={selectedCollectionId}
-            selectedEndpointId={selectedEndpointId}
-            collapsed={sidebarCollapsed}
-            onClose={() => setSidebarHidden(true)}
-            onToggleCollapsed={toggleSidebarCollapsed}
-            onOpenWorkspace={handleOpenWorkspace}
-            onCreateWorkspace={handleCreateWorkspace}
-            onCreateCollection={handleCreateCollection}
-            onCreateEndpoint={handleCreateEndpoint}
-            onCopyCollection={handleCopyCollection}
-            onExportCollection={handleExportCollection}
-            onSelectCollection={selectCollection}
-            onSelectEndpoint={selectEndpointTab}
-            onOpenEndpointHistory={openEndpointHistory}
-          />
-        }
-        main={renderMainContent()}
-        rightPanel={
-          <RightTimelinePanel
-            endpoint={selectedEndpoint}
-            diffRows={diffRows}
-            selectedHistoryPath={selectedHistoryPath}
-            onClose={() => setTimelineHidden(true)}
-            onSelectHistory={setSelectedHistoryPath}
-            onCompare={setSelectedHistoryPath}
-            onRestore={handleRestoreHistory}
-          />
-        }
-        sidebarWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth}
-        sidebarMinWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MIN_WIDTH}
-        sidebarMaxWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MAX_WIDTH}
-        onSidebarWidthChange={handleSidebarWidthChange}
-        showSidebar={!sidebarHidden}
-        showRightPanel={Boolean(selectedEndpoint) && !timelineHidden}
-      />
+      {hasWorkspace && workspace ? (
+        <AppShell
+          toolbar={
+            <AppToolbar
+              workspaceSwitcher={
+                <WorkspaceSwitcher
+                  currentWorkspaceName={workspace.name}
+                  currentWorkspacePath={workspace.path}
+                  recentWorkspaces={recentWorkspaces}
+                  onOpenRecentWorkspace={(recentWorkspace) => void handleOpenRecentWorkspace(recentWorkspace)}
+                  onRemoveRecentWorkspace={(path) => void handleRemoveRecentWorkspace(path)}
+                  onOpenLocalWorkspace={() => void handleOpenWorkspace()}
+                  onCreateWorkspace={() => handleCreateWorkspace(false)}
+                  onCloneWorkspace={handleCloneWorkspace}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                />
+              }
+              status={status}
+              isSyncing={isSyncing}
+              syncStatus={syncStatus}
+              lastSyncedLabel={formatLastSyncedLabel()}
+              environments={[
+                { value: "", label: "No environment" },
+                ...workspace.environments.map((environment) => ({
+                  value: environment.id,
+                  label: environment.name,
+                })),
+              ]}
+              selectedEnvironmentId={selectedEnvironmentId ?? ""}
+              sidebarHidden={sidebarHidden}
+              timelineHidden={timelineHidden}
+              consoleHidden={consoleHidden}
+              onCreateCollection={() => void handleCreateCollection()}
+              onCreateRequest={() => void handleCreateEndpoint()}
+              onSendRequest={() => void handleSendRequest()}
+              onSync={() => void performSync(true)}
+              onReviewChanges={() => setReviewSyncOpen(true)}
+              onKeepLocalOnly={() => {
+                setStatus("This workspace is local only.");
+                pushToast("Kept local only", "info");
+              }}
+              onConnectGitHub={handleContinueWithGitHubSync}
+              onEnvironmentChange={(value) => setSelectedEnvironmentId(value || null)}
+              onToggleSidebar={toggleSidebarPanel}
+              onToggleTimeline={toggleTimelinePanel}
+              onToggleConsole={toggleConsolePanel}
+              onOpenPalette={() => setCommandPaletteOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+          }
+          sidebar={
+            <Sidebar
+              workspace={workspace}
+              collectionStatuses={collectionStatusById}
+              selectedCollectionId={selectedCollectionId}
+              selectedEndpointId={selectedEndpointId}
+              selectedFlowId={selectedFlowId}
+              collapsed={sidebarCollapsed}
+              onClose={() => setSidebarHidden(true)}
+              onToggleCollapsed={toggleSidebarCollapsed}
+              onCreateCollection={handleCreateCollection}
+              onCreateEndpoint={handleCreateEndpoint}
+              onCreateFlow={handleCreateFlow}
+              onCopyCollection={handleCopyCollection}
+              onExportCollection={handleExportCollection}
+              onSelectCollection={selectCollection}
+              onSelectEndpoint={selectEndpointTab}
+              onSelectFlow={selectFlow}
+              onOpenEndpointHistory={openEndpointHistory}
+            />
+          }
+          main={renderMainContent()}
+          rightPanel={
+            <RightTimelinePanel
+              endpoint={selectedEndpoint}
+              diffRows={diffRows}
+              selectedHistoryPath={selectedHistoryPath}
+              onClose={() => setTimelineHidden(true)}
+              onSelectHistory={setSelectedHistoryPath}
+              onCompare={setSelectedHistoryPath}
+              onRestore={handleRestoreHistory}
+            />
+          }
+          sidebarWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth}
+          sidebarMinWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MIN_WIDTH}
+          sidebarMaxWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MAX_WIDTH}
+          onSidebarWidthChange={handleSidebarWidthChange}
+          showSidebar={!sidebarHidden}
+          showRightPanel={Boolean(selectedEndpoint) && !timelineHidden}
+        />
+      ) : (
+        <WelcomeScreen
+          state={
+            workspaceState === "WORKSPACE_LOADING"
+              ? "loading"
+              : workspaceState === "WORKSPACE_ERROR"
+                ? "error"
+                : "idle"
+          }
+          error={workspaceError}
+          onContinueWithGitHub={handleContinueWithGitHubSync}
+          onOpenLocalWorkspace={() => void handleOpenWorkspace()}
+          onCreateLocalWorkspace={() => handleCreateWorkspace(false)}
+          onBackToWelcome={() => {
+            clearWorkspaceViewForSwitch();
+            setWorkspaceState("NO_WORKSPACE");
+          }}
+        />
+      )}
       <CommandPalette
         open={commandPaletteOpen}
         commands={paletteCommands}
         onClose={() => setCommandPaletteOpen(false)}
       />
+
+      {githubSyncPromptOpen && (
+        <GitHubSyncPrompt
+          onCloneExisting={handleCloneFromGitHub}
+          onCreateSyncedWorkspace={handleCreateGitHubSyncedWorkspace}
+          onClose={() => setGithubSyncPromptOpen(false)}
+        />
+      )}
 
       {textPrompt && (
         <div className="prompt-backdrop" role="presentation">
@@ -1814,6 +2190,175 @@ export default function App() {
               </button>
               <button className="primary" type="submit">
                 {textPrompt.confirmText}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {newWorkspaceForm && (
+        <div className="prompt-backdrop" role="presentation">
+          <form
+            className="prompt-dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitNewWorkspace();
+            }}
+          >
+            <h2>New Workspace</h2>
+            <label>
+              <span>Workspace name</span>
+              <input
+                autoFocus
+                value={newWorkspaceForm.name}
+                onChange={(event) =>
+                  setNewWorkspaceForm({ ...newWorkspaceForm, name: event.currentTarget.value, error: null })
+                }
+              />
+            </label>
+            <label>
+              <span>Folder location</span>
+              <div className="path-picker-row">
+                <input
+                  value={newWorkspaceForm.parentPath}
+                  onChange={(event) =>
+                    setNewWorkspaceForm({ ...newWorkspaceForm, parentPath: event.currentTarget.value, error: null })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const selected = await chooseFolder();
+                    if (selected) {
+                      setNewWorkspaceForm({ ...newWorkspaceForm, parentPath: selected, error: null });
+                    }
+                  }}
+                >
+                  Choose…
+                </button>
+              </div>
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={newWorkspaceForm.initializeGit}
+                onChange={(event) =>
+                  setNewWorkspaceForm({
+                    ...newWorkspaceForm,
+                    initializeGit: event.currentTarget.checked,
+                    error: null,
+                  })
+                }
+              />
+              <span>Enable collaboration sync</span>
+            </label>
+            {newWorkspaceForm.initializeGit && (
+              <label>
+                <span>Repository URL (optional)</span>
+                <input
+                  value={newWorkspaceForm.remoteUrl}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="https://github.com/user/repo.git"
+                  onChange={(event) =>
+                    setNewWorkspaceForm({
+                      ...newWorkspaceForm,
+                      remoteUrl: event.currentTarget.value,
+                      error: null,
+                    })
+                  }
+                />
+              </label>
+            )}
+            {newWorkspaceForm.error && <span className="error-text">{newWorkspaceForm.error}</span>}
+            <div className="prompt-actions">
+              <button type="button" onClick={() => setNewWorkspaceForm(null)}>
+                Cancel
+              </button>
+              <button className="primary" type="submit">
+                Create workspace
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {cloneWorkspaceForm && (
+        <div className="prompt-backdrop" role="presentation">
+          <form
+            className="prompt-dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitCloneWorkspace();
+            }}
+          >
+            <h2>Clone workspace</h2>
+            <label>
+              <span>Repository URL</span>
+              <input
+                autoFocus
+                value={cloneWorkspaceForm.repoUrl}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(event) =>
+                  setCloneWorkspaceForm({
+                    ...cloneWorkspaceForm,
+                    repoUrl: event.currentTarget.value,
+                    directoryName:
+                      cloneWorkspaceForm.directoryName || repoFolderName(event.currentTarget.value),
+                    error: null,
+                  })
+                }
+              />
+            </label>
+            <label>
+              <span>Folder location</span>
+              <div className="path-picker-row">
+                <input
+                  value={cloneWorkspaceForm.parentPath}
+                  onChange={(event) =>
+                    setCloneWorkspaceForm({
+                      ...cloneWorkspaceForm,
+                      parentPath: event.currentTarget.value,
+                      error: null,
+                    })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const selected = await chooseFolder();
+                    if (selected) {
+                      setCloneWorkspaceForm({ ...cloneWorkspaceForm, parentPath: selected, error: null });
+                    }
+                  }}
+                >
+                  Choose…
+                </button>
+              </div>
+            </label>
+            <label>
+              <span>Folder name</span>
+              <input
+                value={cloneWorkspaceForm.directoryName}
+                onChange={(event) =>
+                  setCloneWorkspaceForm({
+                    ...cloneWorkspaceForm,
+                    directoryName: event.currentTarget.value,
+                    error: null,
+                  })
+                }
+              />
+            </label>
+            {cloneWorkspaceForm.error && <span className="error-text">{cloneWorkspaceForm.error}</span>}
+            <div className="prompt-actions">
+              <button type="button" onClick={() => setCloneWorkspaceForm(null)}>
+                Cancel
+              </button>
+              <button className="primary" type="submit">
+                Clone workspace
               </button>
             </div>
           </form>

@@ -178,6 +178,62 @@ code {
   background: #161b22;
 }
 
+.workspace-ready-empty,
+.workspace-launchpad-card {
+  width: min(520px, calc(100% - 32px));
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at top, rgba(108, 168, 255, 0.12), transparent 45%),
+    rgba(21, 27, 34, 0.98);
+  box-shadow: var(--shadow-soft);
+  text-align: center;
+}
+
+.workspace-ready-empty h2,
+.workspace-launchpad-card strong {
+  margin: 0;
+  font-size: 18px;
+}
+
+.workspace-ready-empty p,
+.workspace-launchpad-card p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.workspace-ready-actions,
+.workspace-launchpad-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.workspace-launchpad {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(108, 168, 255, 0.12), transparent 36%),
+    linear-gradient(180deg, #10151c, #181d24);
+}
+
+.workspace-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(108, 168, 255, 0.18);
+  border-top-color: var(--active-blue);
+  border-radius: 999px;
+  animation: workspace-spin 800ms linear infinite;
+}
+
 .prompt-backdrop {
   position: fixed;
   inset: 0;
@@ -216,6 +272,12 @@ code {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.path-picker-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
 }
 
 .endpoint-dialog textarea {
@@ -471,6 +533,16 @@ button.icon-button {
 
 .toast.error {
   border-color: rgba(240, 109, 109, 0.3);
+}
+
+@keyframes workspace-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1200px) {

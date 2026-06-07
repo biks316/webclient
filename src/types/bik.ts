@@ -43,12 +43,80 @@ export interface EndpointIndex {
   examples: TimelineEntry[];
 }
 
+export interface FlowPosition {
+  x: number;
+  y: number;
+}
+
+export interface FlowNode {
+  id: string;
+  type: "request";
+  requestPath: string;
+  requestId: string;
+  name: string;
+  position: FlowPosition;
+  lastRun: FlowNodeLastRun | null;
+}
+
+export interface FlowNodeLastRun {
+  nodeId: string;
+  requestId: string;
+  status: "success" | "failed";
+  statusCode: number | null;
+  durationMs: number | null;
+  responseHeaders: Record<string, string>;
+  responseBody: string;
+  error: string | null;
+  ranAt: string;
+}
+
+export interface FlowMapping {
+  source?: string;
+  target?: string;
+  transform?: string;
+  sourcePath: string;
+  sourceLabel: string;
+  targetType: "variable" | "header" | "body" | "query" | "auth" | "url";
+  targetKey: string;
+  targetPath: string;
+  targetVariable?: string;
+  transformType: "raw" | "bearer" | "template";
+  template: string;
+}
+
+export interface FlowEdge {
+  id: string;
+  source?: string;
+  target?: string;
+  from: string;
+  to: string;
+  label?: string;
+  mappings: FlowMapping[];
+}
+
+export interface FlowDefinition {
+  bikVersion: string;
+  type: "flow";
+  id: string;
+  name: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}
+
+export interface FlowIndex {
+  id: string;
+  name: string;
+  path: string;
+  flow: FlowDefinition;
+}
+
 export interface CollectionIndex {
   id: string;
   name: string;
   path: string;
   variables: Record<string, string>;
   endpoints: EndpointIndex[];
+  flows: FlowIndex[];
 }
 
 export interface WorkspaceIndex {
@@ -72,6 +140,7 @@ export interface RunResponse {
 export interface Scripts {
   pre: string;
   post: string;
+  helpers: string;
 }
 
 export interface CollectionAutomation {
@@ -101,6 +170,19 @@ export interface AppState {
   panelVisibility: PanelVisibility;
 }
 
+export interface RecentWorkspace {
+  name: string;
+  path: string;
+  lastOpenedAt: string;
+  syncType: "local" | "git";
+  remoteUrl: string | null;
+  missing?: boolean;
+}
+
+export interface RecentWorkspaceList {
+  recentWorkspaces: RecentWorkspace[];
+}
+
 export interface GitActionResult {
   action: string;
   branch: string;
@@ -116,13 +198,13 @@ export interface GitStatusResult {
 
 export interface SyncCollectionStatus {
   collectionId: string;
-  state: "synced" | "local_changes" | "remote_updates" | "sync_required" | "conflict";
+  state: "synced" | "local_changes" | "remote_updates" | "sync_required" | "conflict" | "offline" | "not_git";
   localChanges: number;
   remoteChanges: number;
 }
 
 export interface SyncStatusResult {
-  state: "synced" | "local_changes" | "remote_updates" | "sync_required" | "conflict";
+  state: "synced" | "local_changes" | "remote_updates" | "sync_required" | "conflict" | "offline" | "not_git";
   branch: string;
   repoUrl: string | null;
   localChanges: number;

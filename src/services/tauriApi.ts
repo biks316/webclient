@@ -4,9 +4,11 @@ import {
   BikRequest,
   CollectionAutomation,
   DiffRow,
+  FlowDefinition,
   GitActionResult,
   GitStatusResult,
   JsonValue,
+  RecentWorkspaceList,
   RunResponse,
   SyncStatusResult,
   Scripts,
@@ -22,6 +24,14 @@ function ensureTauriRuntime() {
 export function createWorkspace(path: string, name?: string): Promise<WorkspaceIndex> {
   ensureTauriRuntime();
   return invoke("create_workspace", { path, name });
+}
+
+export function createWorkspaceInDirectory(
+  parentPath: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("create_workspace_in_directory", { payload: { parentPath, name } });
 }
 
 export function openWorkspace(path: string): Promise<WorkspaceIndex> {
@@ -54,6 +64,15 @@ export function createEndpoint(
   return invoke("create_endpoint", { workspacePath, collectionId, name });
 }
 
+export function createFlow(
+  workspacePath: string,
+  collectionId: string,
+  name: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("create_flow", { workspacePath, collectionId, name });
+}
+
 export async function createEndpointWithRequest(
   workspacePath: string,
   collectionId: string,
@@ -84,6 +103,28 @@ export function saveRequest(
   ensureTauriRuntime();
   return invoke("save_request", {
     payload: { workspacePath, collectionId, endpointId, request },
+  });
+}
+
+export function readFlow(
+  workspacePath: string,
+  collectionId: string,
+  flowId: string,
+): Promise<FlowDefinition> {
+  ensureTauriRuntime();
+  return invoke("read_flow", {
+    payload: { workspacePath, collectionId, flowId },
+  });
+}
+
+export function saveFlow(
+  workspacePath: string,
+  collectionId: string,
+  flow: FlowDefinition,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("save_flow", {
+    payload: { workspacePath, collectionId, flow },
   });
 }
 
@@ -161,7 +202,7 @@ export function saveScript(
   workspacePath: string,
   collectionId: string,
   endpointId: string,
-  scriptName: "pre" | "post",
+  scriptName: keyof Scripts,
   content: string,
 ): Promise<void> {
   ensureTauriRuntime();
@@ -217,6 +258,16 @@ export function saveAppState(state: AppState): Promise<void> {
   return invoke("save_app_state", { payload: state });
 }
 
+export function readRecentWorkspaces(): Promise<RecentWorkspaceList> {
+  ensureTauriRuntime();
+  return invoke("read_recent_workspaces");
+}
+
+export function saveRecentWorkspaces(list: RecentWorkspaceList): Promise<void> {
+  ensureTauriRuntime();
+  return invoke("save_recent_workspaces", { payload: list });
+}
+
 export function getGitRemoteUrl(workspacePath: string): Promise<string | null> {
   ensureTauriRuntime();
   return invoke("get_git_remote_url", { payload: { workspacePath } });
@@ -241,6 +292,26 @@ export function runGitAction(
   ensureTauriRuntime();
   return invoke("run_git_action", {
     payload: { workspacePath, repoUrl, action, commitMessage },
+  });
+}
+
+export function initializeGitRepository(
+  workspacePath: string,
+  commitMessage = "Initial BikAPI workspace",
+): Promise<GitActionResult> {
+  ensureTauriRuntime();
+  return invoke("initialize_git_repository", {
+    payload: { workspacePath, commitMessage },
+  });
+}
+
+export function cloneWorkspace(
+  repoUrl: string,
+  destinationPath: string,
+): Promise<string> {
+  ensureTauriRuntime();
+  return invoke("clone_workspace", {
+    payload: { repoUrl, destinationPath },
   });
 }
 

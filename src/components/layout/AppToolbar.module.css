@@ -113,6 +113,37 @@
   background: rgba(108, 168, 255, 0.12);
 }
 
+.syncMenuWrap {
+  position: relative;
+}
+
+.syncMenu {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 5px);
+  right: 0;
+  min-width: 170px;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel-elevated);
+  box-shadow: var(--shadow-hard);
+}
+
+.syncMenu button {
+  min-height: 26px;
+  justify-content: flex-start;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.syncMenu button:hover {
+  background: rgba(108, 168, 255, 0.12);
+}
+
 .reviewButton {
   background: transparent;
 }

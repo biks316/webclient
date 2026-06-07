@@ -1,0 +1,544 @@
+.flowBuilder {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 210px;
+  background: #0b1018;
+  color: #d8dee9;
+}
+
+.header {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #1e293b;
+  background: #0f1724;
+}
+
+.header strong {
+  display: block;
+  font-size: 13px;
+}
+
+.header span,
+.emptyText {
+  color: #8b97a8;
+  font-size: 11px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.toolbar select,
+.toolbar button,
+.mappingPanel input,
+.mappingPanel button {
+  height: 28px;
+  border: 1px solid #243244;
+  border-radius: 5px;
+  background: #111827;
+  color: #cbd5e1;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.primaryButton {
+  background: #2563eb !important;
+  border-color: #3b82f6 !important;
+  color: white !important;
+}
+
+.body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+}
+
+.canvas {
+  position: relative;
+  min-height: 0;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.18) 1px, transparent 0),
+    linear-gradient(135deg, #090e16, #0d1420);
+  background-size: 22px 22px, auto;
+}
+
+.canvasDropActive {
+  outline: 1px dashed #60a5fa;
+  outline-offset: -2px;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(147, 197, 253, 0.38) 1px, transparent 0),
+    linear-gradient(135deg, #0a1322, #102033);
+  background-size: 22px 22px, auto;
+}
+
+.canvas:global(.is-drag-over) {
+  border: 1px dashed #60a5fa;
+}
+
+.edges {
+  position: absolute;
+  inset: 0;
+  min-width: 1200px;
+  min-height: 620px;
+  pointer-events: none;
+}
+
+.edgePath {
+  fill: none;
+  stroke: #60a5fa;
+  stroke-width: 2;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.edgePathActive {
+  stroke: #facc15;
+  stroke-width: 3;
+}
+
+.connectionPreview {
+  fill: none;
+  stroke: #facc15;
+  stroke-width: 2.5;
+  stroke-dasharray: 7 5;
+  pointer-events: none;
+}
+
+.requestNode {
+  position: absolute;
+  width: 190px;
+  height: 64px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #2b3a50;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #111827, #0f1724);
+  color: #d8dee9;
+  text-align: left;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.22);
+  cursor: grab;
+}
+
+.requestNode:active {
+  cursor: grabbing;
+}
+
+.nodeTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nodeTitle strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.requestNode small {
+  color: #8b97a8;
+  font-size: 10px;
+}
+
+.nodeStatus {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.nodeStatus_idle {
+  color: #cbd5e1;
+  background: #334155;
+}
+
+.nodeStatus_running {
+  color: #bfdbfe;
+  background: #1d4ed8;
+}
+
+.nodeStatus_success {
+  color: #bbf7d0;
+  background: #166534;
+}
+
+.nodeStatus_failed {
+  color: #fecaca;
+  background: #991b1b;
+}
+
+.requestNodeActive {
+  border-color: #facc15;
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.16), 0 16px 32px rgba(0, 0, 0, 0.28);
+}
+
+.connector {
+  position: absolute;
+  top: 26px;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  padding: 0 !important;
+  border: 2px solid #93c5fd !important;
+  border-radius: 999px !important;
+  background: #0b1018 !important;
+  cursor: crosshair !important;
+}
+
+.connectorIn {
+  left: -7px;
+}
+
+.connectorOut {
+  right: -7px;
+}
+
+.connector:hover {
+  border-color: #facc15 !important;
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.16);
+}
+
+.edgeLabel {
+  position: absolute;
+  z-index: 4;
+  max-width: 180px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid #2b3a50;
+  border-radius: 999px;
+  background: rgba(15, 23, 36, 0.94);
+  color: #cbd5e1;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edgeLabelActive {
+  border-color: #facc15;
+  color: #facc15;
+}
+
+.flowWarning {
+  padding: 7px 8px;
+  border: 1px solid #854d0e;
+  border-radius: 6px;
+  background: rgba(113, 63, 18, 0.28);
+  color: #fde68a !important;
+}
+
+.canvasEmpty {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.canvasEmpty strong {
+  font-size: 18px;
+}
+
+.canvasEmpty span {
+  color: #8b97a8;
+}
+
+.mappingPanel {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border-left: 1px solid #1e293b;
+  background: #0f1724;
+}
+
+.mappingPanel header {
+  display: grid;
+  gap: 2px;
+}
+
+.mappingPanel h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.mappingPanel p,
+.mappingPanel span {
+  margin: 0;
+  color: #8b97a8;
+  font-size: 11px;
+}
+
+.mappingList {
+  display: grid;
+  gap: 8px;
+}
+
+.visualMappingGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.visualMappingGrid section {
+  display: grid;
+  gap: 8px;
+}
+
+.responseTree,
+.responseTree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 12px;
+}
+
+.responseTree {
+  max-height: 240px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid #172033;
+  border-radius: 6px;
+  background: #090e16;
+}
+
+.treeValue {
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 11px;
+  text-align: left;
+}
+
+.treeValue:disabled {
+  color: #93c5fd;
+}
+
+.treeValue:not(:disabled):hover,
+.treeValueActive {
+  background: #1e3a5f;
+}
+
+.treeValue em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8b97a8;
+  font-style: normal;
+}
+
+.targetPicker {
+  display: grid;
+  gap: 8px;
+}
+
+.targetOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.targetOptionActive {
+  border-color: #3b82f6 !important;
+  background: #1e3a5f !important;
+  color: white !important;
+}
+
+.targetPicker label,
+.nodeDetails {
+  display: grid;
+  gap: 6px;
+}
+
+.inspectorTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.inspectorTabs button {
+  height: 26px;
+}
+
+.targetPicker select,
+.targetPicker input {
+  height: 28px;
+  border: 1px solid #243244;
+  border-radius: 5px;
+  background: #111827;
+  color: #cbd5e1;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.mappingSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid #172033;
+  border-radius: 6px;
+  background: #0b1018;
+  font-size: 11px;
+}
+
+.noExample {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed #2b3a50;
+  border-radius: 8px;
+}
+
+.nodeDetails pre {
+  max-height: 180px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border-radius: 5px;
+  background: #090e16;
+  font-size: 11px;
+}
+
+.mappingCard {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #0b1018;
+}
+
+.mappingCard label {
+  display: grid;
+  gap: 4px;
+}
+
+.mappingCard label span {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.runPanel {
+  min-height: 0;
+  border-top: 1px solid #1e293b;
+  background: #090e16;
+}
+
+.runPanel header {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border-bottom: 1px solid #172033;
+}
+
+.runSteps {
+  height: calc(100% - 34px);
+  overflow: auto;
+  padding: 8px;
+}
+
+.runStep {
+  border: 1px solid #172033;
+  border-radius: 6px;
+  background: #0f1724;
+  margin-bottom: 6px;
+}
+
+.runStep summary {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.runStep summary em {
+  margin-left: auto;
+  color: #8b97a8;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.runStepBody {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid #172033;
+}
+
+.runStepBody h4 {
+  margin: 0;
+  color: #93c5fd;
+  font-size: 11px;
+}
+
+.runStepBody pre {
+  max-height: 140px;
+  margin: 0;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 5px;
+  background: #090e16;
+  font-size: 11px;
+}
+
+.runStepBody code {
+  display: block;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: #090e16;
+  font-size: 11px;
+}
+
+.runStatus_pending {
+  color: #64748b;
+}
+
+.runStatus_running {
+  color: #facc15;
+}
+
+.runStatus_success {
+  color: #86efac;
+}
+
+.runStatus_error {
+  color: #fca5a5;
+}

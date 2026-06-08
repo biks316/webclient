@@ -39,6 +39,7 @@ export function FlowBuilder({
   const [flowWarning, setFlowWarning] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<FlowDefinition[]>([]);
   const [redoStack, setRedoStack] = useState<FlowDefinition[]>([]);
+  const [fitVersion, setFitVersion] = useState(0);
   const [running, setRunning] = useState(false);
   const lastFlowIdRef = useRef(flow.id);
 
@@ -86,6 +87,10 @@ export function FlowBuilder({
     onChange(nextFlow);
   }
 
+  function requestFitView() {
+    window.setTimeout(() => setFitVersion((version) => version + 1), 0);
+  }
+
   function undoFlowChange() {
     const previous = undoStack[undoStack.length - 1];
     if (!previous) {
@@ -129,6 +134,7 @@ export function FlowBuilder({
       lastRun: null,
     };
     commitFlowChange({ ...flow, nodes: [...flow.nodes, node] });
+    requestFitView();
     setSelectedNodeId(node.id);
     setSelectedEdgeId(null);
     setFlowWarning(null);
@@ -172,6 +178,7 @@ export function FlowBuilder({
     };
     const nextFlow = layoutAfterConnection({ ...flow, edges: nextEdges }, edge);
     commitFlowChange(nextFlow);
+    requestFitView();
     setSelectedEdgeId(edge.id);
     setSelectedNodeId(null);
     setFlowWarning(null);
@@ -217,6 +224,7 @@ export function FlowBuilder({
 
   function autoArrange() {
     commitFlowChange(layoutFlow(flow));
+    requestFitView();
   }
 
   useEffect(() => {
@@ -299,6 +307,9 @@ export function FlowBuilder({
         <div className={styles.toolbar}>
           <button type="button" disabled={undoStack.length === 0} onClick={undoFlowChange}>Undo</button>
           <button type="button" disabled={redoStack.length === 0} onClick={redoFlowChange}>Redo</button>
+          <button type="button" onClick={() => window.dispatchEvent(new Event("bikapi:flow-zoom-in"))}>Zoom in</button>
+          <button type="button" onClick={() => window.dispatchEvent(new Event("bikapi:flow-zoom-out"))}>Zoom out</button>
+          <button type="button" onClick={() => setFitVersion((version) => version + 1)}>Fit view</button>
           <button type="button" onClick={autoArrange}>Auto arrange</button>
           <button type="button" onClick={onSave}>Save Flow</button>
           <button type="button" className={styles.primaryButton} disabled={running} onClick={() => void runCurrentFlow()}>
@@ -315,6 +326,7 @@ export function FlowBuilder({
           selectedNodeId={selectedNodeId}
           lastResponses={lastResponses}
           runningNodeIds={runningNodeIds}
+          fitVersion={fitVersion}
           onSelectNode={(nodeId) => {
             setSelectedNodeId(nodeId);
             setSelectedEdgeId(null);

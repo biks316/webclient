@@ -1,9 +1,9 @@
 import { FlowDefinition, FlowEdge, FlowNode } from "../types/bik";
 
-const NODE_X_GAP = 280;
+const NODE_X_GAP = 320;
 const START_X = 100;
 const START_Y = 110;
-const NODE_Y_GAP = 120;
+const NODE_Y_GAP = 160;
 
 export function edgeSource(edge: FlowEdge) {
   return edge.source || edge.from;
@@ -65,11 +65,17 @@ export function orderedFlowNodes(flow: FlowDefinition): FlowNode[] {
 export function layoutFlow(flow: FlowDefinition): FlowDefinition {
   const ordered = orderedFlowNodes(flow);
   const orderedIds = new Set(ordered.map((node) => node.id));
+  const branchByNode = new Map<string, number>();
+  flow.edges.forEach((edge) => {
+    const source = edgeSource(edge);
+    const outgoingIndex = flow.edges.filter((item) => edgeSource(item) === source).findIndex((item) => item.id === edge.id);
+    branchByNode.set(edgeTarget(edge), Math.max(branchByNode.get(edgeTarget(edge)) ?? 0, outgoingIndex));
+  });
   const laidOut = ordered.map((node, index) => ({
     ...node,
     position: {
       x: START_X + index * NODE_X_GAP,
-      y: START_Y,
+      y: START_Y + (branchByNode.get(node.id) ?? 0) * NODE_Y_GAP,
     },
   }));
 

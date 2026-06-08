@@ -17,6 +17,7 @@ interface FlowCanvasProps {
   selectedNodeId: string | null;
   lastResponses: Record<string, RunResponse | null>;
   runningNodeIds: Set<string>;
+  fitVersion: number;
   onSelectEdge: (edgeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onSelectCanvas: () => void;
@@ -28,6 +29,13 @@ interface FlowCanvasProps {
 }
 
 export type DragEndpointPayload = RequestDragPayload;
+
+const NODE_WIDTH = 190;
+const NODE_HEIGHT = 72;
+const GRAPH_MIN = -5000;
+const GRAPH_MAX = 5000;
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 2.2;
 
 function edgePath(edge: FlowEdge, flow: FlowDefinition) {
   const from = flow.nodes.find((node) => node.id === edgeSource(edge));
@@ -83,6 +91,7 @@ export function FlowCanvas({
   selectedNodeId,
   lastResponses,
   runningNodeIds,
+  fitVersion,
   onSelectEdge,
   onSelectNode,
   onSelectCanvas,
@@ -100,8 +109,25 @@ export function FlowCanvas({
     offsetX: number;
     offsetY: number;
   } | null>(null);
+  const [panning, setPanning] = useState<{
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+  const [viewport, setViewport] = useState({ x: 40, y: 40, scale: 1 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const handledDropRef = useRef(false);
+
+  const graphBounds = flow.nodes.reduce(
+    (bounds, node) => ({
+      minX: Math.min(bounds.minX, node.position.x),
+      minY: Math.min(bounds.minY, node.position.y),
+      maxX: Math.max(bounds.maxX, node.position.x + NODE_WIDTH),
+      maxY: Math.max(bounds.maxY, node.position.y + NODE_HEIGHT),
+    }),
+    { minX: 0, minY: 0, maxX: 1200, maxY: 700 },
+  );
 
   function canvasPointFromClient(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
@@ -110,8 +136,8 @@ export function FlowCanvas({
     }
     const rect = canvas.getBoundingClientRect();
     return {
-      x: clientX - rect.left + canvas.scrollLeft,
-      y: clientY - rect.top + canvas.scrollTop,
+      x: (clientX - rect.left - viewport.x) / viewport.scale,
+      y: (clientY - rect.top - viewport.y) / viewport.scale,
     };
   }
 
@@ -121,8 +147,66 @@ export function FlowCanvas({
 
   const connectingNode = connectingFrom ? flow.nodes.find((node) => node.id === connectingFrom) ?? null : null;
   const connectionStart = connectingNode
-    ? { x: connectingNode.position.x + 190, y: connectingNode.position.y + 36 }
+    ? { x: connectingNode.position.x + NODE_WIDTH, y: connectingNode.position.y + 36 }
     : null;
+
+  function fitView() {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const padding = 0.2;
+    const width = Math.max(graphBounds.maxX - graphBounds.minX, NODE_WIDTH);
+    const height = Math.max(graphBounds.maxY - graphBounds.minY, NODE_HEIGHT);
+    const scale = Math.max(
+      MIN_ZOOM,
+      Math.min(MAX_ZOOM, Math.min(rect.width / (width * (1 + padding)), rect.height / (height * (1 + padding)))),
+    );
+    setViewport({
+      scale,
+      x: rect.width / 2 - (graphBounds.minX + width / 2) * scale,
+      y: rect.height / 2 - (graphBounds.minY + height / 2) * scale,
+    });
+  }
+
+  function zoomBy(multiplier: number, clientX?: number, clientY?: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const anchorX = clientX ?? rect.left + rect.width / 2;
+    const anchorY = clientY ?? rect.top + rect.height / 2;
+    const graphPoint = canvasPointFromClient(anchorX, anchorY);
+    const nextScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, viewport.scale * multiplier));
+    setViewport({
+      scale: nextScale,
+      x: anchorX - rect.left - graphPoint.x * nextScale,
+      y: anchorY - rect.top - graphPoint.y * nextScale,
+    });
+  }
+
+  useEffect(() => {
+    if (fitVersion > 0 || flow.nodes.length > 0) {
+      fitView();
+    }
+  }, [fitVersion]);
+
+  useEffect(() => {
+    function handleZoomIn() {
+      zoomBy(1.18);
+    }
+    function handleZoomOut() {
+      zoomBy(0.84);
+    }
+    window.addEventListener("bikapi:flow-zoom-in", handleZoomIn);
+    window.addEventListener("bikapi:flow-zoom-out", handleZoomOut);
+    return () => {
+      window.removeEventListener("bikapi:flow-zoom-in", handleZoomIn);
+      window.removeEventListener("bikapi:flow-zoom-out", handleZoomOut);
+    };
+  }, [viewport]);
 
   useEffect(() => {
     function isInsideCanvas(clientX: number, clientY: number) {
@@ -197,7 +281,7 @@ export function FlowCanvas({
       document.removeEventListener("drop", handleDrop, true);
       document.removeEventListener("dragend", handleDragEnd, true);
     };
-  }, [onDropEndpoint]);
+  }, [onDropEndpoint, viewport]);
 
   return (
     <div
@@ -208,7 +292,35 @@ export function FlowCanvas({
           onSelectCanvas();
         }
       }}
+      onWheel={(event) => {
+        event.preventDefault();
+        zoomBy(event.deltaY < 0 ? 1.08 : 0.92, event.clientX, event.clientY);
+      }}
+      onMouseDown={(event) => {
+        const target = event.target as HTMLElement | SVGElement;
+        if (
+          event.button !== 0 ||
+          target.tagName.toLowerCase() === "path" ||
+          target.closest?.(`.${styles.requestNode}, .${styles.edgeLabel}, button`)
+        ) {
+          return;
+        }
+        setPanning({
+          startX: event.clientX,
+          startY: event.clientY,
+          originX: viewport.x,
+          originY: viewport.y,
+        });
+      }}
       onMouseMove={(event) => {
+        if (panning) {
+          setViewport((current) => ({
+            ...current,
+            x: panning.originX + event.clientX - panning.startX,
+            y: panning.originY + event.clientY - panning.startY,
+          }));
+          return;
+        }
         if (getCurrentRequestDrag()) {
           setDropActive(true);
         }
@@ -263,13 +375,24 @@ export function FlowCanvas({
         setConnectingFrom(null);
         setConnectionPoint(null);
         setDragging(null);
+        setPanning(null);
       }}
-      onMouseLeave={() => setDragging(null)}
+      onMouseLeave={() => {
+        setDragging(null);
+        setPanning(null);
+      }}
     >
-      <svg className={styles.edges} width="100%" height="100%">
+      <div
+        className={styles.graphContent}
+        style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})` }}
+      >
+      <svg
+        className={styles.edges}
+        viewBox={`${GRAPH_MIN} ${GRAPH_MIN} ${GRAPH_MAX - GRAPH_MIN} ${GRAPH_MAX - GRAPH_MIN}`}
+      >
         <defs>
-          <marker id="flow-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L9,3 z" fill="#60a5fa" />
+          <marker id="flow-arrow" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto">
+            <path d="M0,0 L0,8 L11,4 z" fill="#93c5fd" />
           </marker>
         </defs>
         {flow.edges.map((edge) => {
@@ -281,7 +404,9 @@ export function FlowCanvas({
             <path
               key={edge.id}
               d={path}
-              className={`${styles.edgePath} ${selectedEdgeId === edge.id ? styles.edgePathActive : ""}`}
+              className={`${styles.edgePath} ${selectedEdgeId === edge.id ? styles.edgePathActive : ""} ${
+                runningNodeIds.has(edgeSource(edge)) ? styles.edgePathRunning : ""
+              }`}
               markerEnd="url(#flow-arrow)"
               onClick={() => onSelectEdge(edge.id)}
               onContextMenu={(event) => {
@@ -312,8 +437,8 @@ export function FlowCanvas({
             from={from}
             to={to}
             active={selectedEdgeId === edge.id}
-          onClick={() => onSelectEdge(edge.id)}
-        />
+            onClick={() => onSelectEdge(edge.id)}
+          />
         );
       })}
       {flow.nodes.map((node) => (
@@ -338,8 +463,8 @@ export function FlowCanvas({
             const target = event.currentTarget.getBoundingClientRect();
             setDragging({
               nodeId: node.id,
-              offsetX: event.clientX - target.left,
-              offsetY: event.clientY - target.top,
+              offsetX: (event.clientX - target.left) / viewport.scale,
+              offsetY: (event.clientY - target.top) / viewport.scale,
             });
             onSelectNode(node.id);
           }}
@@ -358,6 +483,25 @@ export function FlowCanvas({
         <div className={styles.canvasEmpty}>
           <strong>Drop requests here</strong>
           <span>Drag from the Requests list to create nodes, then connect handles.</span>
+        </div>
+      )}
+      </div>
+      {flow.nodes.length > 0 && (
+        <div className={styles.minimap}>
+          {flow.nodes.map((node) => {
+            const width = Math.max(graphBounds.maxX - graphBounds.minX, 1);
+            const height = Math.max(graphBounds.maxY - graphBounds.minY, 1);
+            return (
+              <span
+                key={node.id}
+                className={selectedNodeId === node.id ? styles.minimapNodeActive : ""}
+                style={{
+                  left: `${((node.position.x - graphBounds.minX) / width) * 100}%`,
+                  top: `${((node.position.y - graphBounds.minY) / height) * 100}%`,
+                }}
+              />
+            );
+          })}
         </div>
       )}
     </div>

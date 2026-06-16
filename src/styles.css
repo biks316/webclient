@@ -501,6 +501,42 @@ button.icon-button {
   height: 14px;
 }
 
+.import-dialog {
+  width: min(720px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: auto;
+}
+
+.import-preview-tree,
+.import-warning-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--field);
+}
+
+.import-preview-tree div {
+  display: grid;
+  gap: 4px;
+}
+
+.import-preview-tree code,
+.import-warning-list span {
+  display: block;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #0b1018;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.import-warning-list span {
+  color: var(--warning-orange);
+}
+
 .toast-stack {
   position: fixed;
   right: 16px;

@@ -13,6 +13,12 @@ import { RequestEditor } from "./components/request/RequestEditor";
 import { RightTimelinePanel } from "./components/layout/RightTimelinePanel";
 import { GitHubSyncPrompt } from "./components/workspace/GitHubSyncPrompt";
 import { WorkspaceSwitcher } from "./components/workspace/WorkspaceSwitcher";
+import { createImportReport } from "./importers/common/createImportReport";
+import { ImportResult as ParsedImportResult } from "./importers/common/ImportResult";
+import { detectPostmanCollection } from "./importers/postman/detectPostmanCollection";
+import { parsePostmanCollection } from "./importers/postman/parsePostmanCollection";
+import { parsePostmanEnvironment } from "./importers/postman/parsePostmanEnvironment";
+import { parseBrunoFolder } from "./importers/bruno/parseBrunoFolder";
 import {
   loadRecentWorkspaces,
   rememberWorkspace,
@@ -173,6 +179,8 @@ export default function App() {
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
   const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState<ParsedImportResult | null>(null);
+  const [createSequenceFlow, setCreateSequenceFlow] = useState(false);
   const [flowHistoryAvailability, setFlowHistoryAvailability] = useState({ canUndo: false, canRedo: false });
   const startupSyncWorkspaceRef = useRef<string | null>(null);
   const lastSavedFlowDraftRef = useRef<string | null>(null);
@@ -612,6 +620,172 @@ export default function App() {
       return fallback?.trim() || null;
     }
     return null;
+  }
+
+  async function chooseFile(): Promise<string | null> {
+    try {
+      const selected = await openDialog({ directory: false, multiple: false });
+      return typeof selected === "string" ? selected : null;
+    } catch {
+      return requestTextPrompt({ title: "Import file", label: "File path", confirmText: "Open" });
+    }
+  }
+
+  async function handleImport(kind: "postman-collection" | "postman-environment" | "bruno-folder" | "curl") {
+    if (!workspace) {
+      return;
+    }
+    if (kind === "curl") {
+      const curl = await requestTextPrompt({ title: "Import curl", label: "curl command", confirmText: "Preview" });
+      if (!curl) {
+        return;
+      }
+      setImportPreview(parseCurlImport(curl));
+      return;
+    }
+    if (kind === "bruno-folder") {
+      const folder = await chooseFolder();
+      if (!folder) {
+        return;
+      }
+      const files = await api.readTextFolderRecursive(folder);
+      setImportPreview(parseBrunoFolder(files, folder.split(/[\\/]/).pop() || "Bruno Collection"));
+      return;
+    }
+    const file = await chooseFile();
+    if (!file) {
+      return;
+    }
+    const content = await api.readTextFile(file);
+    const parsed = JSON.parse(content);
+    if (kind === "postman-environment") {
+      setImportPreview(parsePostmanEnvironment(parsed));
+      return;
+    }
+    if (!detectPostmanCollection(parsed)) {
+      pushToast("Not a Postman collection", "error");
+      return;
+    }
+    setImportPreview(parsePostmanCollection(parsed));
+  }
+
+  async function commitImport() {
+    if (!workspace || !importPreview) {
+      return;
+    }
+    let current = workspace;
+    for (const environment of importPreview.environments) {
+      const created = await api.createEnvironment(current.path, environment.name);
+      const target = created.environments.find((item) => item.name === environment.name) ?? created.environments[created.environments.length - 1];
+      current = target ? await api.saveEnvironmentVariables(created.path, target.id, environment.variables) : created;
+    }
+    for (const collection of importPreview.collections) {
+      const name = current.collections.some((item) => item.name === collection.name)
+        ? `${collection.name} Imported`
+        : collection.name;
+      const created = await api.createCollection(current.path, name);
+      const targetCollection = created.collections.find((item) => item.name === name) ?? created.collections[created.collections.length - 1];
+      if (!targetCollection) {
+        current = created;
+        continue;
+      }
+      if (Object.keys(collection.variables).length > 0) {
+        current = await api.saveCollectionVariables(created.path, targetCollection.id, collection.variables);
+      } else {
+        current = created;
+      }
+      const importedEndpointIds: string[] = [];
+      for (const imported of collection.requests) {
+        current = await api.createEndpointWithRequest(current.path, targetCollection.id, imported.request);
+        const endpoint = current.collections
+          .find((item) => item.id === targetCollection.id)
+          ?.endpoints.find((item) => item.name === imported.request.name);
+        if (endpoint) {
+          importedEndpointIds.push(endpoint.id);
+          if (imported.preScript) {
+            await api.saveScript(current.path, targetCollection.id, endpoint.id, "pre", imported.preScript);
+          }
+          if (imported.postScript) {
+            await api.saveScript(current.path, targetCollection.id, endpoint.id, "post", imported.postScript);
+          }
+        }
+      }
+      if (createSequenceFlow && importedEndpointIds.length > 0) {
+        const flow = makeImportedSequenceFlow(importedEndpointIds, collection.requests.map((item) => item.request.name));
+        current = await api.saveFlow(current.path, targetCollection.id, flow);
+      }
+    }
+    setWorkspace(current);
+    setImportPreview(null);
+    setCreateSequenceFlow(false);
+    const report = createImportReport(importPreview);
+    pushToast(`Imported ${report.requests} requests`, "success");
+    appendConsole(`Import report: ${JSON.stringify(report)}`, importPreview.warnings.length ? "warning" : "success");
+    maybeAutoSync();
+  }
+
+  function makeImportedSequenceFlow(endpointIds: string[], names: string[]): FlowDefinition {
+    return {
+      bikVersion: REQUEST_VERSION,
+      type: "flow",
+      id: `imported-sequence-flow-${Date.now()}`,
+      name: "Imported sequence flow",
+      nodes: endpointIds.map((endpointId, index) => ({
+        id: `node-${endpointId}`,
+        type: "request",
+        requestPath: `../endpoints/${endpointId}/request.bik`,
+        requestId: endpointId,
+        name: names[index] ?? endpointId,
+        position: { x: 100 + index * 320, y: 110 },
+        lastRun: null,
+      })),
+      edges: endpointIds.slice(0, -1).map((endpointId, index) => ({
+        id: `node-${endpointId}-to-node-${endpointIds[index + 1]}`,
+        source: `node-${endpointId}`,
+        target: `node-${endpointIds[index + 1]}`,
+        from: `node-${endpointId}`,
+        to: `node-${endpointIds[index + 1]}`,
+        label: "Add mapping",
+        mappings: [],
+      })),
+    };
+  }
+
+  function parseCurlImport(curl: string): ParsedImportResult {
+    const url = curl.match(/https?:\/\/[^\s'"]+/)?.[0] ?? "https://example.com/";
+    const method = curl.match(/-X\s+([A-Z]+)/i)?.[1] ?? (curl.includes("--data") || curl.includes("-d ") ? "POST" : "GET");
+    const headers: Record<string, string> = {};
+    for (const match of curl.matchAll(/(?:-H|--header)\s+['"]([^:'"]+):\s*([^'"]+)['"]/g)) {
+      headers[match[1]] = match[2];
+    }
+    const bodyMatch = curl.match(/(?:--data|-d)\s+['"]([^'"]+)['"]/);
+    const body = bodyMatch ? bodyMatch[1] : null;
+    return {
+      sourceType: "curl",
+      name: "curl import",
+      collections: [{
+        name: "curl import",
+        variables: {},
+        requests: [{
+          name: "Imported curl request",
+          folderPath: [],
+          request: {
+            bikVersion: REQUEST_VERSION,
+            type: "request",
+            id: `curl-${Date.now()}`,
+            name: "Imported curl request",
+            method,
+            url,
+            headers,
+            queryParams: {},
+            body,
+            variables: {},
+          },
+        }],
+      }],
+      environments: [],
+      warnings: [],
+    };
   }
 
   function joinPath(parentPath: string, childName: string) {
@@ -2332,6 +2506,7 @@ export default function App() {
               onCreateCollection={() => void handleCreateCollection()}
               onUndo={() => window.dispatchEvent(new Event("bikapi:flow-undo"))}
               onRedo={() => window.dispatchEvent(new Event("bikapi:flow-redo"))}
+              onImport={(kind) => void handleImport(kind)}
               onCreateRequest={() => void handleCreateEndpoint()}
               onSendRequest={() => void handleSendRequest()}
               onSync={() => void performSync(true)}
@@ -2843,6 +3018,62 @@ export default function App() {
               <button type="button" onClick={() => setSettingsOpen(false)}>
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importPreview && (
+        <div className="prompt-backdrop" role="presentation">
+          <div className="prompt-dialog import-dialog">
+            <h2>Import Preview</h2>
+            {(() => {
+              const report = createImportReport(importPreview);
+              return (
+                <>
+                  <p>
+                    {report.collections} collection(s), {report.folders} folder(s), {report.requests} request(s),{" "}
+                    {report.variables} variable(s), {report.warnings.length} warning(s)
+                  </p>
+                  <div className="import-preview-tree">
+                    {importPreview.environments.map((environment) => (
+                      <div key={environment.name}>
+                        <strong>{environment.name}</strong>
+                        <span>{Object.keys(environment.variables).length} variables</span>
+                      </div>
+                    ))}
+                    {importPreview.collections.map((collection) => (
+                      <div key={collection.name}>
+                        <strong>{collection.name}</strong>
+                        {collection.requests.map((request) => (
+                          <code key={`${request.folderPath.join("/")}:${request.name}`}>
+                            {[...request.folderPath, `${request.request.method} ${request.name}`].join(" / ")}
+                          </code>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  {report.warnings.length > 0 && (
+                    <div className="import-warning-list">
+                      {report.warnings.map((warning, index) => (
+                        <span key={`${warning.message}-${index}`}>{warning.path ? `${warning.path}: ` : ""}{warning.message}</span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={createSequenceFlow}
+                onChange={(event) => setCreateSequenceFlow(event.currentTarget.checked)}
+              />
+              Create simple flow from imported collection order
+            </label>
+            <div className="prompt-actions">
+              <button type="button" onClick={() => setImportPreview(null)}>Cancel</button>
+              <button type="button" className="primary" onClick={() => void commitImport()}>Import</button>
             </div>
           </div>
         </div>

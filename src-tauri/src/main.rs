@@ -2,8 +2,8 @@ mod commands;
 
 use commands::file_store::{
     read_app_state, read_collection_automation, read_recent_workspaces, read_scripts, save_app_state,
-    save_collection_automation_script, save_response_example, save_script,
-    save_recent_workspaces,
+    read_text_file, read_text_folder_recursive, save_collection_automation_script,
+    save_response_example, save_script, save_recent_workspaces,
 };
 use commands::git::{
     clone_workspace, get_git_remote_url, get_git_status, get_sync_status, initialize_git_repository,
@@ -63,7 +63,9 @@ fn main() {
             read_app_state,
             save_app_state,
             read_recent_workspaces,
-            save_recent_workspaces
+            save_recent_workspaces,
+            read_text_file,
+            read_text_folder_recursive
         ])
         .run(tauri::generate_context!())
         .expect("error while running BikAPI");

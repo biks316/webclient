@@ -35,6 +35,7 @@ interface AppToolbarProps {
   onCreateCollection: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onImport: (kind: "postman-collection" | "postman-environment" | "bruno-folder" | "curl") => void;
   onCreateRequest: () => void;
   onSendRequest: () => void;
   onSync: () => void;
@@ -65,6 +66,7 @@ export function AppToolbar({
   onCreateCollection,
   onUndo,
   onRedo,
+  onImport,
   onCreateRequest,
   onSendRequest,
   onSync,
@@ -80,6 +82,7 @@ export function AppToolbar({
 }: AppToolbarProps) {
   const syncMeta = getSyncMeta(syncStatus);
   const [syncMenuOpen, setSyncMenuOpen] = useState(false);
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
   const syncMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -188,6 +191,27 @@ export function AppToolbar({
           <Plus size={13} />
           Request
         </button>
+        <div className={styles.syncMenuWrap}>
+          <button type="button" className={styles.toolButton} onClick={() => setImportMenuOpen((open) => !open)}>
+            Import
+          </button>
+          {importMenuOpen && (
+            <div className={styles.syncMenu}>
+              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("postman-collection"); }}>
+                Postman Collection
+              </button>
+              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("postman-environment"); }}>
+                Postman Environment
+              </button>
+              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("bruno-folder"); }}>
+                Bruno Collection Folder
+              </button>
+              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("curl"); }}>
+                curl
+              </button>
+            </div>
+          )}
+        </div>
         <button type="button" className={styles.toolButton} onClick={onSendRequest}>
           <Send size={13} />
           Send

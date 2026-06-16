@@ -39,6 +39,16 @@ export function openWorkspace(path: string): Promise<WorkspaceIndex> {
   return invoke("open_workspace", { path });
 }
 
+export function readTextFile(path: string): Promise<string> {
+  ensureTauriRuntime();
+  return invoke("read_text_file", { payload: { path } });
+}
+
+export function readTextFolderRecursive(path: string): Promise<Array<{ path: string; content: string }>> {
+  ensureTauriRuntime();
+  return invoke("read_text_folder_recursive", { payload: { path } });
+}
+
 export function createCollection(
   workspacePath: string,
   name: string,

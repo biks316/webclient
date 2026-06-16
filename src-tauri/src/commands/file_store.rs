@@ -104,6 +104,19 @@ pub struct RecentWorkspaceList {
     pub recent_workspaces: Vec<RecentWorkspace>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathPayload {
+    pub path: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextFileEntry {
+    pub path: String,
+    pub content: String,
+}
+
 #[tauri::command]
 pub fn read_app_state() -> CommandResult<Option<AppState>> {
     let path = app_state_path()?;
@@ -173,6 +186,40 @@ pub fn save_recent_workspaces(payload: RecentWorkspaceList) -> CommandResult<()>
             "recentWorkspaces": recent_workspaces
         }),
     )
+}
+
+#[tauri::command]
+pub fn read_text_file(payload: PathPayload) -> CommandResult<String> {
+    fs::read_to_string(&payload.path).map_err(|error| format!("Failed to read {}: {error}", payload.path))
+}
+
+#[tauri::command]
+pub fn read_text_folder_recursive(payload: PathPayload) -> CommandResult<Vec<TextFileEntry>> {
+    let root = PathBuf::from(payload.path);
+    let mut files = Vec::new();
+    read_text_folder_inner(&root, &root, &mut files)?;
+    Ok(files)
+}
+
+fn read_text_folder_inner(root: &PathBuf, dir: &PathBuf, files: &mut Vec<TextFileEntry>) -> CommandResult<()> {
+    for entry in fs::read_dir(dir).map_err(|error| format!("Failed to read {}: {error}", dir.display()))? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        if path.is_dir() {
+            read_text_folder_inner(root, &path, files)?;
+            continue;
+        }
+        let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+        if !matches!(extension, "bru" | "json" | "txt" | "js") {
+            continue;
+        }
+        let relative = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().to_string();
+        files.push(TextFileEntry {
+            path: relative,
+            content: fs::read_to_string(&path).map_err(|error| format!("Failed to read {}: {error}", path.display()))?,
+        });
+    }
+    Ok(())
 }
 
 #[tauri::command]

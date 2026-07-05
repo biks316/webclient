@@ -8,6 +8,8 @@ import { RequestTabs } from "./RequestTabs";
 import { AuthEditor } from "./AuthEditor";
 import { ScriptsEditor } from "./ScriptsEditor";
 import { TestsEditor } from "./TestsEditor";
+import { SplitPane } from "../common/SplitPane";
+import { ResponseViewer } from "../response/ResponseViewer";
 import { BikRequest, CollectionAutomation, DiffRow, RunResponse, Scripts, VariableFile } from "../../types/bik";
 import { VariableContext } from "../../services/variableResolver";
 import { VariablePanel } from "../variables/VariablePanel";
@@ -36,6 +38,7 @@ interface RequestEditorProps {
   onGlobalVariablesChange: (variables: Record<string, string>) => void;
   onCollectionVariablesChange: (variables: Record<string, string>) => void;
   onEnvironmentVariablesChange: (variables: Record<string, string>) => void;
+  onEnvironmentVariablesByIdChange: (environmentId: string, variables: Record<string, string>) => void;
   onRequestChange: (request: BikRequest) => void;
   onScriptsChange: (scripts: Scripts) => void;
   onCollectionAutomationChange: (automation: CollectionAutomation) => void;
@@ -78,6 +81,7 @@ export function RequestEditor({
   onGlobalVariablesChange,
   onCollectionVariablesChange,
   onEnvironmentVariablesChange,
+  onEnvironmentVariablesByIdChange,
   onRequestChange,
   onScriptsChange,
   onCollectionAutomationChange,
@@ -97,6 +101,7 @@ export function RequestEditor({
   const [bodyText, setBodyText] = useState("");
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [variableMode, setVariableMode] = useState<"globals" | "collection" | "environment" | "panel" | null>(null);
+  const [sideResponseOpen, setSideResponseOpen] = useState(true);
 
   useEffect(() => {
     if (!request || BODYLESS_METHODS.has(request.method.toUpperCase())) {
@@ -308,27 +313,63 @@ export function RequestEditor({
             Env vars
           </button>
           <button type="button" onClick={() => setVariableMode("panel")}>Variables</button>
+          <button type="button" onClick={() => setSideResponseOpen((current) => !current)}>
+            {sideResponseOpen ? "Hide response" : "Show response"}
+          </button>
         </div>
       </div>
 
       <div className={styles.workSurface}>
-        <div className={styles.leftPane}>{renderLeftPane()}</div>
+        {sideResponseOpen ? (
+          <SplitPane
+            direction="horizontal"
+            first={<div className={styles.leftPane}>{renderLeftPane()}</div>}
+            second={
+              <div className={styles.rightPane}>
+                <ResponseViewer
+                  response={response}
+                  error={responseError}
+                  isBusy={isBusy}
+                  activeTab={activeResponseTab}
+                  diffRows={diffRows}
+                  selectedHistoryPath={selectedHistoryPath}
+                  onActiveTabChange={onActiveResponseTabChange}
+                  onSaveExample={onSaveExample}
+                  onCopyResponse={onCopyResponse}
+                  onExportResponse={onExportResponse}
+                />
+              </div>
+            }
+            initialPrimarySize={520}
+            primary="second"
+            minPrimarySize={340}
+            maxPrimarySize={820}
+            className={styles.responseSplit}
+          />
+        ) : (
+          <div className={styles.leftPane}>{renderLeftPane()}</div>
+        )}
       </div>
 
       {variableMode && (
         <div className="prompt-backdrop" role="presentation">
           <div className="prompt-dialog variable-dialog">
             {variableMode === "panel" ? (
-              <>
-                <div className={styles.variableHeader}>
-                  <strong>Variables</strong>
-                  <button type="button" onClick={() => setVariableMode(null)}>Close</button>
-                </div>
+              <div className={styles.variableManagerDialog}>
+                <button type="button" className={styles.variableManagerClose} onClick={() => setVariableMode(null)}>Close</button>
                 <VariablePanel
                   context={variableContext}
+                  requestName={currentRequest.name}
+                  environments={environments}
+                  selectedEnvironmentId={selectedEnvironmentId}
                   usedText={`${currentRequest.url}\n${JSON.stringify(currentRequest.headers)}\n${JSON.stringify(currentRequest.queryParams)}\n${bodyText}`}
+                  onRequestVariablesChange={(variables) => update({ variables })}
+                  onGlobalVariablesChange={onGlobalVariablesChange}
+                  onCollectionVariablesChange={onCollectionVariablesChange}
+                  onEnvironmentVariablesChange={onEnvironmentVariablesChange}
+                  onEnvironmentVariablesByIdChange={onEnvironmentVariablesByIdChange}
                 />
-              </>
+              </div>
             ) : (
             <>
             <div className={styles.variableHeader}>

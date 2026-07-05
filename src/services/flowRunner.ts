@@ -1,8 +1,9 @@
-import { BikRequest, CollectionIndex, FlowDefinition, FlowNode, RunResponse } from "../types/bik";
+import { BikRequest, CollectionIndex, FlowDefinition, FlowNode, RunResponse, Scripts } from "../types/bik";
 import * as api from "./tauriApi";
 import { cloneJson } from "./workspaceService";
 import { AppliedMapping, applyEdgeMappings } from "./mappingEngine";
 import { edgeSource, edgeTarget, orderedFlowNodes } from "./flowLayoutService";
+import { runRequestScript } from "./scriptRunner";
 
 export interface FlowRunStep {
   nodeId: string;
@@ -22,6 +23,22 @@ function requestForNode(collection: CollectionIndex, node: FlowNode): BikRequest
   return cloneJson(endpoint.request);
 }
 
+async function scriptsForNode(
+  workspacePath: string,
+  collectionId: string,
+  endpointId: string,
+  cache: Map<string, Scripts>,
+): Promise<Scripts> {
+  const cached = cache.get(endpointId);
+  if (cached) {
+    return cached;
+  }
+
+  const scripts = await api.readScripts(workspacePath, collectionId, endpointId);
+  cache.set(endpointId, scripts);
+  return scripts;
+}
+
 export async function runFlow(
   workspacePath: string,
   collection: CollectionIndex,
@@ -32,6 +49,7 @@ export async function runFlow(
   const nextFlow: FlowDefinition = cloneJson(flow);
   const nodes = orderedFlowNodes(nextFlow);
   const contextVariables: Record<string, string> = {};
+  const scriptsByEndpoint = new Map<string, Scripts>();
   const requestByNode = new Map<string, BikRequest>();
   const steps: FlowRunStep[] = nodes.map((node) => {
     const request = requestForNode(collection, node);
@@ -61,7 +79,31 @@ export async function runFlow(
 
     try {
       request.variables = { ...request.variables, ...contextVariables };
+      const scripts = await scriptsForNode(workspacePath, collection.id, node.requestId, scriptsByEndpoint);
+      const scriptVariables = {
+        ...collection.variables,
+        ...request.variables,
+        ...contextVariables,
+      };
+      await runRequestScript({
+        name: node.name,
+        phase: "pre",
+        script: scripts.pre,
+        helpers: scripts.helpers,
+        request,
+        variables: scriptVariables,
+      });
+
       const response = await api.sendRequest(workspacePath, collection.id, node.requestId, environmentId, request);
+      await runRequestScript({
+        name: node.name,
+        phase: "post",
+        script: scripts.post,
+        helpers: scripts.helpers,
+        request,
+        response,
+        variables: scriptVariables,
+      });
       step.response = response;
       step.status = response.status >= 400 ? "error" : "success";
       const graphNode = nextFlow.nodes.find((item) => item.id === node.id);

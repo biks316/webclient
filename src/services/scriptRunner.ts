@@ -30,6 +30,10 @@ interface ScriptRuntime {
   setMethod: (method: string) => void;
   setUrl: (url: string) => void;
   setBody: (body: unknown) => void;
+  setResponseStatus: (status: number, statusText?: string) => void;
+  setResponseHeader: (name: string, value: unknown) => void;
+  removeResponseHeader: (name: string) => void;
+  setResponseBody: (body: unknown) => void;
 }
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
@@ -116,6 +120,33 @@ function createScriptRuntime({
     },
     setBody: (body) => {
       request.body = body as BikRequest["body"];
+    },
+    setResponseStatus: (status, statusText) => {
+      if (!response) {
+        return;
+      }
+      response.status = status;
+      if (statusText !== undefined) {
+        response.statusText = toScriptValue(statusText);
+      }
+    },
+    setResponseHeader: (name, value) => {
+      if (!response) {
+        return;
+      }
+      response.headers[name] = toScriptValue(value);
+    },
+    removeResponseHeader: (name) => {
+      if (!response) {
+        return;
+      }
+      delete response.headers[name];
+    },
+    setResponseBody: (body) => {
+      if (!response) {
+        return;
+      }
+      response.body = typeof body === "string" ? body : JSON.stringify(body, null, 2);
     },
   };
 }

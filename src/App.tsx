@@ -2026,12 +2026,16 @@ export default function App() {
     if (!workspace || !selectedCollectionId || !selectedEndpointId || !draftRequest) {
       return;
     }
-    const next = await runAction("Saving request.bik...", () =>
-      api.saveRequest(workspace.path, selectedCollectionId, selectedEndpointId, draftRequest),
-    );
+    const next = await runAction("Saving request...", async () => {
+      const savedWorkspace = await api.saveRequest(workspace.path, selectedCollectionId, selectedEndpointId, draftRequest);
+      await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "pre", endpointScripts.pre);
+      await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "post", endpointScripts.post);
+      await api.saveScript(workspace.path, selectedCollectionId, selectedEndpointId, "helpers", endpointScripts.helpers);
+      return savedWorkspace;
+    });
     if (next) {
       applyWorkspace(next, selectedCollectionId, selectedEndpointId);
-      appendConsole(`Saved request ${draftRequest.name}.`, "success");
+      appendConsole(`Saved request ${draftRequest.name} and endpoint scripts.`, "success");
       await captureSaveSnapshot(`Saved ${draftRequest.name} at`);
       maybeAutoSync();
     }
@@ -2116,12 +2120,16 @@ export default function App() {
     if (!selectedEnvironmentId) {
       return;
     }
+    handleEnvironmentVariablesByIdChange(selectedEnvironmentId, variables);
+  }
+
+  function handleEnvironmentVariablesByIdChange(environmentId: string, variables: Record<string, string>) {
     setWorkspace((current) =>
       current
         ? {
             ...current,
             environments: current.environments.map((environment) =>
-              environment.id === selectedEnvironmentId ? { ...environment, variables } : environment,
+              environment.id === environmentId ? { ...environment, variables } : environment,
             ),
           }
         : current,
@@ -2188,10 +2196,6 @@ export default function App() {
         selectedEnvironmentId,
         requestToSend,
       );
-      setResponse(result);
-      setActiveResponseTab("response");
-      setStatus(`Received ${result.status} ${result.statusText || ""} from ${result.resolvedUrl}`.trim());
-      appendConsole(`Response ${result.status} in ${result.responseTimeMs} ms from ${result.resolvedUrl}.`, result.status >= 400 ? "error" : "success");
 
       try {
         await runRequestScript({
@@ -2218,6 +2222,10 @@ export default function App() {
         setStatus(message);
         appendConsole(message, "error");
       }
+      setResponse(result);
+      setActiveResponseTab("response");
+      setStatus(`Received ${result.status} ${result.statusText || ""} from ${result.resolvedUrl}`.trim());
+      appendConsole(`Response ${result.status} in ${result.responseTimeMs} ms from ${result.resolvedUrl}.`, result.status >= 400 ? "error" : "success");
     } catch (error) {
       const message = String(error);
       setResponseError(message);
@@ -2358,6 +2366,7 @@ export default function App() {
               onGlobalVariablesChange={handleGlobalVariablesChange}
               onCollectionVariablesChange={handleCollectionVariablesChange}
               onEnvironmentVariablesChange={handleEnvironmentVariablesChange}
+              onEnvironmentVariablesByIdChange={handleEnvironmentVariablesByIdChange}
               onRequestChange={setDraftRequest}
               onScriptsChange={setEndpointScripts}
               onCollectionAutomationChange={setCollectionAutomation}

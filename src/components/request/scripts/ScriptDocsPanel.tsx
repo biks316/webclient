@@ -38,6 +38,9 @@ export function ScriptDocsPanel({ collapsed, onToggle }: ScriptDocsPanelProps) {
         <code>bik.setHeader("X-Trace", value)</code>
         <code>bik.setQueryParam("page", 1)</code>
         <code>bik.setBody({"{ id: 1 }"})</code>
+        <code>bik.setResponseBody(data)</code>
+        <code>bik.setResponseHeader("X-Source", value)</code>
+        <code>bik.setResponseStatus(200, "OK")</code>
       </section>
 
       <section>
@@ -50,6 +53,8 @@ request.url = "https://api.example.com"
 
 if (response.status >= 400) {
   console.error(response.body)
+} else {
+  bik.setResponseBody(JSON.parse(response.body))
 }`}</pre>
       </section>
     </aside>

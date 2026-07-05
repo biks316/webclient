@@ -37,15 +37,26 @@
 
 .workSurface,
 .split,
-.leftPane {
+.leftPane,
+.rightPane,
+.responseSplit {
+  min-width: 0;
   min-height: 0;
   height: 100%;
 }
 
 .leftPane {
   padding: 6px;
-  border-right: 1px solid var(--border);
   background: #171c23;
+}
+
+.rightPane {
+  border-left: 1px solid var(--border);
+  background: #151a21;
+}
+
+.responseSplit {
+  overflow: hidden;
 }
 
 .bodyPlaceholder {
@@ -58,4 +69,18 @@
 
 .variableGrid {
   margin-top: 6px;
+}
+
+.variableManagerDialog {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  position: relative;
+}
+
+.variableManagerClose {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 14px;
 }

@@ -306,7 +306,11 @@ code {
 }
 
 .variable-dialog {
-  width: min(760px, calc(100vw - 28px));
+  width: min(1180px, calc(100vw - 28px));
+  max-height: calc(100vh - 42px);
+  min-height: min(760px, calc(100vh - 42px));
+  padding: 0;
+  overflow: hidden;
 }
 
 .kv-editor {

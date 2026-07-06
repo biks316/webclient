@@ -32,6 +32,8 @@ export type DragEndpointPayload = RequestDragPayload;
 
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 72;
+const START_NODE_SIZE = 62;
+const START_NODE_GAP = 96;
 const GRAPH_MIN = -5000;
 const GRAPH_MAX = 5000;
 const MIN_ZOOM = 0.2;
@@ -55,6 +57,11 @@ function edgePath(edge: FlowEdge, flow: FlowDefinition) {
 function connectionPath(from: { x: number; y: number }, to: { x: number; y: number }) {
   const midX = from.x + Math.max((to.x - from.x) / 2, 48);
   return `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
+}
+
+function rootNodes(flow: FlowDefinition) {
+  const targeted = new Set(flow.edges.map((edge) => edgeTarget(edge)));
+  return flow.nodes.filter((node) => !targeted.has(node.id));
 }
 
 function readEndpointPayload(dataTransfer: DataTransfer) {
@@ -118,13 +125,20 @@ export function FlowCanvas({
   const [viewport, setViewport] = useState({ x: 40, y: 40, scale: 1 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const handledDropRef = useRef(false);
+  const startNodes = rootNodes(flow);
+  const startAnchor = startNodes.length > 0
+    ? {
+        x: Math.min(...startNodes.map((node) => node.position.x)) - START_NODE_GAP,
+        y: startNodes.reduce((sum, node) => sum + node.position.y + NODE_HEIGHT / 2, 0) / startNodes.length,
+      }
+    : null;
 
   const graphBounds = flow.nodes.reduce(
     (bounds, node) => ({
-      minX: Math.min(bounds.minX, node.position.x),
-      minY: Math.min(bounds.minY, node.position.y),
+      minX: Math.min(bounds.minX, node.position.x, startAnchor ? startAnchor.x - START_NODE_SIZE / 2 : node.position.x),
+      minY: Math.min(bounds.minY, node.position.y, startAnchor ? startAnchor.y - START_NODE_SIZE / 2 : node.position.y),
       maxX: Math.max(bounds.maxX, node.position.x + NODE_WIDTH),
-      maxY: Math.max(bounds.maxY, node.position.y + NODE_HEIGHT),
+      maxY: Math.max(bounds.maxY, node.position.y + NODE_HEIGHT, startAnchor ? startAnchor.y + START_NODE_SIZE / 2 : node.position.y + NODE_HEIGHT),
     }),
     { minX: 0, minY: 0, maxX: 1200, maxY: 700 },
   );
@@ -416,6 +430,17 @@ export function FlowCanvas({
             />
           );
         })}
+        {startAnchor && startNodes.map((node) => (
+          <path
+            key={`start-to-${node.id}`}
+            d={connectionPath(
+              { x: startAnchor.x + START_NODE_SIZE / 2, y: startAnchor.y },
+              { x: node.position.x, y: node.position.y + NODE_HEIGHT / 2 },
+            )}
+            className={styles.startEdgePath}
+            markerEnd="url(#flow-arrow)"
+          />
+        ))}
         {connectionStart && connectionPoint && (
           <path
             d={connectionPath(connectionStart, connectionPoint)}
@@ -424,6 +449,17 @@ export function FlowCanvas({
           />
         )}
       </svg>
+      {startAnchor && (
+        <div
+          className={styles.startNode}
+          style={{
+            left: startAnchor.x - START_NODE_SIZE / 2,
+            top: startAnchor.y - START_NODE_SIZE / 2,
+          }}
+        >
+          <span>Start</span>
+        </div>
+      )}
       {flow.edges.map((edge) => {
         const from = flow.nodes.find((node) => node.id === edgeSource(edge));
         const to = flow.nodes.find((node) => node.id === edgeTarget(edge));

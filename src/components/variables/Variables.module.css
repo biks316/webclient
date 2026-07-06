@@ -1,8 +1,69 @@
 .variableInput {
   position: relative;
   min-width: 0;
-  display: grid;
-  gap: 3px;
+  display: block;
+}
+
+.variableMirror {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: pre;
+}
+
+.variableMirror {
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: #8b97a8;
+  text-overflow: clip;
+  z-index: 0;
+}
+
+.variableField {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: transparent;
+  caret-color: #e6edf7;
+  text-shadow: none;
+}
+
+.variableField::placeholder {
+  color: transparent;
+}
+
+.variableMirrorContent {
+  display: inline-block;
+  min-width: 100%;
+  white-space: pre;
+  line-height: inherit;
+}
+
+.inlineVariable {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  padding: 0 1px;
+  border-radius: 4px;
+}
+
+.inlineVariableFound {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.inlineVariableMissing {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.12);
+  text-decoration: underline;
+  text-decoration-style: wavy;
 }
 
 .autocomplete {

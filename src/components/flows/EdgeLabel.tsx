@@ -1,6 +1,8 @@
 import { FlowEdge, FlowNode } from "../../types/bik";
 import styles from "./FlowBuilder.module.css";
 
+const PLACEHOLDER_LABEL = "Add mapping";
+
 interface EdgeLabelProps {
   edge: FlowEdge;
   from: FlowNode;
@@ -10,11 +12,11 @@ interface EdgeLabelProps {
 }
 
 export function mappingLabel(edge: FlowEdge) {
-  if (edge.label) {
+  if (edge.mappings.length === 0 && edge.label && edge.label !== PLACEHOLDER_LABEL) {
     return edge.label;
   }
   if (edge.mappings.length === 0) {
-    return "Add mapping";
+    return PLACEHOLDER_LABEL;
   }
   if (edge.mappings.length > 1) {
     return `${edge.mappings.length} mappings`;
@@ -37,7 +39,7 @@ export function EdgeLabel({ edge, from, to, active, onClick }: EdgeLabelProps) {
       onClick={onClick}
       title={mappingLabel(edge)}
     >
-      Add mapping
+      {mappingLabel(edge)}
     </button>
   );
 }

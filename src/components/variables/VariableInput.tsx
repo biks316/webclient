@@ -1,5 +1,5 @@
-import { InputHTMLAttributes, KeyboardEvent, useMemo, useState } from "react";
-import { extractVariableNames, VariableContext } from "../../services/variableResolver";
+import { Fragment, InputHTMLAttributes, KeyboardEvent, useMemo, useState } from "react";
+import { extractVariableNames, resolveVariable, VARIABLE_PATTERN, VariableContext } from "../../services/variableResolver";
 import { useVariableResolver } from "./useVariableResolver";
 import { VariableAutocomplete } from "./VariableAutocomplete";
 import { VariableToken } from "./VariableToken";
@@ -15,6 +15,7 @@ export function VariableInput({ value, variableContext, onChange, className, onK
   const { entries } = useVariableResolver(variableContext);
   const [activeIndex, setActiveIndex] = useState(0);
   const [open, setOpen] = useState(false);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const variableQuery = useMemo(() => {
     const beforeCursor = value;
     const start = beforeCursor.lastIndexOf("{{");
@@ -29,6 +30,37 @@ export function VariableInput({ value, variableContext, onChange, className, onK
   }, [value]);
   const names = extractVariableNames(value);
   const matches = entries.filter((entry) => entry.name.toLowerCase().includes((variableQuery ?? "").toLowerCase()));
+  const highlightedValue = useMemo(() => {
+    const fragments: JSX.Element[] = [];
+    let lastIndex = 0;
+    let key = 0;
+
+    for (const match of value.matchAll(VARIABLE_PATTERN)) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      if (start > lastIndex) {
+      fragments.push(<Fragment key={`text-${key++}`}>{value.slice(lastIndex, start)}</Fragment>);
+      }
+
+      const variable = resolveVariable(match[1], variableContext);
+      fragments.push(
+        <span
+          key={`var-${key++}`}
+          className={`${styles.inlineVariable} ${variable.found ? styles.inlineVariableFound : styles.inlineVariableMissing}`}
+          title={`${variable.name} (${variable.found ? variable.scope : "unresolved"})`}
+        >
+          {match[0]}
+        </span>,
+      );
+      lastIndex = end;
+    }
+
+    if (lastIndex < value.length) {
+      fragments.push(<Fragment key={`text-${key++}`}>{value.slice(lastIndex)}</Fragment>);
+    }
+
+    return fragments;
+  }, [props.placeholder, value, variableContext]);
 
   function insertVariable(name: string) {
     const start = value.lastIndexOf("{{");
@@ -64,16 +96,23 @@ export function VariableInput({ value, variableContext, onChange, className, onK
 
   return (
     <div className={styles.variableInput}>
+      <div className={`${styles.variableMirror} ${className ?? ""}`.trim()} aria-hidden="true">
+        <div className={styles.variableMirrorContent} style={{ transform: `translateX(${-scrollLeft}px)` }}>
+          {highlightedValue}
+        </div>
+      </div>
       <input
         {...props}
-        className={className}
+        className={`${styles.variableField} ${className ?? ""}`.trim()}
         value={value}
         onChange={(event) => {
           const next = event.currentTarget.value;
           onChange(next);
+          setScrollLeft(event.currentTarget.scrollLeft);
           setOpen(next.includes("{{") && variableQuery !== null);
           setActiveIndex(0);
         }}
+        onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
         onKeyDown={handleKeyDown}
       />
       {open && variableQuery !== null && (

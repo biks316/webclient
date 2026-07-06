@@ -14,7 +14,7 @@ export function FlowRunPanel({ steps }: FlowRunPanelProps) {
       </header>
       <div className={styles.runSteps}>
         {steps.length === 0 ? (
-          <span className={styles.emptyText}>Run the flow to see each request, response, and mapping.</span>
+          <span className={styles.emptyText}>Run the flow to see each request, response, and forwarded value.</span>
         ) : (
           steps.map((step) => (
             <details key={step.nodeId} className={styles.runStep} open={step.status === "error"}>
@@ -35,9 +35,9 @@ export function FlowRunPanel({ steps }: FlowRunPanelProps) {
                     <pre>{step.response.body}</pre>
                   </>
                 )}
-                <h4>Mappings applied</h4>
+                <h4>Forwarded values</h4>
                 {step.appliedMappings.length === 0 ? (
-                  <p>No mappings applied from this step.</p>
+                  <p>No values forwarded from this step.</p>
                 ) : (
                   step.appliedMappings.map((mapping) => (
                     <code key={`${mapping.source}-${mapping.target}`}>

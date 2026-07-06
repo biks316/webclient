@@ -257,10 +257,24 @@ export function sendRequest(
   endpointId: string,
   environmentId: string | null,
   request: BikRequest,
+  variableOverrides?: {
+    globals?: Record<string, string>;
+    collectionVariables?: Record<string, string>;
+    environmentVariables?: Record<string, string>;
+  },
 ): Promise<RunResponse> {
   ensureTauriRuntime();
   return invoke("send_request", {
-    payload: { workspacePath, collectionId, endpointId, environmentId, request },
+    payload: {
+      workspacePath,
+      collectionId,
+      endpointId,
+      environmentId,
+      request,
+      globals: variableOverrides?.globals,
+      collectionVariables: variableOverrides?.collectionVariables,
+      environmentVariables: variableOverrides?.environmentVariables,
+    },
   });
 }
 

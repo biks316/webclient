@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActionMenu } from "./ActionMenu";
 import { KeyValueEditor } from "./KeyValueEditor";
 import { BikRequest, VariableFile } from "../types/bik";
+import { createRequestBody, normalizeRequestBody } from "../services/requestBody";
 
 interface RequestEditorProps {
   request: BikRequest | null;
@@ -64,7 +65,7 @@ export function RequestEditor({
       return;
     }
 
-    setBodyText(request.body === null ? "" : JSON.stringify(request.body, null, 2));
+    setBodyText(JSON.stringify(normalizeRequestBody(request.body), null, 2));
     setBodyError(null);
   }, [request?.id, request?.method]);
 
@@ -88,12 +89,12 @@ export function RequestEditor({
   function parseBody(nextText: string) {
     setBodyText(nextText);
     if (!nextText.trim()) {
-      update({ body: null });
+      update({ body: createRequestBody("none") });
       setBodyError(null);
       return;
     }
     try {
-      update({ body: JSON.parse(nextText) });
+      update({ body: normalizeRequestBody(JSON.parse(nextText)) });
       setBodyError(null);
     } catch (error) {
       setBodyError(error instanceof Error ? error.message : "Invalid JSON");
@@ -104,7 +105,7 @@ export function RequestEditor({
     if (BODYLESS_METHODS.has(method.toUpperCase())) {
       setBodyText("");
       setBodyError(null);
-      update({ method, body: null });
+      update({ method, body: createRequestBody("none") });
       return;
     }
 

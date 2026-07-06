@@ -1,4 +1,4 @@
-import { Copy, Download, MoreHorizontal, Save, Send } from "lucide-react";
+import { Copy, Download, MoreHorizontal, Save, Send, TerminalSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MethodBadge } from "../common/MethodBadge";
 import { CompactSelect } from "../common/CompactSelect";
@@ -19,6 +19,8 @@ interface RequestBarProps {
   onSave: () => void;
   onSend: () => void;
   onCopyRequest: () => void;
+  onCopyCurl: () => void;
+  onGenerateCurl: () => void;
   onExportRequest: () => void;
 }
 
@@ -37,6 +39,8 @@ export function RequestBar({
   onSave,
   onSend,
   onCopyRequest,
+  onCopyCurl,
+  onGenerateCurl,
   onExportRequest,
 }: RequestBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -99,6 +103,14 @@ export function RequestBar({
               <button type="button" onClick={() => { setMenuOpen(false); onCopyRequest(); }}>
                 <Copy size={13} />
                 Copy request
+              </button>
+              <button type="button" onClick={() => { setMenuOpen(false); onCopyCurl(); }}>
+                <TerminalSquare size={13} />
+                Copy cURL
+              </button>
+              <button type="button" onClick={() => { setMenuOpen(false); onGenerateCurl(); }}>
+                <TerminalSquare size={13} />
+                Generate Code
               </button>
               <button type="button" onClick={() => { setMenuOpen(false); onExportRequest(); }}>
                 <Download size={13} />

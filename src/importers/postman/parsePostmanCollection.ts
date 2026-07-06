@@ -98,7 +98,7 @@ function mapRequest(item: PostmanItem, request: PostmanRequest, folderPath: stri
 
 function mapUrl(url: PostmanRequest["url"]) {
   if (!url) {
-    return { url: "https://example.com/", queryParams: {} };
+    return { url: "", queryParams: {} };
   }
   if (typeof url === "string") {
     return { url, queryParams: {} };

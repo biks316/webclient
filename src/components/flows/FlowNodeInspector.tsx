@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { BikRequest, FlowDefinition, FlowNode } from "../../types/bik";
 import { edgeSource, edgeTarget } from "../../services/flowLayoutService";
 import { extractVariableNames, resolveTemplate, VariableContext } from "../../services/variableResolver";
+import { findBodyMapPlaceholders } from "../../services/mapPlaceholderService";
+import { MapPlaceholderDetector } from "./MapPlaceholderDetector";
 import styles from "./FlowBuilder.module.css";
 
 interface FlowNodeInspectorProps {
@@ -11,11 +13,12 @@ interface FlowNodeInspectorProps {
   variableContext?: VariableContext;
   onRunStep: () => void;
   onDeleteNode: () => void;
+  onOpenPlaceholderMapping: (targetPath: string) => void;
 }
 
 type InspectorTab = "request" | "response" | "mappings" | "variables";
 
-export function FlowNodeInspector({ node, request, flow, variableContext = {}, onRunStep, onDeleteNode }: FlowNodeInspectorProps) {
+export function FlowNodeInspector({ node, request, flow, variableContext = {}, onRunStep, onDeleteNode, onOpenPlaceholderMapping }: FlowNodeInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("request");
   const incomingMappings = useMemo(
     () => flow.edges.filter((edge) => edgeTarget(edge) === node.id).flatMap((edge) => edge.mappings),
@@ -30,6 +33,7 @@ export function FlowNodeInspector({ node, request, flow, variableContext = {}, o
     ...variableContext,
     requestVariables: request.variables,
   }).variables[0]);
+  const mapPlaceholders = useMemo(() => findBodyMapPlaceholders(request.body), [request.body]);
 
   return (
     <aside className={styles.mappingPanel}>
@@ -51,6 +55,11 @@ export function FlowNodeInspector({ node, request, flow, variableContext = {}, o
           <pre>{JSON.stringify(request.headers, null, 2)}</pre>
           <strong>Body</strong>
           <pre>{JSON.stringify(request.body, null, 2)}</pre>
+          <strong>Map placeholders</strong>
+          <MapPlaceholderDetector
+            placeholders={mapPlaceholders}
+            onSelect={(placeholder) => onOpenPlaceholderMapping(placeholder.path)}
+          />
           <button type="button" onClick={onRunStep}>Run this step</button>
           <button type="button" onClick={onDeleteNode}>Delete node</button>
         </div>
@@ -83,7 +92,7 @@ export function FlowNodeInspector({ node, request, flow, variableContext = {}, o
           <strong>Missing variables</strong>
           <pre>{JSON.stringify(usedVariables.filter((variable) => !variable.found), null, 2)}</pre>
           <strong>Runtime variables created by outgoing mappings</strong>
-          <pre>{JSON.stringify(outgoingMappings.filter((mapping) => mapping.targetType === "variable"), null, 2)}</pre>
+          <pre>{JSON.stringify(outgoingMappings.filter((mapping) => mapping.targetType === "variable" || mapping.targetType === "flowVariable"), null, 2)}</pre>
         </div>
       )}
     </aside>

@@ -20,12 +20,13 @@ interface TargetPickerProps {
 }
 
 const TARGET_OPTIONS: Array<{ id: TargetType; label: string; needsKey: boolean }> = [
-  { id: "variable", label: "Variable", needsKey: true },
-  { id: "header", label: "Header", needsKey: true },
-  { id: "body", label: "Body field", needsKey: true },
-  { id: "query", label: "Query param", needsKey: true },
-  { id: "auth", label: "Auth token", needsKey: false },
-  { id: "url", label: "URL path variable", needsKey: false },
+  { id: "header", label: "Forward to Header", needsKey: true },
+  { id: "body", label: "Forward to Body", needsKey: true },
+  { id: "query", label: "Forward to Query Param", needsKey: true },
+  { id: "path", label: "Forward to Path Variable", needsKey: true },
+  { id: "cookie", label: "Forward to Cookie", needsKey: true },
+  { id: "flowVariable", label: "Forward to Flow Variable", needsKey: true },
+  { id: "auth", label: "Forward to Auth Token", needsKey: false },
 ];
 
 export function TargetPicker({

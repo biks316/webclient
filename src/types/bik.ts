@@ -6,6 +6,53 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+export type RequestBodyType =
+  | "none"
+  | "json"
+  | "xml"
+  | "text"
+  | "form-urlencoded"
+  | "multipart"
+  | "binary"
+  | "graphql";
+
+export interface FileRef {
+  path: string;
+  name: string;
+  size?: number | null;
+  mimeType?: string | null;
+}
+
+export interface RequestFormField {
+  enabled: boolean;
+  key: string;
+  value: string;
+  description?: string;
+}
+
+export interface RequestMultipartField {
+  enabled: boolean;
+  key: string;
+  kind: "text" | "file";
+  value?: string;
+  file?: FileRef | null;
+  description?: string;
+}
+
+export interface RequestGraphqlBody {
+  query: string;
+  variables: string;
+}
+
+export interface RequestBody {
+  type: RequestBodyType;
+  raw?: string;
+  form?: RequestFormField[];
+  multipart?: RequestMultipartField[];
+  binary?: FileRef | null;
+  graphql?: RequestGraphqlBody;
+}
+
 export interface BikRequest {
   bikVersion: string;
   type: "request";
@@ -15,7 +62,7 @@ export interface BikRequest {
   url: string;
   headers: Record<string, string>;
   queryParams: Record<string, string>;
-  body: JsonValue;
+  body: RequestBody;
   variables: Record<string, string>;
 }
 
@@ -76,12 +123,13 @@ export interface FlowMapping {
   transform?: string;
   sourcePath: string;
   sourceLabel: string;
-  targetType: "variable" | "header" | "body" | "query" | "auth" | "url";
+  targetType: "variable" | "flowVariable" | "path" | "header" | "body" | "query" | "cookie" | "auth" | "url";
   targetKey: string;
   targetPath: string;
   targetVariable?: string;
-  transformType: "raw" | "bearer" | "template";
+  transformType: "raw" | "bearer" | "template" | "uppercase" | "lowercase" | "trim" | "substring" | "jsonpath" | "javascript";
   template: string;
+  disabled?: boolean;
 }
 
 export interface FlowEdge {

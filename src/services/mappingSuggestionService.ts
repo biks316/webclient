@@ -7,13 +7,18 @@ export type TransformType = FlowMapping["transformType"];
 export function targetPathFor(type: TargetType, key: string) {
   switch (type) {
     case "variable":
+    case "flowVariable":
       return `variables.${key}`;
+    case "path":
+      return `$.request.pathVariables.${key}`;
     case "header":
       return `$.request.headers.${key}`;
     case "body":
       return `$.request.body.${key}`;
     case "query":
       return `$.request.query.${key}`;
+    case "cookie":
+      return `$.request.cookies.${key}`;
     case "auth":
       return "$.request.auth.token";
     case "url":
@@ -24,10 +29,18 @@ export function targetPathFor(type: TargetType, key: string) {
 }
 
 export function templateFor(type: TransformType) {
-  if (type === "bearer") {
-    return "Bearer {{value}}";
+  switch (type) {
+    case "bearer":
+      return "Bearer {{value}}";
+    case "substring":
+      return "0:8";
+    case "jsonpath":
+      return "$.id";
+    case "javascript":
+      return "return String(value);";
+    default:
+      return "{{value}}";
   }
-  return "{{value}}";
 }
 
 export function suggestMapping(sourcePath: string): Pick<FlowMapping, "sourceLabel" | "targetType" | "targetKey" | "transformType" | "template" | "targetPath"> {
@@ -48,11 +61,11 @@ export function suggestMapping(sourcePath: string): Pick<FlowMapping, "sourceLab
   const idLike = normalized === "id" || normalized.endsWith("id");
   return {
     sourceLabel,
-    targetType: idLike ? "variable" : "variable",
+    targetType: idLike ? "flowVariable" : "flowVariable",
     targetKey: sourceLabel,
     transformType: "raw",
     template: "{{value}}",
-    targetPath: targetPathFor(idLike ? "variable" : "variable", sourceLabel),
+    targetPath: targetPathFor(idLike ? "flowVariable" : "flowVariable", sourceLabel),
   };
 }
 

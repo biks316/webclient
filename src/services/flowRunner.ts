@@ -3,6 +3,7 @@ import * as api from "./tauriApi";
 import { cloneJson } from "./workspaceService";
 import { AppliedMapping, applyEdgeMappings } from "./mappingEngine";
 import { edgeSource, edgeTarget, orderedFlowNodes } from "./flowLayoutService";
+import { findBodyMapPlaceholders } from "./mapPlaceholderService";
 import { runRequestScript } from "./scriptRunner";
 
 export interface FlowRunStep {
@@ -79,6 +80,10 @@ export async function runFlow(
 
     try {
       request.variables = { ...request.variables, ...contextVariables };
+      const missingPlaceholders = findBodyMapPlaceholders(request.body);
+      if (missingPlaceholders.length > 0) {
+        throw new Error(`Missing mapping for ${missingPlaceholders[0].path}`);
+      }
       const scripts = await scriptsForNode(workspacePath, collection.id, node.requestId, scriptsByEndpoint);
       const scriptVariables = {
         ...collection.variables,

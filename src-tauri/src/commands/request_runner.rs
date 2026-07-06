@@ -2,9 +2,11 @@ use crate::commands::workspace::{
     endpoint_dir, read_request, scan_workspace, timestamp, BikRequest, CommandResult,
 };
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::multipart::{Form, Part};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -16,6 +18,9 @@ pub struct SendRequestPayload {
     pub endpoint_id: String,
     pub environment_id: Option<String>,
     pub request: Option<BikRequest>,
+    pub globals: Option<HashMap<String, String>>,
+    pub collection_variables: Option<HashMap<String, String>>,
+    pub environment_variables: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,9 +53,16 @@ pub async fn send_request(payload: SendRequestPayload) -> CommandResult<RunRespo
         .ok_or_else(|| "Collection not found".to_string())?;
 
     let mut variables = HashMap::new();
-    variables.extend(workspace.globals.clone());
+    variables.extend(payload.globals.unwrap_or_else(|| workspace.globals.clone()));
+    variables.extend(
+        payload
+            .collection_variables
+            .unwrap_or_else(|| collection.variables.clone()),
+    );
 
-    if let Some(environment_id) = payload.environment_id {
+    if let Some(environment_variables) = payload.environment_variables {
+        variables.extend(environment_variables);
+    } else if let Some(environment_id) = payload.environment_id {
         if let Some(environment) = workspace
             .environments
             .iter()
@@ -60,10 +72,9 @@ pub async fn send_request(payload: SendRequestPayload) -> CommandResult<RunRespo
         }
     }
 
-    variables.extend(collection.variables.clone());
     variables.extend(request.variables.clone());
 
-    let resolved = resolve_request(&request, &variables);
+    let mut resolved = resolve_request(&request, &variables);
     if !resolved.url.starts_with("http://") && !resolved.url.starts_with("https://") {
         return Err(format!(
             "Resolved URL must start with http:// or https://. Current value resolved to '{}'.",
@@ -80,9 +91,6 @@ pub async fn send_request(payload: SendRequestPayload) -> CommandResult<RunRespo
         &resolved.url,
     );
 
-    let headers = build_headers(&resolved.headers)?;
-    builder = builder.headers(headers);
-
     let query_params: Vec<(&String, &String)> = resolved
         .query_params
         .iter()
@@ -92,8 +100,15 @@ pub async fn send_request(payload: SendRequestPayload) -> CommandResult<RunRespo
         builder = builder.query(&query_params);
     }
 
-    if method_supports_body(&resolved.method) && !resolved.body.is_null() {
-        builder = builder.json(&resolved.body);
+    if method_supports_body(&resolved.method) {
+        apply_default_content_type(&mut resolved);
+    }
+
+    let headers = build_headers(&resolved.headers)?;
+    builder = builder.headers(headers);
+
+    if method_supports_body(&resolved.method) {
+        builder = apply_request_body(builder, &resolved.body).await?;
     }
 
     let start = Instant::now();
@@ -132,6 +147,131 @@ fn method_supports_body(method: &str) -> bool {
     !matches!(method.to_ascii_uppercase().as_str(), "GET" | "HEAD")
 }
 
+async fn apply_request_body(
+    mut builder: reqwest::RequestBuilder,
+    body: &Value,
+) -> CommandResult<reqwest::RequestBuilder> {
+    match body_type(body) {
+        "none" => Ok(builder),
+        "json" => {
+            let raw = body_raw(body);
+            if raw.trim().is_empty() {
+                return Ok(builder);
+            }
+            let _: Value =
+                serde_json::from_str(raw).map_err(|error| format!("Invalid JSON body: {error}"))?;
+            builder = builder.body(raw.to_string());
+            Ok(builder)
+        }
+        "xml" | "text" => {
+            let raw = body_raw(body);
+            if raw.is_empty() {
+                return Ok(builder);
+            }
+            builder = builder.body(raw.to_string());
+            Ok(builder)
+        }
+        "graphql" => {
+            let graphql = body
+                .get("graphql")
+                .and_then(Value::as_object)
+                .ok_or_else(|| "Invalid GraphQL body".to_string())?;
+            let query = graphql
+                .get("query")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let variables_raw = graphql
+                .get("variables")
+                .and_then(Value::as_str)
+                .unwrap_or("{}");
+            let variables_value: Value = if variables_raw.trim().is_empty() {
+                Value::Null
+            } else {
+                serde_json::from_str(variables_raw)
+                    .map_err(|error| format!("Invalid GraphQL variables JSON: {error}"))?
+            };
+            builder = builder.body(
+                json!({
+                    "query": query,
+                    "variables": variables_value,
+                })
+                .to_string(),
+            );
+            Ok(builder)
+        }
+        "form-urlencoded" => {
+            let encoded = serde_urlencoded::to_string(form_pairs(body))
+                .map_err(|error| format!("Failed to encode form body: {error}"))?;
+            if encoded.is_empty() {
+                return Ok(builder);
+            }
+            builder = builder.body(encoded);
+            Ok(builder)
+        }
+        "multipart" => {
+            let mut form = Form::new();
+            if let Some(entries) = body.get("multipart").and_then(Value::as_array) {
+                for entry in entries {
+                    let Some(object) = entry.as_object() else { continue };
+                    let enabled = object.get("enabled").and_then(Value::as_bool).unwrap_or(true);
+                    let key = object.get("key").and_then(Value::as_str).unwrap_or("").trim();
+                    if !enabled || key.is_empty() {
+                        continue;
+                    }
+                    match object.get("kind").and_then(Value::as_str).unwrap_or("text") {
+                        "file" => {
+                            let Some(file) = object.get("file").and_then(Value::as_object) else { continue };
+                            let path = file.get("path").and_then(Value::as_str).unwrap_or("").trim();
+                            if path.is_empty() {
+                                continue;
+                            }
+                            let bytes = fs::read(path)
+                                .map_err(|error| format!("Failed to read multipart file {path}: {error}"))?;
+                            let mut part = Part::bytes(bytes);
+                            if let Some(name) = file.get("name").and_then(Value::as_str) {
+                                part = part.file_name(name.to_string());
+                            }
+                            if let Some(mime_type) = file.get("mimeType").and_then(Value::as_str) {
+                                if !mime_type.trim().is_empty() {
+                                    part = part
+                                        .mime_str(mime_type)
+                                        .map_err(|error| format!("Invalid MIME type {mime_type}: {error}"))?;
+                                }
+                            }
+                            form = form.part(key.to_string(), part);
+                        }
+                        _ => {
+                            let value = object.get("value").and_then(Value::as_str).unwrap_or_default();
+                            form = form.text(key.to_string(), value.to_string());
+                        }
+                    }
+                }
+            }
+            builder = builder.multipart(form);
+            Ok(builder)
+        }
+        "binary" => {
+            let Some(file) = body.get("binary").and_then(Value::as_object) else {
+                return Ok(builder);
+            };
+            let path = file.get("path").and_then(Value::as_str).unwrap_or("").trim();
+            if path.is_empty() {
+                return Ok(builder);
+            }
+            let bytes =
+                fs::read(path).map_err(|error| format!("Failed to read binary file {path}: {error}"))?;
+            builder = builder.body(bytes);
+            Ok(builder)
+        }
+        _ => {
+            if !body.is_null() {
+                builder = builder.json(body);
+            }
+            Ok(builder)
+        }
+    }
+}
+
 fn build_headers(headers: &HashMap<String, String>) -> CommandResult<HeaderMap> {
     let mut map = HeaderMap::new();
     for (key, value) in headers {
@@ -146,6 +286,92 @@ fn build_headers(headers: &HashMap<String, String>) -> CommandResult<HeaderMap> 
         );
     }
     Ok(map)
+}
+
+fn apply_default_content_type(request: &mut BikRequest) {
+    if has_header(&request.headers, "content-type") {
+        return;
+    }
+
+    match body_type(&request.body) {
+        "json" => {
+            if !body_raw(&request.body).trim().is_empty() {
+                request
+                    .headers
+                    .insert("Content-Type".to_string(), "application/json".to_string());
+            }
+        }
+        "xml" => {
+            request
+                .headers
+                .insert("Content-Type".to_string(), "application/xml".to_string());
+        }
+        "text" => {
+            request
+                .headers
+                .insert("Content-Type".to_string(), "text/plain".to_string());
+        }
+        "form-urlencoded" => {
+            request.headers.insert(
+                "Content-Type".to_string(),
+                "application/x-www-form-urlencoded".to_string(),
+            );
+        }
+        "graphql" => {
+            request
+                .headers
+                .insert("Content-Type".to_string(), "application/json".to_string());
+        }
+        "binary" => {
+            let mime = request
+                .body
+                .get("binary")
+                .and_then(Value::as_object)
+                .and_then(|file| file.get("mimeType"))
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or("application/octet-stream");
+            request
+                .headers
+                .insert("Content-Type".to_string(), mime.to_string());
+        }
+        _ => {}
+    }
+}
+
+fn has_header(headers: &HashMap<String, String>, name: &str) -> bool {
+    headers.keys().any(|key| key.eq_ignore_ascii_case(name))
+}
+
+fn body_type(body: &Value) -> &str {
+    body.get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| if body.is_null() { "none" } else { "legacy-json" })
+}
+
+fn body_raw(body: &Value) -> &str {
+    body.get("raw").and_then(Value::as_str).unwrap_or_default()
+}
+
+fn form_pairs(body: &Value) -> Vec<(String, String)> {
+    body.get("form")
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    let object = entry.as_object()?;
+                    let enabled = object.get("enabled").and_then(Value::as_bool).unwrap_or(true);
+                    let key = object.get("key").and_then(Value::as_str).unwrap_or("").trim();
+                    if !enabled || key.is_empty() {
+                        return None;
+                    }
+                    let value = object.get("value").and_then(Value::as_str).unwrap_or_default();
+                    Some((key.to_string(), value.to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn resolve_request(request: &BikRequest, variables: &HashMap<String, String>) -> BikRequest {

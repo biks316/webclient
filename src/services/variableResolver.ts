@@ -1,4 +1,5 @@
 import { BikRequest, CollectionIndex, JsonValue, VariableFile, WorkspaceIndex } from "../types/bik";
+import { getBodySearchText } from "./requestBody";
 
 export type VariableScope = "runtime" | "flow" | "collection" | "environment" | "global" | "unresolved";
 
@@ -74,8 +75,8 @@ export function resolveVariable(name: string, context: VariableContext): Resolve
   const scopes: Array<[VariableEntry["scope"], string, Record<string, string>]> = [
     ["runtime", "runtime", { ...(context.requestVariables ?? {}), ...(context.runtimeVariables ?? {}) }],
     ["flow", "flow", context.flowVariables ?? {}],
-    ["collection", context.collection?.id ?? "collection", context.collection?.variables ?? {}],
     ["environment", context.environment?.id ?? "environment", context.environment?.variables ?? {}],
+    ["collection", context.collection?.id ?? "collection", context.collection?.variables ?? {}],
     ["global", "globals", context.globals ?? {}],
   ];
 
@@ -129,7 +130,7 @@ export function findMissingVariablesInRequest(request: BikRequest, context: Vari
     request.url,
     ...Object.values(request.headers),
     ...Object.values(request.queryParams),
-    JSON.stringify(request.body ?? ""),
+    getBodySearchText(request.body),
   ].join("\n");
   return extractVariableNames(text)
     .map((name) => resolveVariable(name, context))

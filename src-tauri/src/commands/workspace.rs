@@ -388,7 +388,7 @@ pub fn create_endpoint(
         id: endpoint_id,
         name,
         method: "GET".to_string(),
-        url: "https://example.com/".to_string(),
+        url: String::new(),
         headers: HashMap::new(),
         query_params: HashMap::new(),
         body: Value::Null,

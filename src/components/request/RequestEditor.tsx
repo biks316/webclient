@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { EmptyState } from "../common/EmptyState";
 import { BodyEditor } from "./BodyEditor";
 import { HeadersEditor } from "./HeadersEditor";
@@ -11,6 +11,7 @@ import { TestsEditor } from "./TestsEditor";
 import { SplitPane } from "../common/SplitPane";
 import { ResponseViewer } from "../response/ResponseViewer";
 import { BikRequest, CollectionAutomation, DiffRow, RunResponse, Scripts, VariableFile } from "../../types/bik";
+import { getBodySearchText, normalizeRequestBody, validateRequestBody } from "../../services/requestBody";
 import { VariableContext } from "../../services/variableResolver";
 import { VariablePanel } from "../variables/VariablePanel";
 import styles from "./RequestEditor.module.css";
@@ -48,14 +49,14 @@ interface RequestEditorProps {
   onSaveTests: () => void;
   onSend: () => void;
   onCopyRequest: () => void;
+  onCopyCurl: () => void;
+  onGenerateCurl: () => void;
   onExportRequest: () => void;
   onSaveExample: () => void;
   onCopyResponse: () => void;
   onExportResponse: () => void;
   onClearResponse: () => void;
 }
-
-const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
 
 export function RequestEditor({
   request,
@@ -90,29 +91,16 @@ export function RequestEditor({
   onSaveTests,
   onSend,
   onCopyRequest,
+  onCopyCurl,
+  onGenerateCurl,
   onExportRequest,
   onSaveExample,
   onCopyResponse,
   onExportResponse,
   onClearResponse,
 }: RequestEditorProps) {
-  const [bodyText, setBodyText] = useState("");
-  const [bodyError, setBodyError] = useState<string | null>(null);
   const [variableMode, setVariableMode] = useState<"globals" | "collection" | "environment" | "panel" | null>(null);
   const [sideResponseOpen, setSideResponseOpen] = useState(true);
-
-  useEffect(() => {
-    if (!request || BODYLESS_METHODS.has(request.method.toUpperCase())) {
-      setBodyText("");
-      setBodyError(null);
-      return;
-    }
-    setBodyText(request.body === null ? "" : JSON.stringify(request.body, null, 2));
-    setBodyError(null);
-  }, [request?.id, request?.method]);
-
-  const hasRequestBody = request ? !BODYLESS_METHODS.has(request.method.toUpperCase()) : false;
-  const canSend = useMemo(() => Boolean(request && !bodyError && !isBusy), [bodyError, isBusy, request]);
 
   if (!request) {
     return (
@@ -126,6 +114,9 @@ export function RequestEditor({
   }
 
   const currentRequest = request;
+  const normalizedBody = useMemo(() => normalizeRequestBody(currentRequest.body), [currentRequest.body]);
+  const bodyError = useMemo(() => validateRequestBody(normalizedBody), [normalizedBody]);
+  const canSend = useMemo(() => Boolean(request && !bodyError && !isBusy), [bodyError, isBusy, request]);
   const variableContext: VariableContext = {
     globals: globalVariables,
     environment: selectedEnvironment,
@@ -145,43 +136,7 @@ export function RequestEditor({
   }
 
   function changeMethod(method: string) {
-    if (BODYLESS_METHODS.has(method.toUpperCase())) {
-      setBodyText("");
-      setBodyError(null);
-      update({ method, body: null });
-      return;
-    }
     update({ method });
-  }
-
-  function parseBody(nextText: string) {
-    setBodyText(nextText);
-    if (!nextText.trim()) {
-      update({ body: null });
-      setBodyError(null);
-      return;
-    }
-
-    try {
-      update({ body: JSON.parse(nextText) });
-      setBodyError(null);
-    } catch (error) {
-      setBodyError(error instanceof Error ? error.message : "Invalid JSON");
-    }
-  }
-
-  function formatBody() {
-    if (!bodyText.trim()) {
-      return;
-    }
-    try {
-      const pretty = JSON.stringify(JSON.parse(bodyText), null, 2);
-      setBodyText(pretty);
-      update({ body: JSON.parse(pretty) });
-      setBodyError(null);
-    } catch (error) {
-      setBodyError(error instanceof Error ? error.message : "Invalid JSON");
-    }
   }
 
   function renderLeftPane() {
@@ -237,18 +192,13 @@ export function RequestEditor({
         );
       case "body":
       default:
-        return hasRequestBody ? (
+        return (
           <BodyEditor
-            bodyText={bodyText}
+            body={normalizedBody}
             bodyError={bodyError}
             variableContext={variableContext}
-            onChange={parseBody}
-            onFormat={formatBody}
+            onChange={(body) => update({ body })}
           />
-        ) : (
-          <div className={styles.bodyPlaceholder}>
-            <span>No request body</span>
-          </div>
         );
     }
   }
@@ -282,6 +232,8 @@ export function RequestEditor({
         onSave={onSave}
         onSend={onSend}
         onCopyRequest={onCopyRequest}
+        onCopyCurl={onCopyCurl}
+        onGenerateCurl={onGenerateCurl}
         onExportRequest={onExportRequest}
       />
 
@@ -351,7 +303,7 @@ export function RequestEditor({
                   requestName={currentRequest.name}
                   environments={environments}
                   selectedEnvironmentId={selectedEnvironmentId}
-                  usedText={`${currentRequest.url}\n${JSON.stringify(currentRequest.headers)}\n${JSON.stringify(currentRequest.queryParams)}\n${bodyText}`}
+                  usedText={`${currentRequest.url}\n${JSON.stringify(currentRequest.headers)}\n${JSON.stringify(currentRequest.queryParams)}\n${getBodySearchText(normalizedBody)}`}
                   onRequestVariablesChange={(variables) => update({ variables })}
                   onGlobalVariablesChange={onGlobalVariablesChange}
                   onCollectionVariablesChange={onCollectionVariablesChange}

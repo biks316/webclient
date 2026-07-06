@@ -284,6 +284,17 @@ code {
   min-height: 160px;
 }
 
+.code-preview-dialog {
+  width: min(760px, calc(100vw - 28px));
+}
+
+.code-preview-dialog textarea {
+  min-height: 220px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  line-height: 1.45;
+  resize: vertical;
+}
+
 .request-create-row {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);

@@ -11,19 +11,25 @@ import {
 import styles from "./FlowBuilder.module.css";
 
 interface FlowCanvasProps {
+  workspacePath: string;
   collection: CollectionIndex;
   flow: FlowDefinition;
+  environmentId: string | null;
   selectedEdgeId: string | null;
   selectedNodeId: string | null;
   lastResponses: Record<string, RunResponse | null>;
   runningNodeIds: Set<string>;
   fitVersion: number;
+  warning?: string | null;
   onSelectEdge: (edgeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onSelectCanvas: () => void;
   onDropEndpoint: (payload: DragEndpointPayload, position: { x: number; y: number }) => void;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => void;
   onConnectNodes: (from: string, to: string) => void;
+  onUpdateEdge: (edge: FlowEdge) => void;
+  onOpenMappingBuilder: (edgeId: string) => void;
+  onDiscoveredResponse: (nodeId: string, response: RunResponse) => void;
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
 }
@@ -92,19 +98,25 @@ function readEndpointPayload(dataTransfer: DataTransfer) {
 }
 
 export function FlowCanvas({
+  workspacePath,
   collection,
   flow,
+  environmentId,
   selectedEdgeId,
   selectedNodeId,
   lastResponses,
   runningNodeIds,
   fitVersion,
+  warning,
   onSelectEdge,
   onSelectNode,
   onSelectCanvas,
   onDropEndpoint,
   onMoveNode,
   onConnectNodes,
+  onUpdateEdge,
+  onOpenMappingBuilder,
+  onDiscoveredResponse,
   onDeleteNode,
   onDeleteEdge,
 }: FlowCanvasProps) {
@@ -125,6 +137,9 @@ export function FlowCanvas({
   const [viewport, setViewport] = useState({ x: 40, y: 40, scale: 1 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const handledDropRef = useRef(false);
+  const selectedEdge = selectedEdgeId ? flow.edges.find((edge) => edge.id === selectedEdgeId) ?? null : null;
+  const selectedFromNode = selectedEdge ? flow.nodes.find((node) => node.id === edgeSource(selectedEdge)) ?? null : null;
+  const selectedToNode = selectedEdge ? flow.nodes.find((node) => node.id === edgeTarget(selectedEdge)) ?? null : null;
   const startNodes = rootNodes(flow);
   const startAnchor = startNodes.length > 0
     ? {
@@ -315,7 +330,7 @@ export function FlowCanvas({
         if (
           event.button !== 0 ||
           target.tagName.toLowerCase() === "path" ||
-          target.closest?.(`.${styles.requestNode}, .${styles.edgeLabel}, button`)
+          target.closest?.(`.${styles.requestNode}, .${styles.edgeLabel}, .${styles.mappingOverlay}, .${styles.mappingPopover}, button`)
         ) {
           return;
         }
@@ -473,10 +488,24 @@ export function FlowCanvas({
             from={from}
             to={to}
             active={selectedEdgeId === edge.id}
-            onClick={() => onSelectEdge(edge.id)}
+            onClick={() => {
+              onSelectEdge(edge.id);
+            }}
           />
         );
       })}
+      {selectedEdge && selectedFromNode && selectedToNode && (
+        <div
+          className={styles.edgeActions}
+          style={{
+            left: (selectedFromNode.position.x + selectedToNode.position.x) / 2 + 90,
+            top: (selectedFromNode.position.y + selectedToNode.position.y) / 2 + 54,
+          }}
+        >
+          <span>{selectedEdge.mappings.length === 0 ? "No mappings yet" : `${selectedEdge.mappings.length} mapping${selectedEdge.mappings.length === 1 ? "" : "s"}`}</span>
+          <button type="button" onClick={() => onOpenMappingBuilder(selectedEdge.id)}>Add Mapping</button>
+        </div>
+      )}
       {flow.nodes.map((node) => (
         <RequestFlowNode
           key={node.id}

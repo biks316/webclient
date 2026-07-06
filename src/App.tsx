@@ -27,8 +27,9 @@ import {
 import { runRequestScript } from "./services/scriptRunner";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
+import { buildCurlBody, createRequestBody, defaultContentType, formatJsonBody, normalizeRequest, normalizeRequestBody } from "./services/requestBody";
 import { findMissingVariablesInRequest } from "./services/variableResolver";
-import { cloneJson, findCollection, findEndpoint, firstCollection } from "./services/workspaceService";
+import { cloneJson, findCollection, findEndpoint, firstCollection, normalizeWorkspace } from "./services/workspaceService";
 import {
   BikRequest,
   CollectionAutomation,
@@ -45,7 +46,7 @@ import {
 const EMPTY_COLLECTION_AUTOMATION: CollectionAutomation = { pre: "", post: "", test: "", assert: "" };
 const EMPTY_SCRIPTS: Scripts = { pre: "", post: "", helpers: "" };
 const REQUEST_VERSION = "1.0";
-const DEFAULT_REQUEST_URL = "https://example.com/";
+const DEFAULT_REQUEST_URL = "";
 const DEFAULT_SIDEBAR_WIDTH = 260;
 const SIDEBAR_COLLAPSED_WIDTH = 52;
 const SIDEBAR_MIN_WIDTH = 180;
@@ -57,12 +58,15 @@ interface TextPromptState {
   label: string;
   value: string;
   confirmText: string;
+  error: string | null;
+  validate?: (value: string) => string | null;
   resolve: (value: string | null) => void;
 }
 
 type EndpointCreateMode = "name" | "curl";
 
 interface EndpointPromptState {
+  collectionId: string;
   mode: EndpointCreateMode;
   name: string;
   method: string;
@@ -93,6 +97,11 @@ interface ToastMessage {
   id: string;
   title: string;
   tone: "success" | "info" | "warning" | "error";
+}
+
+interface CurlPreviewState {
+  name: string;
+  curl: string;
 }
 
 type RequestEditorTab = "params" | "auth" | "headers" | "body" | "scripts" | "docs" | "tests";
@@ -131,6 +140,60 @@ function loadSyncPreferences(): SyncPreferences {
   } catch {
     return { every30Seconds: false, onStartup: true, onSave: false };
   }
+}
+
+function shellEscape(value: string) {
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
+function appendQueryParams(url: string, queryParams: Record<string, string>) {
+  const entries = Object.entries(queryParams).filter(([key, value]) => key.trim() && value !== "");
+  if (entries.length === 0) {
+    return url;
+  }
+  const query = new URLSearchParams(entries).toString();
+  if (!url) {
+    return `?${query}`;
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
+}
+
+function buildCurlCommand(request: BikRequest) {
+  const parts = ["curl"];
+  const url = appendQueryParams(request.url, request.queryParams ?? {});
+  const method = request.method.toUpperCase();
+  const bodylessMethod = method === "GET" || method === "HEAD";
+
+  if (method !== "GET") {
+    parts.push("-X", method);
+  }
+
+  Object.entries(request.headers ?? {}).forEach(([key, value]) => {
+    if (!key.trim() || value === "") {
+      return;
+    }
+    parts.push("-H", shellEscape(`${key}: ${value}`));
+  });
+
+  const defaultType = defaultContentType(request.body);
+  const hasContentTypeHeader = Object.keys(request.headers ?? {}).some((key) => key.toLowerCase() === "content-type");
+  if (defaultType && !hasContentTypeHeader && request.body.type !== "multipart") {
+    parts.push("-H", shellEscape(`Content-Type: ${defaultType}`));
+  }
+
+  if (!bodylessMethod) {
+    const body = buildCurlBody(request.body);
+    if (body !== null && body !== "") {
+      if (request.body.type === "binary") {
+        parts.push("--data-binary", shellEscape(`@${body}`));
+      } else {
+        parts.push("--data", shellEscape(body));
+      }
+    }
+  }
+
+  parts.push(shellEscape(url));
+  return parts.join(" ");
 }
 
 export default function App() {
@@ -181,8 +244,10 @@ export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<ParsedImportResult | null>(null);
   const [createSequenceFlow, setCreateSequenceFlow] = useState(false);
+  const [curlPreview, setCurlPreview] = useState<CurlPreviewState | null>(null);
   const [flowHistoryAvailability, setFlowHistoryAvailability] = useState({ canUndo: false, canRedo: false });
   const startupSyncWorkspaceRef = useRef<string | null>(null);
+  const environmentSaveTimersRef = useRef<Record<string, number>>({});
   const lastSavedFlowDraftRef = useRef<string | null>(null);
   const hasWorkspace = Boolean(workspace?.path);
 
@@ -361,7 +426,7 @@ export default function App() {
   }, [selectedCollectionId, selectedEndpointId, selectedEndpoint?.path]);
 
   useEffect(() => {
-    setDraftRequest(selectedEndpoint ? cloneJson(selectedEndpoint.request) : null);
+    setDraftRequest(selectedEndpoint ? normalizeRequest(cloneJson(selectedEndpoint.request)) : null);
     setResponse(null);
     setResponseError(null);
     setSelectedHistoryPath(null);
@@ -432,6 +497,13 @@ export default function App() {
 
     return () => window.clearInterval(timer);
   }, [workspace?.path, syncPreferences.every30Seconds, repoUrl]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(environmentSaveTimersRef.current).forEach((timer) => window.clearTimeout(timer));
+      environmentSaveTimersRef.current = {};
+    };
+  }, []);
 
   useEffect(() => {
     if (!workspace || !syncPreferences.onStartup || !syncStatus) {
@@ -606,6 +678,7 @@ export default function App() {
     label: string;
     defaultValue?: string;
     confirmText?: string;
+    validate?: (value: string) => string | null;
   }): Promise<string | null> {
     return new Promise((resolve) => {
       setTextPrompt({
@@ -613,6 +686,8 @@ export default function App() {
         label: options.label,
         value: options.defaultValue ?? "",
         confirmText: options.confirmText ?? "Create",
+        error: null,
+        validate: options.validate,
         resolve,
       });
     });
@@ -621,6 +696,13 @@ export default function App() {
   function resolveTextPrompt(value: string | null) {
     if (!textPrompt) {
       return;
+    }
+    if (value !== null && textPrompt.validate) {
+      const error = textPrompt.validate(value);
+      if (error) {
+        setTextPrompt({ ...textPrompt, error });
+        return;
+      }
     }
     const { resolve } = textPrompt;
     setTextPrompt(null);
@@ -737,7 +819,7 @@ export default function App() {
         current = await api.saveFlow(current.path, targetCollection.id, flow);
       }
     }
-    setWorkspace(current);
+    setWorkspace(normalizeWorkspace(current));
     setImportPreview(null);
     setCreateSequenceFlow(false);
     const report = createImportReport(importPreview);
@@ -774,7 +856,7 @@ export default function App() {
   }
 
   function parseCurlImport(curl: string): ParsedImportResult {
-    const url = curl.match(/https?:\/\/[^\s'"]+/)?.[0] ?? "https://example.com/";
+    const url = curl.match(/https?:\/\/[^\s'"]+/)?.[0] ?? "";
     const method = curl.match(/-X\s+([A-Z]+)/i)?.[1] ?? (curl.includes("--data") || curl.includes("-d ") ? "POST" : "GET");
     const headers: Record<string, string> = {};
     for (const match of curl.matchAll(/(?:-H|--header)\s+['"]([^:'"]+):\s*([^'"]+)['"]/g)) {
@@ -800,7 +882,7 @@ export default function App() {
             url,
             headers,
             queryParams: {},
-            body,
+            body: normalizeRequestBody(body),
             variables: {},
           },
         }],
@@ -830,13 +912,14 @@ export default function App() {
     preferredCollectionId: string | null = null,
     preferredEndpointId: string | null = null,
   ) {
-    applyWorkspace(next, preferredCollectionId, preferredEndpointId);
+    const normalized = normalizeWorkspace(next);
+    applyWorkspace(normalized, preferredCollectionId, preferredEndpointId);
     setWorkspaceState("WORKSPACE_READY");
     setWorkspaceError(null);
-    const remoteUrl = await api.getGitRemoteUrl(next.path).catch(() => null);
+    const remoteUrl = await api.getGitRemoteUrl(normalized.path).catch(() => null);
     setRepoUrl(remoteUrl ?? "");
-    setRecentWorkspaces(await rememberWorkspace(next, remoteUrl));
-    void refreshSyncStatusForPath(next.path, true);
+    setRecentWorkspaces(await rememberWorkspace(normalized, remoteUrl));
+    void refreshSyncStatusForPath(normalized.path, true);
   }
 
   function applyWorkspace(
@@ -844,15 +927,16 @@ export default function App() {
     preferredCollectionId = selectedCollectionId,
     preferredEndpointId = selectedEndpointId,
   ) {
-    setWorkspace(next);
-    const nextCollection = findCollection(next, preferredCollectionId) ?? firstCollection(next);
-    const nextEndpoint = findEndpoint(next, nextCollection?.id ?? null, preferredEndpointId);
+    const normalized = normalizeWorkspace(next);
+    setWorkspace(normalized);
+    const nextCollection = findCollection(normalized, preferredCollectionId) ?? firstCollection(normalized);
+    const nextEndpoint = findEndpoint(normalized, nextCollection?.id ?? null, preferredEndpointId);
     setSelectedCollectionId(nextCollection?.id ?? null);
     setSelectedEndpointId(nextEndpoint?.id ?? null);
     setSelectedFlowId(null);
     setSelectedEnvironmentId((currentEnvironmentId) =>
       currentEnvironmentId &&
-      next.environments.some((environment) => environment.id === currentEnvironmentId)
+      normalized.environments.some((environment) => environment.id === currentEnvironmentId)
         ? currentEnvironmentId
         : null,
     );
@@ -940,9 +1024,10 @@ export default function App() {
     return safe || "export";
   }
 
-  function requestEndpointPrompt(): Promise<EndpointPromptResult | null> {
+  function requestEndpointPrompt(collectionId: string): Promise<EndpointPromptResult | null> {
     return new Promise((resolve) => {
       setEndpointPrompt({
+        collectionId,
         mode: "name",
         name: "New Request",
         method: "GET",
@@ -1306,6 +1391,29 @@ export default function App() {
       return;
     }
 
+    if (value) {
+      try {
+        const draftRequest =
+          value.mode === "curl"
+            ? createRequestFromCurl(value.curl, value.name)
+            : createNamedRequest(value.name.trim(), value.method);
+        if (endpointNameExists(endpointPrompt.collectionId, draftRequest.name)) {
+          setEndpointPrompt({
+            ...endpointPrompt,
+            name: draftRequest.name,
+            error: `Request "${draftRequest.name}" already exists. Choose another name.`,
+          });
+          return;
+        }
+      } catch (error) {
+        setEndpointPrompt({
+          ...endpointPrompt,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return;
+      }
+    }
+
     const { resolve } = endpointPrompt;
     setEndpointPrompt(null);
     resolve(value);
@@ -1321,7 +1429,7 @@ export default function App() {
       url: DEFAULT_REQUEST_URL,
       headers: {},
       queryParams: {},
-      body: null,
+      body: createRequestBody("none"),
       variables: {},
     };
   }
@@ -1360,18 +1468,25 @@ export default function App() {
         continue;
       }
 
+      if ((token === "--url" || token === "--location-url") && next) {
+        url = next;
+        index += 1;
+        continue;
+      }
+
       if (["-d", "--data", "--data-raw", "--data-binary", "--data-ascii"].includes(token) && next) {
         bodyParts.push(next);
         index += 1;
+        continue;
       }
 
-      if (!token.startsWith("-") && /^https?:\/\//i.test(token)) {
+      if (!token.startsWith("-")) {
         url = token;
       }
     }
 
     if (!url) {
-      throw new Error("cURL command needs an http:// or https:// URL.");
+      throw new Error("cURL command needs a URL.");
     }
 
     const bodyText = bodyParts.join("&");
@@ -1387,7 +1502,7 @@ export default function App() {
       url,
       headers,
       queryParams: {},
-      body: bodyText ? parseCurlBody(bodyText) : null,
+      body: normalizeRequestBody(bodyText ? parseCurlBody(bodyText) : null),
       variables: {},
     };
   }
@@ -1637,6 +1752,16 @@ export default function App() {
         title: "New Collection",
         label: "Collection name",
         defaultValue: "Travel API",
+        validate: (value) => {
+          const name = value.trim();
+          if (!name) {
+            return "Collection name is required.";
+          }
+          if (collectionNameExists(name)) {
+            return `Collection "${name}" already exists. Choose another name.`;
+          }
+          return null;
+        },
       })
     )?.trim();
     if (!name) {
@@ -1692,7 +1817,7 @@ export default function App() {
       return;
     }
 
-    const endpointInput = await requestEndpointPrompt();
+    const endpointInput = await requestEndpointPrompt(targetCollectionId);
     if (!endpointInput) {
       return;
     }
@@ -1772,7 +1897,7 @@ export default function App() {
     );
     if (next) {
       lastSavedFlowDraftRef.current = JSON.stringify(draftFlow);
-      setWorkspace(next);
+      setWorkspace(normalizeWorkspace(next));
       setSelectedCollectionId(selectedCollectionId);
       setSelectedEndpointId(null);
       setSelectedFlowId(draftFlow.id);
@@ -1817,7 +1942,17 @@ export default function App() {
       return;
     }
     const collection = workspace.collections.find((item) => item.id === collectionId);
-    if (!collection || !window.confirm(`Delete collection "${collection.name}" and all requests/flows inside it?`)) {
+    if (!collection) {
+      return;
+    }
+    const confirmation = (await requestTextPrompt({
+      title: "Delete Collection",
+      label: `Type "delete" to permanently delete "${collection.name}" and all requests/flows inside it`,
+      defaultValue: "",
+      confirmText: "Delete Collection",
+    }))?.trim().toLowerCase();
+    if (confirmation !== "delete") {
+      setStatus("Collection deletion cancelled.");
       return;
     }
     const next = await runAction("Deleting collection...", () => api.deleteCollection(workspace.path, collectionId));
@@ -1874,7 +2009,14 @@ export default function App() {
     const warning = usageCount > 0
       ? `\n\nThis request is used in ${usageCount} flow node${usageCount === 1 ? "" : "s"}. Delete will remove those nodes from flows.`
       : "";
-    if (!window.confirm(`Delete request "${endpoint.name}"?${warning}`)) {
+    const confirmation = (await requestTextPrompt({
+      title: "Delete Request",
+      label: `Type "y" to delete request "${endpoint.name}"${warning}`,
+      defaultValue: "",
+      confirmText: "Delete Request",
+    }))?.trim().toLowerCase();
+    if (confirmation !== "y") {
+      setStatus("Request deletion cancelled.");
       return;
     }
     const next = await runAction("Deleting request...", () => api.deleteRequest(workspace.path, collectionId, endpointId));
@@ -1904,7 +2046,7 @@ export default function App() {
     }
     const next = await runAction("Renaming flow...", () => api.renameFlow(workspace.path, collectionId, flowId, name));
     if (next) {
-      setWorkspace(next);
+      setWorkspace(normalizeWorkspace(next));
       setSelectedCollectionId(collectionId);
       setSelectedEndpointId(null);
       setSelectedFlowId(flowId);
@@ -1923,7 +2065,7 @@ export default function App() {
     }
     const next = await runAction("Deleting flow...", () => api.deleteFlow(workspace.path, collectionId, flowId));
     if (next) {
-      setWorkspace(next);
+      setWorkspace(normalizeWorkspace(next));
       setSelectedCollectionId(collectionId);
       setSelectedEndpointId(null);
       setSelectedFlowId(null);
@@ -1939,7 +2081,7 @@ export default function App() {
     });
 
     if (historicalRequest) {
-      setDraftRequest(historicalRequest);
+      setDraftRequest(normalizeRequest(historicalRequest));
       setSelectedHistoryPath(path);
       setActiveRequestTab("body");
       appendConsole(`Loaded historical request snapshot from ${path}.`, "warning");
@@ -2038,7 +2180,7 @@ export default function App() {
       const created = next.collections
         .find((collection) => collection.id === collectionId)
         ?.flows.find((item) => item.name === name);
-      setWorkspace(next);
+      setWorkspace(normalizeWorkspace(next));
       setSelectedCollectionId(collectionId);
       setSelectedEndpointId(null);
       setSelectedFlowId(created?.id ?? flowId);
@@ -2061,6 +2203,42 @@ export default function App() {
     if (draftRequest) {
       void copyJson("Request", draftRequest);
     }
+  }
+
+  function handleCopyCurl() {
+    if (!draftRequest) {
+      return;
+    }
+    const curl = buildCurlCommand(draftRequest);
+    void navigator.clipboard.writeText(curl).then(() => {
+      setStatus("cURL copied.");
+      appendConsole("cURL copied to clipboard.", "success");
+    }).catch((error) => {
+      const failure = `Copy failed: ${String(error)}`;
+      setStatus(failure);
+      appendConsole(failure, "error");
+    });
+  }
+
+  function handleOpenCurlPreview() {
+    if (!draftRequest) {
+      return;
+    }
+    setCurlPreview({
+      name: draftRequest.name,
+      curl: buildCurlCommand(draftRequest),
+    });
+  }
+
+  function handleOpenEndpointCurlPreview(collectionId: string, endpointId: string) {
+    const endpoint = findEndpoint(workspace, collectionId, endpointId);
+    if (!endpoint) {
+      return;
+    }
+    setCurlPreview({
+      name: endpoint.name,
+      curl: buildCurlCommand(endpoint.request),
+    });
   }
 
   function handleExportRequest() {
@@ -2198,6 +2376,24 @@ export default function App() {
           }
         : current,
     );
+
+    if (!workspace) {
+      return;
+    }
+
+    const existingTimer = environmentSaveTimersRef.current[environmentId];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+    }
+
+    environmentSaveTimersRef.current[environmentId] = window.setTimeout(() => {
+      void api.saveEnvironmentVariables(workspace.path, environmentId, variables).catch((error) => {
+        const message = `Failed to save environment variables: ${String(error)}`;
+        setStatus(message);
+        pushToast(message, "error");
+      });
+      delete environmentSaveTimersRef.current[environmentId];
+    }, 250);
   }
 
   async function handleSendRequest() {
@@ -2259,6 +2455,11 @@ export default function App() {
         selectedEndpointId,
         selectedEnvironmentId,
         requestToSend,
+        {
+          globals: workspace.globals,
+          collectionVariables: selectedCollection.variables,
+          environmentVariables: selectedEnvironment?.variables,
+        },
       );
 
       try {
@@ -2376,6 +2577,9 @@ export default function App() {
               environmentId={selectedEnvironmentId}
               onChange={setDraftFlow}
               onSave={() => void handleSaveFlow()}
+              onRenameFlow={() => void handleRenameFlow(selectedCollection.id, draftFlow.id)}
+              onDuplicateFlow={() => void handleDuplicateFlow(selectedCollection.id, draftFlow.id)}
+              onDeleteFlow={() => void handleDeleteFlow(selectedCollection.id, draftFlow.id)}
             />
           }
           bottom={undefined}
@@ -2440,6 +2644,8 @@ export default function App() {
               onSaveTests={handleSaveCollectionAutomation}
               onSend={handleSendRequest}
               onCopyRequest={handleCopyRequest}
+              onCopyCurl={handleCopyCurl}
+              onGenerateCurl={handleOpenCurlPreview}
               onExportRequest={handleExportRequest}
               onSaveExample={handleSaveExample}
               onCopyResponse={handleCopyResponse}
@@ -2619,6 +2825,7 @@ export default function App() {
               onRenameRequest={(collectionId, endpointId) => void handleRenameRequest(collectionId, endpointId)}
               onDuplicateRequest={(collectionId, endpointId) => void handleDuplicateRequest(collectionId, endpointId)}
               onDeleteRequest={(collectionId, endpointId) => void handleDeleteRequest(collectionId, endpointId)}
+              onGenerateRequestCode={(collectionId, endpointId) => void handleOpenEndpointCurlPreview(collectionId, endpointId)}
               onRenameFlow={(collectionId, flowId) => void handleRenameFlow(collectionId, flowId)}
               onDuplicateFlow={(collectionId, flowId) => void handleDuplicateFlow(collectionId, flowId)}
               onDeleteFlow={(collectionId, flowId) => void handleDeleteFlow(collectionId, flowId)}
@@ -2694,9 +2901,10 @@ export default function App() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                onChange={(event) => setTextPrompt({ ...textPrompt, value: event.currentTarget.value })}
+                onChange={(event) => setTextPrompt({ ...textPrompt, value: event.currentTarget.value, error: null })}
               />
             </label>
+            {textPrompt.error && <span className="error-text">{textPrompt.error}</span>}
             <div className="prompt-actions">
               <button type="button" onClick={() => resolveTextPrompt(null)}>
                 Cancel
@@ -2706,6 +2914,45 @@ export default function App() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {curlPreview && (
+        <div className="prompt-backdrop" role="presentation" onMouseDown={() => setCurlPreview(null)}>
+          <div
+            className="prompt-dialog code-preview-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="curl-preview-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="curl-preview-title">Generate Code</h2>
+            <label>
+              <span>cURL for {curlPreview.name}</span>
+              <textarea readOnly autoFocus value={curlPreview.curl} />
+            </label>
+            <div className="prompt-actions">
+              <button type="button" onClick={() => setCurlPreview(null)}>
+                Close
+              </button>
+              <button
+                className="primary"
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(curlPreview.curl).then(() => {
+                    setStatus("cURL copied.");
+                    appendConsole("cURL copied to clipboard.", "success");
+                  }).catch((error) => {
+                    const failure = `Copy failed: ${String(error)}`;
+                    setStatus(failure);
+                    appendConsole(failure, "error");
+                  });
+                }}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

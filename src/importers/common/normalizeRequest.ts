@@ -1,4 +1,5 @@
-import { BikRequest, JsonValue } from "../../types/bik";
+import { BikRequest, JsonValue, RequestBody } from "../../types/bik";
+import { normalizeRequestBody } from "../../services/requestBody";
 
 export function slugId(input: string) {
   const slug = input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -12,7 +13,7 @@ export function createBikRequest(input: {
   url: string;
   headers?: Record<string, string>;
   queryParams?: Record<string, string>;
-  body?: JsonValue;
+  body?: JsonValue | RequestBody;
   variables?: Record<string, string>;
 }): BikRequest {
   return {
@@ -21,10 +22,10 @@ export function createBikRequest(input: {
     id: input.id ?? slugId(input.name),
     name: input.name,
     method: input.method.toUpperCase(),
-    url: input.url || "https://example.com/",
+    url: input.url || "",
     headers: input.headers ?? {},
     queryParams: input.queryParams ?? {},
-    body: input.body ?? null,
+    body: normalizeRequestBody(input.body ?? null),
     variables: input.variables ?? {},
   };
 }

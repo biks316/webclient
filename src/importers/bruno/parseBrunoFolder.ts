@@ -90,7 +90,7 @@ function mapBruRequest(
       id: slugId(name),
       name,
       method,
-      url: requestLine.trim() || "https://example.com/",
+      url: requestLine.trim() || "",
       headers,
       queryParams,
       body,

@@ -1,7 +1,6 @@
 import { FlowEdge, FlowNode } from "../../types/bik";
+import { forwardRuleSummary } from "./forwarding";
 import styles from "./FlowBuilder.module.css";
-
-const PLACEHOLDER_LABEL = "Add mapping";
 
 interface EdgeLabelProps {
   edge: FlowEdge;
@@ -12,19 +11,7 @@ interface EdgeLabelProps {
 }
 
 export function mappingLabel(edge: FlowEdge) {
-  if (edge.mappings.length === 0 && edge.label && edge.label !== PLACEHOLDER_LABEL) {
-    return edge.label;
-  }
-  if (edge.mappings.length === 0) {
-    return PLACEHOLDER_LABEL;
-  }
-  if (edge.mappings.length > 1) {
-    return `${edge.mappings.length} mappings`;
-  }
-  const mapping = edge.mappings[0];
-  const source = mapping.sourceLabel || mapping.sourcePath?.split(".").pop() || "value";
-  const target = mapping.targetKey || mapping.targetPath?.split(".").pop() || "target";
-  return `${source} → ${target}`;
+  return edge.label && edge.mappings.length === 0 ? edge.label : forwardRuleSummary(edge);
 }
 
 export function EdgeLabel({ edge, from, to, active, onClick }: EdgeLabelProps) {

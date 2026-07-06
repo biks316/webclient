@@ -47,6 +47,7 @@ interface SidebarProps {
   onRenameRequest: (collectionId: string, endpointId: string) => void;
   onDuplicateRequest: (collectionId: string, endpointId: string) => void;
   onDeleteRequest: (collectionId: string, endpointId: string) => void;
+  onGenerateRequestCode: (collectionId: string, endpointId: string) => void;
   onRenameFlow: (collectionId: string, flowId: string) => void;
   onDuplicateFlow: (collectionId: string, flowId: string) => void;
   onDeleteFlow: (collectionId: string, flowId: string) => void;
@@ -91,6 +92,7 @@ export function Sidebar({
   onRenameRequest,
   onDuplicateRequest,
   onDeleteRequest,
+  onGenerateRequestCode,
   onRenameFlow,
   onDuplicateFlow,
   onDeleteFlow,
@@ -396,6 +398,11 @@ export function Sidebar({
                                         onSelect: () => onDuplicateRequest(collection.id, endpoint.id),
                                       },
                                       {
+                                        label: "Generate Code",
+                                        icon: <TerminalSquare size={12} />,
+                                        onSelect: () => onGenerateRequestCode(collection.id, endpoint.id),
+                                      },
+                                      {
                                         label: "Delete",
                                         icon: <Trash2 size={12} />,
                                         onSelect: () => onDeleteRequest(collection.id, endpoint.id),
@@ -483,6 +490,18 @@ export function Sidebar({
           >
             {contextMenu.kind === "endpoint" ? (
               <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (contextMenu.endpointId) {
+                      onGenerateRequestCode(contextMenu.collectionId, contextMenu.endpointId);
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <span>Generate Code</span>
+                </button>
                 <button
                   type="button"
                   role="menuitem"

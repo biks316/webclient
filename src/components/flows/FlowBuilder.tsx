@@ -1,3 +1,4 @@
+import { MoreHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CollectionIndex, FlowDefinition, FlowEdge, RunResponse } from "../../types/bik";
 import { runFlow, FlowRunStep } from "../../services/flowRunner";
@@ -10,9 +11,9 @@ import {
 } from "../../services/flowLayoutService";
 import { FlowCanvas } from "./FlowCanvas";
 import { FlowRunPanel } from "./FlowRunPanel";
-import { MappingPanel } from "./MappingPanel";
 import { FlowNodeInspector } from "./FlowNodeInspector";
 import { DragEndpointPayload } from "./FlowCanvas";
+import { MappingBuilderModal } from "./MappingBuilderModal";
 import styles from "./FlowBuilder.module.css";
 
 interface FlowBuilderProps {
@@ -22,6 +23,9 @@ interface FlowBuilderProps {
   environmentId: string | null;
   onChange: (flow: FlowDefinition) => void;
   onSave: () => void;
+  onRenameFlow: () => void;
+  onDuplicateFlow: () => void;
+  onDeleteFlow: () => void;
 }
 
 export function FlowBuilder({
@@ -31,6 +35,9 @@ export function FlowBuilder({
   environmentId,
   onChange,
   onSave,
+  onRenameFlow,
+  onDuplicateFlow,
+  onDeleteFlow,
 }: FlowBuilderProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(flow.nodes[0]?.id ?? null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(flow.edges[0]?.id ?? null);
@@ -41,12 +48,10 @@ export function FlowBuilder({
   const [redoStack, setRedoStack] = useState<FlowDefinition[]>([]);
   const [fitVersion, setFitVersion] = useState(0);
   const [running, setRunning] = useState(false);
+  const [mappingBuilderState, setMappingBuilderState] = useState<{ edgeId: string; targetPath?: string | null } | null>(null);
   const lastFlowIdRef = useRef(flow.id);
-
-  const selectedEdge = useMemo(
-    () => flow.edges.find((edge) => edge.id === selectedEdgeId) ?? null,
-    [flow.edges, selectedEdgeId],
-  );
+  const flowMenuRef = useRef<HTMLDivElement | null>(null);
+  const [flowMenuOpen, setFlowMenuOpen] = useState(false);
   const runningNodeIds = useMemo(
     () => new Set(runSteps.filter((step) => step.status === "running").map((step) => step.nodeId)),
     [runSteps],
@@ -65,6 +70,21 @@ export function FlowBuilder({
       detail: { canUndo: undoStack.length > 0, canRedo: redoStack.length > 0 },
     }));
   }, [undoStack.length, redoStack.length]);
+
+  useEffect(() => {
+    if (!flowMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!flowMenuRef.current?.contains(event.target as Node)) {
+        setFlowMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [flowMenuOpen]);
 
   useEffect(() => {
     function handleUndo() {
@@ -285,6 +305,9 @@ export function FlowBuilder({
   }
 
   const selectedNode = flow.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const mappingBuilderEdge = mappingBuilderState ? flow.edges.find((edge) => edge.id === mappingBuilderState.edgeId) ?? null : null;
+  const mappingBuilderFromNode = mappingBuilderEdge ? flow.nodes.find((node) => node.id === (mappingBuilderEdge.source || mappingBuilderEdge.from)) ?? null : null;
+  const mappingBuilderToNode = mappingBuilderEdge ? flow.nodes.find((node) => node.id === (mappingBuilderEdge.target || mappingBuilderEdge.to)) ?? null : null;
   const selectedEndpoint = selectedNode
     ? collection.endpoints.find((endpoint) => endpoint.id === selectedNode.requestId) ?? null
     : null;
@@ -292,7 +315,7 @@ export function FlowBuilder({
     collection,
     flowVariables: Object.fromEntries(
       flow.edges.flatMap((edge) => edge.mappings)
-        .filter((mapping) => mapping.targetType === "variable" && mapping.targetKey)
+        .filter((mapping) => (mapping.targetType === "variable" || mapping.targetType === "flowVariable") && mapping.targetKey)
         .map((mapping) => [mapping.targetKey, ""]),
     ),
   };
@@ -307,26 +330,57 @@ export function FlowBuilder({
         <div className={styles.toolbar}>
           <button type="button" disabled={undoStack.length === 0} onClick={undoFlowChange}>Undo</button>
           <button type="button" disabled={redoStack.length === 0} onClick={redoFlowChange}>Redo</button>
-          <button type="button" onClick={() => window.dispatchEvent(new Event("bikapi:flow-zoom-in"))}>Zoom in</button>
-          <button type="button" onClick={() => window.dispatchEvent(new Event("bikapi:flow-zoom-out"))}>Zoom out</button>
+          <button type="button" onClick={() => window.dispatchEvent(new Event("bikapi:flow-zoom-out"))}>Zoom -</button>
+          <button type="button" onClick={() => window.dispatchEvent(new Event("bikapi:flow-zoom-in"))}>Zoom +</button>
           <button type="button" onClick={() => setFitVersion((version) => version + 1)}>Fit view</button>
           <button type="button" onClick={autoArrange}>Auto arrange</button>
           <button type="button" onClick={onSave}>Save Flow</button>
+          <div className={styles.flowMenuWrap} ref={flowMenuRef}>
+            <button
+              type="button"
+              className={styles.iconAction}
+              title="Flow actions"
+              onClick={() => setFlowMenuOpen((open) => !open)}
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            {flowMenuOpen ? (
+              <div className={styles.flowMenu} role="menu">
+                <button type="button" role="menuitem" onClick={() => { setFlowMenuOpen(false); onRenameFlow(); }}>
+                  Rename flow
+                </button>
+                <button type="button" role="menuitem" onClick={() => { setFlowMenuOpen(false); onDuplicateFlow(); }}>
+                  Clone flow
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.flowMenuDanger}
+                  onClick={() => { setFlowMenuOpen(false); onDeleteFlow(); }}
+                >
+                  Delete flow
+                </button>
+              </div>
+            ) : null}
+          </div>
           <button type="button" className={styles.primaryButton} disabled={running} onClick={() => void runCurrentFlow()}>
             {running ? "Running..." : "Run Flow"}
           </button>
         </div>
       </header>
 
-      <div className={styles.body}>
+      <div className={`${styles.body} ${selectedNode && selectedEndpoint ? styles.bodyWithInspector : ""}`}>
         <FlowCanvas
+          workspacePath={workspacePath}
           collection={collection}
           flow={flow}
+          environmentId={environmentId}
           selectedEdgeId={selectedEdgeId}
           selectedNodeId={selectedNodeId}
           lastResponses={lastResponses}
           runningNodeIds={runningNodeIds}
           fitVersion={fitVersion}
+          warning={flowWarning}
           onSelectNode={(nodeId) => {
             setSelectedNodeId(nodeId);
             setSelectedEdgeId(null);
@@ -352,6 +406,11 @@ export function FlowBuilder({
           }}
           onMoveNode={moveNode}
           onConnectNodes={createEdge}
+          onUpdateEdge={updateEdge}
+          onOpenMappingBuilder={(edgeId) => setMappingBuilderState({ edgeId })}
+          onDiscoveredResponse={(nodeId, response) =>
+            setLastResponses((current) => ({ ...current, [nodeId]: response }))
+          }
           onDeleteNode={(nodeId) => {
             setSelectedNodeId(nodeId);
             setSelectedEdgeId(null);
@@ -362,7 +421,7 @@ export function FlowBuilder({
             });
           }}
           onDeleteEdge={(edgeId) => {
-            setSelectedEdgeId(edgeId);
+            setSelectedEdgeId(null);
             setSelectedNodeId(null);
             commitFlowChange({ ...flow, edges: flow.edges.filter((edge) => edge.id !== edgeId) });
           }}
@@ -375,24 +434,47 @@ export function FlowBuilder({
             variableContext={variableContext}
             onRunStep={() => void runCurrentFlow()}
             onDeleteNode={deleteSelectedNode}
+            onOpenPlaceholderMapping={(targetPath) => {
+              const incomingEdge = flow.edges.find((edge) => (edge.target || edge.to) === selectedNode.id);
+              if (!incomingEdge) {
+                setFlowWarning(`No incoming edge available for ${targetPath}. Connect a source node first.`);
+                return;
+              }
+              setMappingBuilderState({ edgeId: incomingEdge.id, targetPath });
+            }}
           />
-        ) : (
-          <MappingPanel
-            workspacePath={workspacePath}
-            collection={collection}
-            environmentId={environmentId}
-            flow={flow}
-            edge={selectedEdge}
-            onChange={updateEdge}
-            onDiscoveredResponse={(nodeId, response) =>
-              setLastResponses((current) => ({ ...current, [nodeId]: response }))
-            }
-            warning={flowWarning}
-            onDeleteEdge={deleteSelectedEdge}
-            variableContext={variableContext}
-          />
-        )}
+        ) : null}
       </div>
+
+      {mappingBuilderEdge && mappingBuilderFromNode && mappingBuilderToNode && (
+        <MappingBuilderModal
+          open
+          workspacePath={workspacePath}
+          collection={collection}
+          edge={mappingBuilderEdge}
+          fromNode={mappingBuilderFromNode}
+          toNode={mappingBuilderToNode}
+          environmentId={environmentId}
+          initialResponse={lastResponses[mappingBuilderFromNode.id] ?? (mappingBuilderFromNode.lastRun ? {
+            status: mappingBuilderFromNode.lastRun.statusCode ?? 0,
+            statusText: mappingBuilderFromNode.lastRun.status,
+            headers: mappingBuilderFromNode.lastRun.responseHeaders,
+            body: mappingBuilderFromNode.lastRun.responseBody,
+            responseTimeMs: mappingBuilderFromNode.lastRun.durationMs ?? 0,
+            sentAt: mappingBuilderFromNode.lastRun.ranAt,
+            resolvedUrl: "",
+          } : null)}
+          initialTargetPath={mappingBuilderState?.targetPath ?? null}
+          onClose={() => setMappingBuilderState(null)}
+          onSave={(nextEdge) => {
+            updateEdge(nextEdge);
+            setMappingBuilderState(null);
+          }}
+          onDiscoveredResponse={(nodeId, response) =>
+            setLastResponses((current) => ({ ...current, [nodeId]: response }))
+          }
+        />
+      )}
 
       <FlowRunPanel steps={runSteps} />
     </section>

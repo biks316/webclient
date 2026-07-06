@@ -1,4 +1,5 @@
 import { CollectionIndex, EndpointIndex, WorkspaceIndex } from "../types/bik";
+import { normalizeWorkspaceRequests } from "./requestBody";
 
 export function firstCollection(workspace: WorkspaceIndex | null): CollectionIndex | null {
   return workspace?.collections[0] ?? null;
@@ -32,4 +33,8 @@ export function findEndpoint(
 
 export function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+export function normalizeWorkspace(workspace: WorkspaceIndex): WorkspaceIndex {
+  return normalizeWorkspaceRequests(workspace);
 }

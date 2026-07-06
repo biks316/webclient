@@ -3,13 +3,12 @@ import {
   ArrowUp,
   Check,
   LayoutPanelLeft,
+  MoreHorizontal,
   PanelsRightBottom,
   Plus,
   Redo2,
   RefreshCw,
   Search,
-  Send,
-  Settings2,
   TerminalSquare,
   Undo2,
 } from "lucide-react";
@@ -21,7 +20,6 @@ import styles from "./AppToolbar.module.css";
 
 interface AppToolbarProps {
   workspaceSwitcher: ReactNode;
-  status: string;
   isSyncing: boolean;
   syncStatus: SyncStatusResult | null;
   lastSyncedLabel: string;
@@ -32,12 +30,9 @@ interface AppToolbarProps {
   consoleHidden: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  onCreateCollection: () => void;
   onUndo: () => void;
   onRedo: () => void;
-  onImport: (kind: "postman-collection" | "postman-environment" | "bruno-folder" | "curl") => void;
   onCreateRequest: () => void;
-  onSendRequest: () => void;
   onSync: () => void;
   onReviewChanges: () => void;
   onKeepLocalOnly: () => void;
@@ -47,12 +42,10 @@ interface AppToolbarProps {
   onToggleTimeline: () => void;
   onToggleConsole: () => void;
   onOpenPalette: () => void;
-  onOpenSettings: () => void;
 }
 
 export function AppToolbar({
   workspaceSwitcher,
-  status,
   isSyncing,
   syncStatus,
   lastSyncedLabel,
@@ -63,12 +56,9 @@ export function AppToolbar({
   consoleHidden,
   canUndo,
   canRedo,
-  onCreateCollection,
   onUndo,
   onRedo,
-  onImport,
   onCreateRequest,
-  onSendRequest,
   onSync,
   onReviewChanges,
   onKeepLocalOnly,
@@ -78,12 +68,12 @@ export function AppToolbar({
   onToggleTimeline,
   onToggleConsole,
   onOpenPalette,
-  onOpenSettings,
 }: AppToolbarProps) {
   const syncMeta = getSyncMeta(syncStatus);
   const [syncMenuOpen, setSyncMenuOpen] = useState(false);
-  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const [appMenuOpen, setAppMenuOpen] = useState(false);
   const syncMenuRef = useRef<HTMLDivElement | null>(null);
+  const appMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!syncMenuOpen) {
@@ -100,6 +90,21 @@ export function AppToolbar({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [syncMenuOpen]);
 
+  useEffect(() => {
+    if (!appMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!appMenuRef.current?.contains(event.target as Node)) {
+        setAppMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [appMenuOpen]);
+
   function handleSyncClick() {
     if (syncStatus?.state === "not_git") {
       setSyncMenuOpen((value) => !value);
@@ -115,10 +120,9 @@ export function AppToolbar({
           <LayoutPanelLeft size={13} />
         </IconButton>
         {workspaceSwitcher}
-        <button type="button" className={styles.command} onClick={onOpenPalette}>
-          <Search size={12} />
-          <span>Command Palette</span>
-          <kbd>Ctrl/Cmd+K</kbd>
+        <button type="button" className={styles.primaryRequest} onClick={onCreateRequest}>
+          <Plus size={13} />
+          New Request
         </button>
       </div>
 
@@ -177,54 +181,39 @@ export function AppToolbar({
           className={styles.environment}
           onChange={onEnvironmentChange}
         />
-        <button type="button" className={styles.toolButton} onClick={onCreateCollection}>
-          <Plus size={13} />
-          Collection
-        </button>
-        <IconButton title="Undo" onClick={onUndo} disabled={!canUndo}>
-          <Undo2 size={13} />
-        </IconButton>
-        <IconButton title="Redo" onClick={onRedo} disabled={!canRedo}>
-          <Redo2 size={13} />
-        </IconButton>
-        <button type="button" className={styles.toolButton} onClick={onCreateRequest}>
-          <Plus size={13} />
-          Request
-        </button>
-        <div className={styles.syncMenuWrap}>
-          <button type="button" className={styles.toolButton} onClick={() => setImportMenuOpen((open) => !open)}>
-            Import
-          </button>
-          {importMenuOpen && (
+        <div className={styles.syncMenuWrap} ref={appMenuRef}>
+          <IconButton title="App menu" onClick={() => setAppMenuOpen((open) => !open)}>
+            <MoreHorizontal size={14} />
+          </IconButton>
+          {appMenuOpen && (
             <div className={styles.syncMenu}>
-              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("postman-collection"); }}>
-                Postman Collection
+              <button type="button" onClick={() => { setAppMenuOpen(false); onOpenPalette(); }}>
+                <Search size={13} />
+                Command Palette
               </button>
-              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("postman-environment"); }}>
-                Postman Environment
+              <button type="button" onClick={() => { setAppMenuOpen(false); onUndo(); }} disabled={!canUndo}>
+                <Undo2 size={13} />
+                Undo
               </button>
-              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("bruno-folder"); }}>
-                Bruno Collection Folder
+              <button type="button" onClick={() => { setAppMenuOpen(false); onRedo(); }} disabled={!canRedo}>
+                <Redo2 size={13} />
+                Redo
               </button>
-              <button type="button" onClick={() => { setImportMenuOpen(false); onImport("curl"); }}>
-                curl
+              <button type="button" onClick={() => { setAppMenuOpen(false); onToggleSidebar(); }}>
+                <LayoutPanelLeft size={13} />
+                {sidebarHidden ? "Show sidebar" : "Hide sidebar"}
+              </button>
+              <button type="button" onClick={() => { setAppMenuOpen(false); onToggleTimeline(); }}>
+                <PanelsRightBottom size={13} />
+                {timelineHidden ? "Show timeline" : "Hide timeline"}
+              </button>
+              <button type="button" onClick={() => { setAppMenuOpen(false); onToggleConsole(); }}>
+                <TerminalSquare size={13} />
+                {consoleHidden ? "Show console" : "Hide console"}
               </button>
             </div>
           )}
         </div>
-        <button type="button" className={styles.toolButton} onClick={onSendRequest}>
-          <Send size={13} />
-          Send
-        </button>
-        <IconButton title="Toggle timeline" onClick={onToggleTimeline} className={!timelineHidden ? styles.active : ""}>
-          <PanelsRightBottom size={13} />
-        </IconButton>
-        <IconButton title="Toggle console" onClick={onToggleConsole} className={!consoleHidden ? styles.active : ""}>
-          <TerminalSquare size={13} />
-        </IconButton>
-        <IconButton title="Settings" onClick={onOpenSettings}>
-          <Settings2 size={13} />
-        </IconButton>
       </div>
     </header>
   );

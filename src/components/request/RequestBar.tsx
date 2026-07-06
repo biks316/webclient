@@ -1,5 +1,5 @@
-import { Copy, Download, Save, Send } from "lucide-react";
-import { VariableFile } from "../../types/bik";
+import { Copy, Download, MoreHorizontal, Save, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { MethodBadge } from "../common/MethodBadge";
 import { CompactSelect } from "../common/CompactSelect";
 import { VariableContext } from "../../services/variableResolver";
@@ -10,17 +10,12 @@ interface RequestBarProps {
   name: string;
   method: string;
   url: string;
-  environments: VariableFile[];
-  selectedEnvironmentId: string | null;
-  selectedEnvironmentName: string | null;
   variableContext: VariableContext;
   isBusy: boolean;
   sendDisabled?: boolean;
   onNameChange: (value: string) => void;
   onMethodChange: (value: string) => void;
   onUrlChange: (value: string) => void;
-  onEnvironmentChange: (environmentId: string | null) => void;
-  onCreateEnvironment: () => void;
   onSave: () => void;
   onSend: () => void;
   onCopyRequest: () => void;
@@ -33,27 +28,35 @@ export function RequestBar({
   name,
   method,
   url,
-  environments,
-  selectedEnvironmentId,
-  selectedEnvironmentName,
   variableContext,
   isBusy,
   sendDisabled = false,
   onNameChange,
   onMethodChange,
   onUrlChange,
-  onEnvironmentChange,
-  onCreateEnvironment,
   onSave,
   onSend,
   onCopyRequest,
   onExportRequest,
 }: RequestBarProps) {
-  const environmentOptions = [
-    { value: "", label: "No environment" },
-    ...environments.map((environment) => ({ value: environment.id, label: environment.name })),
-  ];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const methodOptions = METHODS.map((item) => ({ value: item, label: item }));
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [menuOpen]);
 
   return (
     <section className={styles.bar}>
@@ -65,23 +68,6 @@ export function RequestBar({
             value={name}
             onChange={(event) => onNameChange(event.currentTarget.value)}
           />
-        </div>
-        <div className={styles.rightMeta}>
-          <CompactSelect
-            value={selectedEnvironmentId ?? ""}
-            options={environmentOptions}
-            placeholder="No environment"
-            className={styles.environmentSelect}
-            onChange={(next) => onEnvironmentChange(next || null)}
-          />
-          <button type="button" onClick={onCreateEnvironment}>New Env</button>
-          <div className={styles.variablePill}>{selectedEnvironmentName ?? "Globals"}</div>
-          <button type="button" className={styles.iconAction} onClick={onCopyRequest} title="Copy request">
-            <Copy size={13} />
-          </button>
-          <button type="button" className={styles.iconAction} onClick={onExportRequest} title="Export request">
-            <Download size={13} />
-          </button>
         </div>
       </div>
 
@@ -96,14 +82,31 @@ export function RequestBar({
           spellCheck={false}
           onChange={onUrlChange}
         />
-        <button type="button" onClick={onSave}>
-          <Save size={14} />
-          Save
-        </button>
         <button type="button" className="primary" onClick={onSend} disabled={sendDisabled}>
           <Send size={14} />
           {isBusy ? "Sending..." : "Send"}
         </button>
+        <div className={styles.requestMenuWrap} ref={menuRef}>
+          <button type="button" className={styles.iconAction} onClick={() => setMenuOpen((open) => !open)} title="Request actions">
+            <MoreHorizontal size={14} />
+          </button>
+          {menuOpen && (
+            <div className={styles.requestMenu}>
+              <button type="button" onClick={() => { setMenuOpen(false); onSave(); }}>
+                <Save size={13} />
+                Save request
+              </button>
+              <button type="button" onClick={() => { setMenuOpen(false); onCopyRequest(); }}>
+                <Copy size={13} />
+                Copy request
+              </button>
+              <button type="button" onClick={() => { setMenuOpen(false); onExportRequest(); }}>
+                <Download size={13} />
+                Export request
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

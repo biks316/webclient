@@ -1,4 +1,4 @@
-import { Check, ChevronDown, FolderOpen, Plus, Settings2, Trash2, GitBranch } from "lucide-react";
+import { Check, ChevronDown, Download, FileText, FolderOpen, GitBranch, Plus, Settings2, Share2, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { RecentWorkspace } from "../../types/bik";
 import styles from "./WorkspaceSwitcher.module.css";
@@ -13,6 +13,8 @@ interface WorkspaceSwitcherProps {
   onCreateWorkspace: () => void;
   onCloneWorkspace: () => void;
   onOpenSettings: () => void;
+  onImport: (kind: "postman-collection" | "postman-environment" | "bruno-folder" | "curl") => void;
+  onExportWorkspace: () => void;
 }
 
 export function WorkspaceSwitcher({
@@ -25,6 +27,8 @@ export function WorkspaceSwitcher({
   onCreateWorkspace,
   onCloneWorkspace,
   onOpenSettings,
+  onImport,
+  onExportWorkspace,
 }: WorkspaceSwitcherProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -129,6 +133,39 @@ export function WorkspaceSwitcher({
             <button type="button" onClick={() => runAction(onOpenSettings)}>
               <Settings2 size={13} />
               Workspace settings
+            </button>
+            <div className={styles.sectionLabel}>Workspace actions</div>
+            <button type="button" onClick={() => runAction(() => onImport("postman-collection"))}>
+              <Upload size={13} />
+              Import Postman collection
+            </button>
+            <button type="button" onClick={() => runAction(() => onImport("postman-environment"))}>
+              <Upload size={13} />
+              Import Postman environment
+            </button>
+            <button type="button" onClick={() => runAction(() => onImport("bruno-folder"))}>
+              <Upload size={13} />
+              Import Bruno folder
+            </button>
+            <button type="button" onClick={() => runAction(() => onImport("curl"))}>
+              <Upload size={13} />
+              Import curl
+            </button>
+            <button type="button" onClick={() => runAction(onExportWorkspace)}>
+              <Download size={13} />
+              Export workspace
+            </button>
+            <button type="button" disabled>
+              <FileText size={13} />
+              Generate docs
+            </button>
+            <button type="button" disabled>
+              <Share2 size={13} />
+              Share workspace
+            </button>
+            <button type="button" disabled>
+              <Trash2 size={13} />
+              Delete workspace
             </button>
           </div>
         </div>

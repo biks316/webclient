@@ -1998,6 +1998,12 @@ export default function App() {
     exportJson(`${fileSafeName(collection.name)}-collection.json`, collection);
   }
 
+  function handleExportWorkspace() {
+    if (workspace) {
+      exportJson(`${fileSafeName(workspace.name)}-workspace.json`, workspace);
+    }
+  }
+
   function handleCopyRequest() {
     if (draftRequest) {
       void copyJson("Request", draftRequest);
@@ -2020,6 +2026,11 @@ export default function App() {
     if (response) {
       exportJson(`${fileSafeName(draftRequest?.name ?? "response")}-response.json`, response);
     }
+  }
+
+  function handleClearResponse() {
+    setResponse(null);
+    setResponseError(null);
   }
 
   async function handleSaveRequest() {
@@ -2361,8 +2372,6 @@ export default function App() {
               isBusy={isBusy}
               onActiveTabChange={setActiveRequestTab}
               onActiveResponseTabChange={setActiveResponseTab}
-              onEnvironmentChange={setSelectedEnvironmentId}
-              onCreateEnvironment={handleCreateEnvironment}
               onGlobalVariablesChange={handleGlobalVariablesChange}
               onCollectionVariablesChange={handleCollectionVariablesChange}
               onEnvironmentVariablesChange={handleEnvironmentVariablesChange}
@@ -2382,6 +2391,7 @@ export default function App() {
               onSaveExample={handleSaveExample}
               onCopyResponse={handleCopyResponse}
               onExportResponse={handleExportResponse}
+              onClearResponse={handleClearResponse}
             />
           }
           bottom={consoleHidden ? undefined : (
@@ -2405,6 +2415,7 @@ export default function App() {
               onSaveExample={handleSaveExample}
               onCopyResponse={handleCopyResponse}
               onExportResponse={handleExportResponse}
+              onClearResponse={handleClearResponse}
             />
           )}
           bottomCollapsed={!consoleHidden && consoleCollapsed}
@@ -2469,6 +2480,7 @@ export default function App() {
             onSaveExample={handleSaveExample}
             onCopyResponse={handleCopyResponse}
             onExportResponse={handleExportResponse}
+            onClearResponse={handleClearResponse}
           />
         )}
         bottomCollapsed={!consoleHidden && consoleCollapsed}
@@ -2493,9 +2505,10 @@ export default function App() {
                   onCreateWorkspace={() => handleCreateWorkspace(false)}
                   onCloneWorkspace={handleCloneWorkspace}
                   onOpenSettings={() => setSettingsOpen(true)}
+                  onImport={(kind) => void handleImport(kind)}
+                  onExportWorkspace={handleExportWorkspace}
                 />
               }
-              status={status}
               isSyncing={isSyncing}
               syncStatus={syncStatus}
               lastSyncedLabel={formatLastSyncedLabel()}
@@ -2512,12 +2525,9 @@ export default function App() {
               consoleHidden={consoleHidden}
               canUndo={flowHistoryAvailability.canUndo}
               canRedo={flowHistoryAvailability.canRedo}
-              onCreateCollection={() => void handleCreateCollection()}
               onUndo={() => window.dispatchEvent(new Event("bikapi:flow-undo"))}
               onRedo={() => window.dispatchEvent(new Event("bikapi:flow-redo"))}
-              onImport={(kind) => void handleImport(kind)}
               onCreateRequest={() => void handleCreateEndpoint()}
-              onSendRequest={() => void handleSendRequest()}
               onSync={() => void performSync(true)}
               onReviewChanges={() => setReviewSyncOpen(true)}
               onKeepLocalOnly={() => {
@@ -2530,7 +2540,6 @@ export default function App() {
               onToggleTimeline={toggleTimelinePanel}
               onToggleConsole={toggleConsolePanel}
               onOpenPalette={() => setCommandPaletteOpen(true)}
-              onOpenSettings={() => setSettingsOpen(true)}
             />
           }
           sidebar={

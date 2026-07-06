@@ -38,6 +38,7 @@ interface BottomConsoleProps {
   onSaveExample: () => void;
   onCopyResponse: () => void;
   onExportResponse: () => void;
+  onClearResponse?: () => void;
 }
 
 const TAB_META: Array<{ id: BottomDockTab; label: string; icon: typeof TerminalSquare }> = [
@@ -68,6 +69,7 @@ export function BottomConsole({
   onSaveExample,
   onCopyResponse,
   onExportResponse,
+  onClearResponse,
 }: BottomConsoleProps) {
   const responseSize = response ? new Blob([response.body]).size : 0;
 
@@ -86,6 +88,7 @@ export function BottomConsole({
             onSaveExample={onSaveExample}
             onCopyResponse={onCopyResponse}
             onExportResponse={onExportResponse}
+            onClearResponse={onClearResponse}
           />
         </div>
       );

@@ -1,7 +1,7 @@
 .bar {
   display: grid;
-  gap: 3px;
-  padding: 4px 8px;
+  gap: 5px;
+  padding: 5px 8px 7px;
   border-bottom: 1px solid var(--border);
   background: #1a2028;
 }
@@ -54,44 +54,62 @@
   justify-content: flex-end;
 }
 
-.environmentSelect {
-  width: 126px;
-}
-
-.variablePill {
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 6px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  background: var(--field);
-  font-size: 11px;
-}
-
 .requestRow {
   min-width: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto 28px;
+  gap: 6px;
 }
 
 .methodSelect {
-  width: 78px;
+  width: 82px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .url {
-  flex: 1;
-  height: 22px;
+  width: 100%;
+  height: 28px;
   border-radius: 4px;
   font-family: "SFMono-Regular", Consolas, monospace;
 }
 
 .iconAction {
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
-  min-height: 20px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
   padding: 0;
+}
+
+.requestMenuWrap {
+  position: relative;
+}
+
+.requestMenu {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 5px);
+  right: 0;
+  min-width: 156px;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel-elevated);
+  box-shadow: var(--shadow-hard);
+}
+
+.requestMenu button {
+  min-height: 26px;
+  justify-content: flex-start;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.requestMenu button:hover {
+  background: rgba(108, 168, 255, 0.12);
 }

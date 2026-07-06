@@ -33,8 +33,6 @@ interface RequestEditorProps {
   isBusy: boolean;
   onActiveTabChange: (tab: RequestEditorProps["activeTab"]) => void;
   onActiveResponseTabChange: (tab: RequestEditorProps["activeResponseTab"]) => void;
-  onEnvironmentChange: (environmentId: string | null) => void;
-  onCreateEnvironment: () => void;
   onGlobalVariablesChange: (variables: Record<string, string>) => void;
   onCollectionVariablesChange: (variables: Record<string, string>) => void;
   onEnvironmentVariablesChange: (variables: Record<string, string>) => void;
@@ -54,6 +52,7 @@ interface RequestEditorProps {
   onSaveExample: () => void;
   onCopyResponse: () => void;
   onExportResponse: () => void;
+  onClearResponse: () => void;
 }
 
 const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
@@ -76,8 +75,6 @@ export function RequestEditor({
   isBusy,
   onActiveTabChange,
   onActiveResponseTabChange,
-  onEnvironmentChange,
-  onCreateEnvironment,
   onGlobalVariablesChange,
   onCollectionVariablesChange,
   onEnvironmentVariablesChange,
@@ -97,6 +94,7 @@ export function RequestEditor({
   onSaveExample,
   onCopyResponse,
   onExportResponse,
+  onClearResponse,
 }: RequestEditorProps) {
   const [bodyText, setBodyText] = useState("");
   const [bodyError, setBodyError] = useState<string | null>(null);
@@ -275,17 +273,12 @@ export function RequestEditor({
         name={currentRequest.name}
         method={currentRequest.method}
         url={currentRequest.url}
-        environments={environments}
-        selectedEnvironmentId={selectedEnvironmentId}
-        selectedEnvironmentName={selectedEnvironment?.name ?? null}
         variableContext={variableContext}
         isBusy={isBusy}
         sendDisabled={!canSend}
         onNameChange={(name) => update({ name })}
         onMethodChange={changeMethod}
         onUrlChange={(url) => update({ url })}
-        onEnvironmentChange={onEnvironmentChange}
-        onCreateEnvironment={onCreateEnvironment}
         onSave={onSave}
         onSend={onSend}
         onCopyRequest={onCopyRequest}
@@ -307,11 +300,6 @@ export function RequestEditor({
           onChange={(tab) => onActiveTabChange(tab as RequestEditorProps["activeTab"])}
         />
         <div className={styles.quickActions}>
-          <button type="button" onClick={() => setVariableMode("globals")}>Globals</button>
-          <button type="button" onClick={() => setVariableMode("collection")}>Collection vars</button>
-          <button type="button" onClick={() => setVariableMode("environment")} disabled={!selectedEnvironment}>
-            Env vars
-          </button>
           <button type="button" onClick={() => setVariableMode("panel")}>Variables</button>
           <button type="button" onClick={() => setSideResponseOpen((current) => !current)}>
             {sideResponseOpen ? "Hide response" : "Show response"}
@@ -337,6 +325,7 @@ export function RequestEditor({
                   onSaveExample={onSaveExample}
                   onCopyResponse={onCopyResponse}
                   onExportResponse={onExportResponse}
+                  onClearResponse={onClearResponse}
                 />
               </div>
             }

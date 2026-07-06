@@ -6,11 +6,12 @@ import {
   Folder,
   Gauge,
   Plus,
+  PencilLine,
   Route,
   Search,
   Send,
-  Settings2,
   TerminalSquare,
+  Trash2,
   Wifi,
   X,
 } from "lucide-react";
@@ -310,29 +311,23 @@ export function Sidebar({
                                 onSelect: () => onCreateFlow(collection.id),
                               },
                               {
-                                label: "New folder",
-                                icon: <Plus size={12} />,
-                                disabled: true,
-                                onSelect: () => undefined,
-                              },
-                              {
-                                label: "Rename",
-                                icon: <Settings2 size={12} />,
-                                onSelect: () => onRenameCollection(collection.id),
-                              },
-                              {
-                                label: "Duplicate",
+                                label: "Clone",
                                 icon: <Copy size={12} />,
                                 onSelect: () => onDuplicateCollection(collection.id),
                               },
                               {
+                                label: "Rename",
+                                icon: <PencilLine size={12} />,
+                                onSelect: () => onRenameCollection(collection.id),
+                              },
+                              {
                                 label: "Delete",
-                                icon: <Settings2 size={12} />,
+                                icon: <Trash2 size={12} />,
                                 onSelect: () => onDeleteCollection(collection.id),
                               },
                               {
                                 label: "Export collection",
-                                icon: <Settings2 size={12} />,
+                                icon: <Folder size={12} />,
                                 onSelect: () => onExportCollection(collection),
                               },
                             ]}
@@ -386,6 +381,33 @@ export function Sidebar({
                               >
                                 <MethodBadge method={endpoint.request.method} compact className={styles.methodBadge} />
                                 <span className={styles.rowTitle}>{endpoint.name}</span>
+                                <div className={styles.rowActions} onClick={(event) => event.stopPropagation()}>
+                                  <ActionMenu
+                                    label={`${endpoint.name} options`}
+                                    items={[
+                                      {
+                                        label: "Rename",
+                                        icon: <PencilLine size={12} />,
+                                        onSelect: () => onRenameRequest(collection.id, endpoint.id),
+                                      },
+                                      {
+                                        label: "Clone",
+                                        icon: <Copy size={12} />,
+                                        onSelect: () => onDuplicateRequest(collection.id, endpoint.id),
+                                      },
+                                      {
+                                        label: "Delete",
+                                        icon: <Trash2 size={12} />,
+                                        onSelect: () => onDeleteRequest(collection.id, endpoint.id),
+                                      },
+                                      {
+                                        label: "See history",
+                                        icon: <Route size={12} />,
+                                        onSelect: () => onOpenEndpointHistory(collection.id, endpoint.id),
+                                      },
+                                    ]}
+                                  />
+                                </div>
                               </div>
                             );
                           })}
@@ -483,7 +505,7 @@ export function Sidebar({
                     setContextMenu(null);
                   }}
                 >
-                  <span>Duplicate</span>
+                  <span>Clone</span>
                 </button>
                 <button
                   type="button"
@@ -534,7 +556,7 @@ export function Sidebar({
                     setContextMenu(null);
                   }}
                 >
-                  <span>Duplicate</span>
+                  <span>Clone</span>
                 </button>
                 <button
                   type="button"
@@ -584,7 +606,7 @@ export function Sidebar({
                     onDuplicateCollection(collectionMenu.collection.id);
                   }}
                 >
-                  <span>Duplicate</span>
+                  <span>Clone</span>
                 </button>
                 <button
                   type="button"

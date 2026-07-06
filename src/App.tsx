@@ -258,6 +258,28 @@ export default function App() {
     [syncStatus],
   );
 
+  function normalizedName(name: string) {
+    return name.trim().toLowerCase();
+  }
+
+  function collectionNameExists(name: string, excludeCollectionId?: string) {
+    const next = normalizedName(name);
+    return workspace?.collections.some((collection) =>
+      collection.id !== excludeCollectionId && normalizedName(collection.name) === next,
+    ) ?? false;
+  }
+
+  function endpointNameExists(collectionId: string, name: string, excludeEndpointId?: string) {
+    const collection = workspace?.collections.find((item) => item.id === collectionId);
+    if (!collection) {
+      return false;
+    }
+    const next = normalizedName(name);
+    return collection.endpoints.some((endpoint) =>
+      endpoint.id !== excludeEndpointId && normalizedName(endpoint.name) === next,
+    );
+  }
+
   useEffect(() => {
     void loadRecentWorkspaces().then(setRecentWorkspaces);
   }, []);
@@ -1621,6 +1643,11 @@ export default function App() {
       setStatus("Collection name is required.");
       return;
     }
+    if (collectionNameExists(name)) {
+      setStatus(`Collection "${name}" already exists.`);
+      pushToast(`Collection "${name}" already exists.`, "warning");
+      return;
+    }
     const next = await runAction("Creating collection...", () => api.createCollection(workspace.path, name));
     if (next) {
       const created = next.collections.find((collection) => collection.name === name);
@@ -1678,6 +1705,12 @@ export default function App() {
           : createNamedRequest(endpointInput.name.trim(), endpointInput.method);
     } catch (error) {
       setStatus(String(error));
+      return;
+    }
+
+    if (endpointNameExists(targetCollectionId, request.name)) {
+      setStatus(`Request "${request.name}" already exists in this collection.`);
+      pushToast(`Request "${request.name}" already exists in this collection.`, "warning");
       return;
     }
 
@@ -1766,6 +1799,11 @@ export default function App() {
     if (!name || name === collection.name) {
       return;
     }
+    if (collectionNameExists(name, collectionId)) {
+      setStatus(`Collection "${name}" already exists.`);
+      pushToast(`Collection "${name}" already exists.`, "warning");
+      return;
+    }
     const next = await runAction("Renaming collection...", () => api.renameCollection(workspace.path, collectionId, name));
     if (next) {
       applyWorkspace(next, collectionId, selectedEndpointId);
@@ -1805,6 +1843,11 @@ export default function App() {
       confirmText: "Rename",
     }))?.trim();
     if (!name || name === endpoint.name) {
+      return;
+    }
+    if (endpointNameExists(collectionId, name, endpointId)) {
+      setStatus(`Request "${name}" already exists in this collection.`);
+      pushToast(`Request "${name}" already exists in this collection.`, "warning");
       return;
     }
     const next = await runAction("Renaming request...", () => api.renameRequest(workspace.path, collectionId, endpointId, name));
@@ -1920,6 +1963,11 @@ export default function App() {
     if (!name) {
       return;
     }
+    if (collectionNameExists(name)) {
+      setStatus(`Collection "${name}" already exists.`);
+      pushToast(`Collection "${name}" already exists.`, "warning");
+      return;
+    }
     const next = await runAction("Duplicating collection...", () =>
       api.duplicateCollection(workspace.path, collectionId, name),
     );
@@ -1946,6 +1994,11 @@ export default function App() {
       confirmText: "Duplicate",
     }))?.trim();
     if (!name) {
+      return;
+    }
+    if (endpointNameExists(collectionId, name)) {
+      setStatus(`Request "${name}" already exists in this collection.`);
+      pushToast(`Request "${name}" already exists in this collection.`, "warning");
       return;
     }
     const next = await runAction("Duplicating request...", () =>

@@ -393,14 +393,6 @@ export function FlowCanvas({
         onDropEndpoint(payload, canvasPoint(event));
       }}
       onMouseUp={(event) => {
-        const requestDrag = getCurrentRequestDrag();
-        if (requestDrag && !dragging && !connectingFrom) {
-          console.log("[DND] fallback mouseUp canvas", event.clientX, event.clientY);
-          setDropActive(false);
-          clearCurrentRequestDrag();
-          onDropEndpoint(requestDrag, canvasPoint(event));
-          return;
-        }
         setConnectingFrom(null);
         setConnectionPoint(null);
         setDragging(null);

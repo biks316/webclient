@@ -132,7 +132,10 @@ export function ScriptsTab({ scripts, request, response, variables, onChange, on
             <div className="script-toolbar-actions">
               <button type="button" onClick={() => void runActiveScript()}>Run Script</button>
               <button type="button" onClick={() => editorRef.current?.format()}>Format</button>
-              <ScriptTemplatesMenu onInsert={(snippet) => editorRef.current?.insertText(snippet)} />
+              <ScriptTemplatesMenu
+                phase={activeTab === "post" ? "post" : activeTab === "pre" ? "pre" : "helpers"}
+                onInsert={(snippet) => editorRef.current?.insertText(snippet)}
+              />
               <button type="button" onClick={() => setDocsCollapsed((current) => !current)}>Docs</button>
               <button type="button" onClick={() => setMinimap((current) => !current)}>
                 Minimap {minimap ? "On" : "Off"}

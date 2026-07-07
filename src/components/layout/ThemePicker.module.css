@@ -1,0 +1,127 @@
+.dialog {
+  width: min(720px, calc(100vw - 28px));
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--active-blue) 18%, transparent), transparent 34%),
+    linear-gradient(180deg, var(--panel-elevated), var(--panel));
+  box-shadow: var(--shadow-hard);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header h2,
+.header p {
+  margin: 0;
+}
+
+.header h2 {
+  font-size: 16px;
+}
+
+.header p {
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filterActive {
+  border-color: var(--active-blue);
+  background: color-mix(in srgb, var(--active-blue) 18%, var(--field));
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  min-height: 140px;
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--panel-soft), var(--field-soft));
+}
+
+.cardActive {
+  border-color: var(--active-blue);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--active-blue) 30%, transparent);
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardTop strong,
+.cardTop span {
+  display: block;
+}
+
+.cardTop span {
+  margin-top: 3px;
+  color: var(--text-muted);
+}
+
+.preview {
+  margin-top: 12px;
+  display: grid;
+  gap: 7px;
+}
+
+.preview span {
+  display: block;
+  border-radius: 999px;
+}
+
+.preview span:first-child {
+  height: 16px;
+}
+
+.previewPanel {
+  height: 34px;
+  background: var(--panel-elevated);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.previewField {
+  height: 10px;
+  width: 72%;
+  background: var(--field);
+  border: 1px solid var(--border);
+}
+
+.meta {
+  margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.accent {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}

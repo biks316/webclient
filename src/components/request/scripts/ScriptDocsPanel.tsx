@@ -29,6 +29,9 @@ export function ScriptDocsPanel({ collapsed, onToggle }: ScriptDocsPanelProps) {
         <code>request.queryParams</code>
         <code>response.status</code>
         <code>response.body</code>
+        <p>
+          <code>response</code> is only available in post-response scripts.
+        </p>
       </section>
 
       <section>
@@ -41,6 +44,10 @@ export function ScriptDocsPanel({ collapsed, onToggle }: ScriptDocsPanelProps) {
         <code>bik.setResponseBody(data)</code>
         <code>bik.setResponseHeader("X-Source", value)</code>
         <code>bik.setResponseStatus(200, "OK")</code>
+        <p>
+          During request execution, <code>ctx.set()</code> writes to the selected environment when one is active.
+          Otherwise it writes to request variables for the current request only.
+        </p>
       </section>
 
       <section>
@@ -48,6 +55,9 @@ export function ScriptDocsPanel({ collapsed, onToggle }: ScriptDocsPanelProps) {
         <pre>{`ctx.set("token", value)
 
 const token = ctx.get("token")
+
+const body = JSON.parse(response.body)
+ctx.set("token", body.token)
 
 request.url = "https://api.example.com"
 

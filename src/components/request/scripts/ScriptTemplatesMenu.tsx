@@ -6,10 +6,11 @@ interface TemplateItem {
 }
 
 interface ScriptTemplatesMenuProps {
+  phase: "pre" | "post" | "helpers";
   onInsert: (snippet: string) => void;
 }
 
-const TEMPLATES: TemplateItem[] = [
+const BASE_TEMPLATES: TemplateItem[] = [
   {
     label: "Generate UUID",
     snippet: 'ctx.set("id", crypto.randomUUID());',
@@ -40,8 +41,20 @@ const TEMPLATES: TemplateItem[] = [
   },
 ];
 
-export function ScriptTemplatesMenu({ onInsert }: ScriptTemplatesMenuProps) {
+const POST_TEMPLATES: TemplateItem[] = [
+  {
+    label: "Save Response Field",
+    snippet: 'const body = JSON.parse(response.body);\nctx.set("token", body.token);',
+  },
+  {
+    label: "Save Response Body",
+    snippet: 'ctx.set("responseBody", response.body);',
+  },
+];
+
+export function ScriptTemplatesMenu({ phase, onInsert }: ScriptTemplatesMenuProps) {
   const [open, setOpen] = useState(false);
+  const templates = phase === "post" ? [...BASE_TEMPLATES, ...POST_TEMPLATES] : BASE_TEMPLATES;
 
   return (
     <div className="script-template-menu">
@@ -50,7 +63,7 @@ export function ScriptTemplatesMenu({ onInsert }: ScriptTemplatesMenuProps) {
       </button>
       {open && (
         <div className="script-template-popover">
-          {TEMPLATES.map((template) => (
+          {templates.map((template) => (
             <button
               key={template.label}
               type="button"

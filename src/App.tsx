@@ -6,6 +6,7 @@ import { FlowBuilder } from "./components/flows/FlowBuilder";
 import { AppToolbar } from "./components/layout/AppToolbar";
 import { BottomConsole, BottomDockTab, ConsoleEntry } from "./components/layout/BottomConsole";
 import { CommandPalette, CommandPaletteCommand } from "./components/layout/CommandPalette";
+import { ThemePicker } from "./components/layout/ThemePicker";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopTabs } from "./components/layout/TopTabs";
 import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
@@ -25,6 +26,7 @@ import {
   removeRecentWorkspace,
 } from "./services/recentWorkspaceService";
 import { runRequestScript } from "./services/scriptRunner";
+import { applyTheme, loadThemePreference, resolveTheme, saveThemePreference } from "./services/themeStore";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
 import { buildCurlBody, createRequestBody, defaultContentType, formatJsonBody, normalizeRequest, normalizeRequestBody } from "./services/requestBody";
@@ -242,6 +244,8 @@ export default function App() {
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
   const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [themeId, setThemeId] = useState(() => loadThemePreference());
   const [importPreview, setImportPreview] = useState<ParsedImportResult | null>(null);
   const [createSequenceFlow, setCreateSequenceFlow] = useState(false);
   const [curlPreview, setCurlPreview] = useState<CurlPreviewState | null>(null);
@@ -250,6 +254,11 @@ export default function App() {
   const environmentSaveTimersRef = useRef<Record<string, number>>({});
   const lastSavedFlowDraftRef = useRef<string | null>(null);
   const hasWorkspace = Boolean(workspace?.path);
+
+  useEffect(() => {
+    applyTheme(themeId);
+    saveThemePreference(themeId);
+  }, [themeId]);
 
   useEffect(() => {
     function handleFlowHistory(event: Event) {
@@ -1342,6 +1351,12 @@ export default function App() {
         run: () => void handleSendRequest(),
       },
       {
+        id: "change-theme",
+        label: "Change Theme",
+        hint: resolveTheme(themeId).name,
+        run: () => setThemePickerOpen(true),
+      },
+      {
         id: "toggle-sidebar",
         label: `${sidebarHidden ? "Show" : "Hide"} Collections Panel`,
         run: toggleSidebarPanel,
@@ -1367,7 +1382,7 @@ export default function App() {
         },
       },
     ],
-    [consoleHidden, selectedEndpoint, sidebarHidden, timelineHidden],
+    [consoleHidden, selectedEndpoint, sidebarHidden, themeId, timelineHidden],
   );
 
   function openEndpointHistory(collectionId: string, endpointId: string) {
@@ -2964,6 +2979,15 @@ export default function App() {
         open={commandPaletteOpen}
         commands={paletteCommands}
         onClose={() => setCommandPaletteOpen(false)}
+      />
+      <ThemePicker
+        open={themePickerOpen}
+        selectedThemeId={themeId}
+        onSelect={(nextThemeId) => {
+          setThemeId(nextThemeId);
+          setThemePickerOpen(false);
+        }}
+        onClose={() => setThemePickerOpen(false)}
       />
 
       {githubSyncPromptOpen && (

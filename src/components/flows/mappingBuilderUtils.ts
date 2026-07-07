@@ -141,6 +141,7 @@ export function buildAutoMapSuggestions(
   existingMappings: FlowMapping[],
 ): AutoMapSuggestion[] {
   const existing = new Set(existingMappings.map((mapping) => `${mapping.sourcePath}:${mapping.targetType}:${mapping.targetKey}`));
+  const claimedTargets = new Set(existingMappings.map((mapping) => `${mapping.targetType}:${mapping.targetKey}`));
   const byName = new Map<string, MappingTargetField[]>();
   targetFields.forEach((field) => {
     const normalized = normalizeFieldName(field.label);
@@ -154,9 +155,11 @@ export function buildAutoMapSuggestions(
       return [];
     }
     const id = `${sourceField.path}:${match.targetType}:${match.key}`;
-    if (existing.has(id)) {
+    const targetId = `${match.targetType}:${match.key}`;
+    if (existing.has(id) || claimedTargets.has(targetId)) {
       return [];
     }
+    claimedTargets.add(targetId);
     return [{ id, sourceField, targetField: match }];
   });
 }

@@ -434,9 +434,19 @@ export function MappingBuilderModal({
       mapping.targetType === targetField.targetType &&
       mapping.targetKey === targetField.key,
     );
+    const targetAlreadyMapped = draftMappings.find((mapping) =>
+      mapping.targetType === targetField.targetType &&
+      mapping.targetKey === targetField.key,
+    );
     if (exists) {
       setStatusMessage(`Mapping already exists for ${formatTargetPath(targetField.targetPath)}.`);
       setSelectedSourceId(null);
+      setHoveredTargetId(null);
+      setPointerPosition(null);
+      return;
+    }
+    if (targetAlreadyMapped) {
+      setStatusMessage(`Target ${formatTargetPath(targetField.targetPath)} already has a source mapping. One target can only map from one source.`);
       setHoveredTargetId(null);
       setPointerPosition(null);
       return;

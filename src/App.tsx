@@ -354,6 +354,17 @@ export default function App() {
     );
   }
 
+  function flowNameExists(collectionId: string, name: string, excludeFlowId?: string) {
+    const collection = workspace?.collections.find((item) => item.id === collectionId);
+    if (!collection) {
+      return false;
+    }
+    const next = normalizedName(name);
+    return collection.flows.some((flow) =>
+      flow.id !== excludeFlowId && normalizedName(flow.name) === next,
+    );
+  }
+
   useEffect(() => {
     void loadRecentWorkspaces().then(setRecentWorkspaces);
   }, []);
@@ -1917,9 +1928,25 @@ export default function App() {
         label: "Flow name",
         defaultValue: "Booking Flow",
         confirmText: "Create",
+        validate: (value) => {
+          const nextName = value.trim();
+          if (!nextName) {
+            return "Flow name is required.";
+          }
+          if (flowNameExists(targetCollectionId, nextName)) {
+            return `Flow "${nextName}" already exists in this collection. Choose another name.`;
+          }
+          return null;
+        },
       })
     )?.trim();
     if (!name) {
+      setStatus("Flow name is required.");
+      return;
+    }
+    if (flowNameExists(targetCollectionId, name)) {
+      setStatus(`Flow "${name}" already exists in this collection.`);
+      pushToast(`Flow "${name}" already exists in this collection.`, "warning");
       return;
     }
 
@@ -2090,8 +2117,23 @@ export default function App() {
       label: "Flow name",
       defaultValue: flow.name,
       confirmText: "Rename",
+      validate: (value) => {
+        const nextName = value.trim();
+        if (!nextName) {
+          return "Flow name is required.";
+        }
+        if (flowNameExists(collectionId, nextName, flowId)) {
+          return `Flow "${nextName}" already exists in this collection. Choose another name.`;
+        }
+        return null;
+      },
     }))?.trim();
     if (!name || name === flow.name) {
+      return;
+    }
+    if (flowNameExists(collectionId, name, flowId)) {
+      setStatus(`Flow "${name}" already exists in this collection.`);
+      pushToast(`Flow "${name}" already exists in this collection.`, "warning");
       return;
     }
     const next = await runAction("Renaming flow...", () => api.renameFlow(workspace.path, collectionId, flowId, name));
@@ -2219,8 +2261,24 @@ export default function App() {
       label: "Flow name",
       defaultValue: `${flow.name} Copy`,
       confirmText: "Duplicate",
+      validate: (value) => {
+        const nextName = value.trim();
+        if (!nextName) {
+          return "Flow name is required.";
+        }
+        if (flowNameExists(collectionId, nextName)) {
+          return `Flow "${nextName}" already exists in this collection. Choose another name.`;
+        }
+        return null;
+      },
     }))?.trim();
     if (!name) {
+      setStatus("Flow name is required.");
+      return;
+    }
+    if (flowNameExists(collectionId, name)) {
+      setStatus(`Flow "${name}" already exists in this collection.`);
+      pushToast(`Flow "${name}" already exists in this collection.`, "warning");
       return;
     }
     const next = await runAction("Duplicating flow...", () =>

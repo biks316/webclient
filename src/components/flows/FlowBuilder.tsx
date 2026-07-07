@@ -21,6 +21,9 @@ interface FlowBuilderProps {
   collection: CollectionIndex;
   flow: FlowDefinition;
   environmentId: string | null;
+  globalVariables: Record<string, string>;
+  environmentVariables?: Record<string, string>;
+  onEnvironmentVariablesChange?: (variables: Record<string, string>) => void;
   onChange: (flow: FlowDefinition) => void;
   onSave: () => void;
   onRenameFlow: () => void;
@@ -33,6 +36,9 @@ export function FlowBuilder({
   collection,
   flow,
   environmentId,
+  globalVariables,
+  environmentVariables,
+  onEnvironmentVariablesChange,
   onChange,
   onSave,
   onRenameFlow,
@@ -286,18 +292,27 @@ export function FlowBuilder({
     setRunning(true);
     try {
       const nextFlow = { ...flow, nodes: flow.nodes.map((node) => ({ ...node })) };
-      await runFlow(workspacePath, collection, nextFlow, environmentId, (steps) => {
-        setRunSteps(steps);
-        setLastResponses((current) => {
-          const next = { ...current };
-          steps.forEach((step) => {
-            if (step.response) {
-              next[step.nodeId] = step.response;
-            }
+      await runFlow(
+        workspacePath,
+        collection,
+        nextFlow,
+        environmentId,
+        globalVariables,
+        environmentVariables,
+        onEnvironmentVariablesChange,
+        (steps) => {
+          setRunSteps(steps);
+          setLastResponses((current) => {
+            const next = { ...current };
+            steps.forEach((step) => {
+              if (step.response) {
+                next[step.nodeId] = step.response;
+              }
+            });
+            return next;
           });
-          return next;
-        });
-      });
+        },
+      );
       onChange(nextFlow);
     } finally {
       setRunning(false);

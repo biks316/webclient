@@ -1806,6 +1806,41 @@ export default function App() {
     }
   }
 
+  async function handleDeleteEnvironment() {
+    if (!workspace) {
+      return;
+    }
+    if (!selectedEnvironmentId) {
+      setStatus("Select an environment first.");
+      return;
+    }
+
+    const environment = workspace.environments.find((item) => item.id === selectedEnvironmentId);
+    if (!environment) {
+      setStatus("Selected environment was not found.");
+      return;
+    }
+
+    const confirmation = (await requestTextPrompt({
+      title: "Delete Environment",
+      label: `Type "y" to delete environment "${environment.name}"`,
+      defaultValue: "",
+      confirmText: "Delete Environment",
+    }))?.trim().toLowerCase();
+    if (confirmation !== "y") {
+      setStatus("Environment deletion canceled.");
+      return;
+    }
+
+    const next = await runAction("Deleting environment...", () =>
+      api.deleteEnvironment(workspace.path, environment.id),
+    );
+    if (next) {
+      applyWorkspace(next, selectedCollectionId, selectedEndpointId);
+      setSelectedEnvironmentId((current) => (current === environment.id ? null : current));
+    }
+  }
+
   async function handleCreateEndpoint(collectionId?: string) {
     if (!workspace) {
       return;
@@ -2396,6 +2431,15 @@ export default function App() {
     }, 250);
   }
 
+  function sameVariables(left: Record<string, string>, right: Record<string, string>) {
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) {
+      return false;
+    }
+    return leftKeys.every((key) => right[key] === left[key]);
+  }
+
   async function handleSendRequest() {
     if (!workspace || !selectedCollectionId || !selectedEndpointId || !selectedCollection || !draftRequest) {
       return;
@@ -2416,11 +2460,25 @@ export default function App() {
         return;
       }
     }
+    const scriptEnvironmentVariables = selectedEnvironment ? { ...selectedEnvironment.variables } : undefined;
+    let lastPersistedEnvironmentVariables = scriptEnvironmentVariables ? { ...scriptEnvironmentVariables } : undefined;
     const scriptVariables = {
       ...workspace.globals,
       ...selectedCollection.variables,
-      ...(selectedEnvironment?.variables ?? {}),
+      ...(scriptEnvironmentVariables ?? {}),
       ...requestToSend.variables,
+    };
+    const defaultVariableScope = selectedEnvironmentId && scriptEnvironmentVariables ? "environment" : "request";
+    const persistScriptEnvironmentVariables = () => {
+      if (!selectedEnvironmentId || !scriptEnvironmentVariables) {
+        return;
+      }
+      if (lastPersistedEnvironmentVariables && sameVariables(scriptEnvironmentVariables, lastPersistedEnvironmentVariables)) {
+        return;
+      }
+      const next = { ...scriptEnvironmentVariables };
+      handleEnvironmentVariablesByIdChange(selectedEnvironmentId, next);
+      lastPersistedEnvironmentVariables = next;
     };
 
     setIsBusy(true);
@@ -2436,6 +2494,11 @@ export default function App() {
         script: collectionAutomation.pre,
         request: requestToSend,
         variables: scriptVariables,
+        variableStores: {
+          environment: scriptEnvironmentVariables,
+          request: requestToSend.variables,
+        },
+        defaultVariableScope,
         onLog: appendScriptConsole,
       });
       await runRequestScript({
@@ -2445,8 +2508,14 @@ export default function App() {
         helpers: endpointScripts.helpers,
         request: requestToSend,
         variables: scriptVariables,
+        variableStores: {
+          environment: scriptEnvironmentVariables,
+          request: requestToSend.variables,
+        },
+        defaultVariableScope,
         onLog: appendScriptConsole,
       });
+      persistScriptEnvironmentVariables();
       setDraftRequest(cloneJson(requestToSend));
 
       const result = await api.sendRequest(
@@ -2458,7 +2527,7 @@ export default function App() {
         {
           globals: workspace.globals,
           collectionVariables: selectedCollection.variables,
-          environmentVariables: selectedEnvironment?.variables,
+          environmentVariables: scriptEnvironmentVariables ?? selectedEnvironment?.variables,
         },
       );
 
@@ -2471,6 +2540,11 @@ export default function App() {
           request: requestToSend,
           response: result,
           variables: scriptVariables,
+          variableStores: {
+            environment: scriptEnvironmentVariables,
+            request: requestToSend.variables,
+          },
+          defaultVariableScope,
           onLog: appendScriptConsole,
         });
         await runRequestScript({
@@ -2480,9 +2554,16 @@ export default function App() {
           request: requestToSend,
           response: result,
           variables: scriptVariables,
+          variableStores: {
+            environment: scriptEnvironmentVariables,
+            request: requestToSend.variables,
+          },
+          defaultVariableScope,
           onLog: appendScriptConsole,
         });
+        persistScriptEnvironmentVariables();
       } catch (error) {
+        persistScriptEnvironmentVariables();
         const message = String(error);
         setStatus(message);
         appendConsole(message, "error");
@@ -2492,6 +2573,7 @@ export default function App() {
       setStatus(`Received ${result.status} ${result.statusText || ""} from ${result.resolvedUrl}`.trim());
       appendConsole(`Response ${result.status} in ${result.responseTimeMs} ms from ${result.resolvedUrl}.`, result.status >= 400 ? "error" : "success");
     } catch (error) {
+      persistScriptEnvironmentVariables();
       const message = String(error);
       setResponseError(message);
       setStatus(`Request failed: ${message}`);
@@ -2575,6 +2657,11 @@ export default function App() {
               collection={selectedCollection}
               flow={draftFlow}
               environmentId={selectedEnvironmentId}
+              globalVariables={workspace.globals}
+              environmentVariables={selectedEnvironment?.variables}
+              onEnvironmentVariablesChange={
+                selectedEnvironmentId ? (variables) => handleEnvironmentVariablesByIdChange(selectedEnvironmentId, variables) : undefined
+              }
               onChange={setDraftFlow}
               onSave={() => void handleSaveFlow()}
               onRenameFlow={() => void handleRenameFlow(selectedCollection.id, draftFlow.id)}
@@ -2640,6 +2727,7 @@ export default function App() {
               onSaveGlobals={handleSaveGlobals}
               onSaveCollectionVariables={handleSaveCollectionVariables}
               onSaveEnvironmentVariables={handleSaveEnvironmentVariables}
+              onCreateEnvironment={handleCreateEnvironment}
               onSaveScripts={handleSaveEndpointScripts}
               onSaveTests={handleSaveCollectionAutomation}
               onSend={handleSendRequest}
@@ -2795,6 +2883,9 @@ export default function App() {
               }}
               onConnectGitHub={handleContinueWithGitHubSync}
               onEnvironmentChange={(value) => setSelectedEnvironmentId(value || null)}
+              onCreateEnvironment={() => void handleCreateEnvironment()}
+              onDeleteEnvironment={() => void handleDeleteEnvironment()}
+              canDeleteEnvironment={Boolean(selectedEnvironmentId)}
               onToggleSidebar={toggleSidebarPanel}
               onToggleTimeline={toggleTimelinePanel}
               onToggleConsole={toggleConsolePanel}

@@ -45,11 +45,16 @@ export async function runFlow(
   collection: CollectionIndex,
   flow: FlowDefinition,
   environmentId: string | null,
+  globalVariables: Record<string, string>,
+  environmentVariables: Record<string, string> | undefined,
+  onEnvironmentVariablesChange: ((variables: Record<string, string>) => void) | undefined,
   onStep: (steps: FlowRunStep[]) => void,
 ): Promise<FlowRunStep[]> {
   const nextFlow: FlowDefinition = cloneJson(flow);
   const nodes = orderedFlowNodes(nextFlow);
   const contextVariables: Record<string, string> = {};
+  const scriptEnvironmentVariables = environmentVariables ? { ...environmentVariables } : undefined;
+  let lastPersistedEnvironmentVariables = scriptEnvironmentVariables ? { ...scriptEnvironmentVariables } : undefined;
   const scriptsByEndpoint = new Map<string, Scripts>();
   const requestByNode = new Map<string, BikRequest>();
   const steps: FlowRunStep[] = nodes.map((node) => {
@@ -66,6 +71,23 @@ export async function runFlow(
   });
 
   onStep([...steps]);
+
+  const defaultVariableScope = environmentId && scriptEnvironmentVariables ? "environment" : "request";
+  const persistScriptEnvironmentVariables = () => {
+    if (!scriptEnvironmentVariables || !onEnvironmentVariablesChange) {
+      return;
+    }
+    const changed =
+      !lastPersistedEnvironmentVariables ||
+      Object.keys(scriptEnvironmentVariables).length !== Object.keys(lastPersistedEnvironmentVariables).length ||
+      Object.entries(scriptEnvironmentVariables).some(([key, value]) => lastPersistedEnvironmentVariables?.[key] !== value);
+    if (!changed) {
+      return;
+    }
+    const next = { ...scriptEnvironmentVariables };
+    onEnvironmentVariablesChange(next);
+    lastPersistedEnvironmentVariables = next;
+  };
 
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
@@ -86,7 +108,9 @@ export async function runFlow(
       }
       const scripts = await scriptsForNode(workspacePath, collection.id, node.requestId, scriptsByEndpoint);
       const scriptVariables = {
+        ...globalVariables,
         ...collection.variables,
+        ...(scriptEnvironmentVariables ?? {}),
         ...request.variables,
         ...contextVariables,
       };
@@ -97,9 +121,19 @@ export async function runFlow(
         helpers: scripts.helpers,
         request,
         variables: scriptVariables,
+        variableStores: {
+          environment: scriptEnvironmentVariables,
+          request: request.variables,
+        },
+        defaultVariableScope,
       });
+      persistScriptEnvironmentVariables();
 
-      const response = await api.sendRequest(workspacePath, collection.id, node.requestId, environmentId, request);
+      const response = await api.sendRequest(workspacePath, collection.id, node.requestId, environmentId, request, {
+        globals: globalVariables,
+        collectionVariables: collection.variables,
+        environmentVariables: scriptEnvironmentVariables ?? environmentVariables,
+      });
       await runRequestScript({
         name: node.name,
         phase: "post",
@@ -108,7 +142,13 @@ export async function runFlow(
         request,
         response,
         variables: scriptVariables,
+        variableStores: {
+          environment: scriptEnvironmentVariables,
+          request: request.variables,
+        },
+        defaultVariableScope,
       });
+      persistScriptEnvironmentVariables();
       step.response = response;
       step.status = response.status >= 400 ? "error" : "success";
       const graphNode = nextFlow.nodes.find((item) => item.id === node.id);

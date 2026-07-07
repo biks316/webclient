@@ -2,9 +2,10 @@ import { FunctionSquare, Trash2 } from "lucide-react";
 import { FlowMapping } from "../../types/bik";
 import styles from "./MappingBuilderModal.module.css";
 
-interface MappingChipProps {
+interface MappingPairRowProps {
   mapping: FlowMapping;
   sourceLabel: string;
+  sourceValue: string;
   targetLabel: string;
   active: boolean;
   onHover: (hovered: boolean) => void;
@@ -12,32 +13,37 @@ interface MappingChipProps {
   onDelete: () => void;
 }
 
-export function MappingChip({
+export function MappingPairRow({
   mapping,
   sourceLabel,
+  sourceValue,
   targetLabel,
   active,
   onHover,
   onOpenTransform,
   onDelete,
-}: MappingChipProps) {
+}: MappingPairRowProps) {
   return (
     <div
-      className={`${styles.mappingChip} ${active ? styles.mappingChipActive : ""}`}
+      className={`${styles.mappingPairRow} ${active ? styles.mappingPairRowActive : ""}`}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      <div className={styles.mappingChipText}>
-        <span className={styles.mappingChipSource}>{sourceLabel}</span>
-        <strong>&rarr;</strong>
-        <span className={styles.mappingChipTarget}>{targetLabel}</span>
+      <div className={styles.mappingPairCard}>
+        <strong>{sourceLabel}</strong>
+        <span title={sourceValue}>{sourceValue}</span>
       </div>
-      <div className={styles.mappingChipActions}>
-        <button type="button" className={styles.mappingMiniButton} onClick={(event) => onOpenTransform(event.currentTarget)} aria-label={`Edit transform for ${targetLabel}`}>
+      <div className={styles.mappingPairArrow}>&rarr;</div>
+      <div className={styles.mappingPairCard}>
+        <strong>{targetLabel}</strong>
+        <span>-&gt;map</span>
+      </div>
+      <div className={styles.mappingPairActions}>
+        <button type="button" className={styles.mappingMiniButton} onClick={(event) => onOpenTransform(event.currentTarget)}>
           <FunctionSquare size={14} />
           fx
         </button>
-        <button type="button" className={styles.mappingMiniButton} onClick={onDelete} aria-label={`Delete mapping ${targetLabel}`}>
+        <button type="button" className={styles.mappingMiniButton} onClick={onDelete}>
           <Trash2 size={14} />
         </button>
       </div>

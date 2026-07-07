@@ -1,40 +1,44 @@
 import { FlowMapping } from "../../types/bik";
 import { AutoMapButton } from "./AutoMapButton";
-import { MappingChip } from "./MappingChip";
 import { MappingEmptyState } from "./MappingEmptyState";
+import { MappingPairRow } from "./MappingPairRow";
 import styles from "./MappingBuilderModal.module.css";
 
-interface MappingLaneProps {
+interface LiveMappingColumnProps {
   mappings: FlowMapping[];
+  autoMapCount: number;
+  instruction: string;
   hoveredMappingIndex: number | null;
   selectedSourcePath: string | null;
-  autoMapCount: number;
-  onHoverMapping: (mappingIndex: number | null) => void;
-  onAutoMap: () => void;
-  onOpenTransform: (mappingIndex: number, target: HTMLButtonElement) => void;
-  onDeleteMapping: (mappingIndex: number) => void;
+  getSourceValue: (mapping: FlowMapping) => string;
   formatSourceLabel: (mapping: FlowMapping) => string;
   formatTargetLabel: (mapping: FlowMapping) => string;
+  onAutoMap: () => void;
+  onHoverMapping: (mappingIndex: number | null) => void;
+  onOpenTransform: (mappingIndex: number, target: HTMLButtonElement) => void;
+  onDeleteMapping: (mappingIndex: number) => void;
 }
 
-export function MappingLane({
+export function LiveMappingColumn({
   mappings,
+  autoMapCount,
+  instruction,
   hoveredMappingIndex,
   selectedSourcePath,
-  autoMapCount,
-  onHoverMapping,
-  onAutoMap,
-  onOpenTransform,
-  onDeleteMapping,
+  getSourceValue,
   formatSourceLabel,
   formatTargetLabel,
-}: MappingLaneProps) {
+  onAutoMap,
+  onHoverMapping,
+  onOpenTransform,
+  onDeleteMapping,
+}: LiveMappingColumnProps) {
   return (
     <section className={styles.mappingLane}>
       <header className={styles.mappingLaneHeader}>
         <div>
           <strong>Live Mapping</strong>
-          <span>Hover a mapping to highlight both JSON sides.</span>
+          <span>{instruction}</span>
         </div>
         <AutoMapButton count={autoMapCount} onClick={onAutoMap} />
       </header>
@@ -43,15 +47,16 @@ export function MappingLane({
         {mappings.length === 0 ? (
           <MappingEmptyState
             title="No mappings yet."
-            description={selectedSourcePath ? "Pick a `->map` placeholder on the right to complete the connection." : "Click a response value on the left, then click a target placeholder on the right."}
+            description={selectedSourcePath ? "Pick a request placeholder on the right to complete the connection." : "Click any value in the previous response."}
           />
         ) : (
-          <div className={styles.mappingChipList}>
+          <div className={styles.mappingPairList}>
             {mappings.map((mapping, index) => (
-              <MappingChip
+              <MappingPairRow
                 key={`${mapping.sourcePath}:${mapping.targetType}:${mapping.targetKey}:${index}`}
                 mapping={mapping}
                 sourceLabel={formatSourceLabel(mapping)}
+                sourceValue={getSourceValue(mapping)}
                 targetLabel={formatTargetLabel(mapping)}
                 active={hoveredMappingIndex === index}
                 onHover={(hovered) => onHoverMapping(hovered ? index : null)}

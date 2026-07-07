@@ -1,8 +1,8 @@
 import styles from "./MappingBuilderModal.module.css";
 
-interface MappingStepHeaderProps {
-  message: string;
+interface MappingStepperProps {
   activeStep: 1 | 2 | 3;
+  message: string;
 }
 
 const STEPS = [
@@ -11,7 +11,7 @@ const STEPS = [
   "Save mappings",
 ] as const;
 
-export function MappingStepHeader({ message, activeStep }: MappingStepHeaderProps) {
+export function MappingStepper({ activeStep, message }: MappingStepperProps) {
   return (
     <div className={styles.stepHeader}>
       <div className={styles.stepGuide}>

@@ -4,12 +4,12 @@ import { X } from "lucide-react";
 import { CollectionIndex, FlowEdge, FlowNode, RunResponse } from "../../types/bik";
 import { readLatestSuccessfulResponseExample } from "../../services/responseExampleService";
 import * as api from "../../services/tauriApi";
-import { AutoMapButton } from "./AutoMapButton";
-import { CurrentRequestPanel } from "./CurrentRequestPanel";
-import { MappingConnectionLayer } from "./MappingConnectionLayer";
-import { MappingLane } from "./MappingLane";
-import { MappingStepHeader } from "./MappingStepHeader";
-import { PreviousResponsePanel } from "./PreviousResponsePanel";
+import { CurrentRequestJsonView } from "./CurrentRequestJsonView";
+import { LiveMappingArrowLayer, MappingOverlayPath } from "./LiveMappingArrowLayer";
+import { LiveMappingColumn } from "./LiveMappingColumn";
+import { MappingFooter } from "./MappingFooter";
+import { MappingStepper } from "./MappingStepper";
+import { PreviousResponseJsonTree } from "./PreviousResponseJsonTree";
 import { TransformMenu } from "./TransformMenu";
 import {
   buildAutoMapSuggestions,
@@ -18,7 +18,6 @@ import {
   createMapping,
   defaultTransformTemplate,
   filterFields,
-  filterTreeByField,
   filterTreeNodes,
   formatSourcePath,
   formatTargetPath,
@@ -43,6 +42,8 @@ interface MappingBuilderModalProps {
   onDiscoveredResponse: (nodeId: string, response: RunResponse) => void;
 }
 
+type DragHandle = "left" | "right" | null;
+
 export function MappingBuilderModal({
   open,
   workspacePath,
@@ -62,12 +63,20 @@ export function MappingBuilderModal({
   const [loadingResponse, setLoadingResponse] = useState(false);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
+  const [hoveredTargetId, setHoveredTargetId] = useState<string | null>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [targetSearch, setTargetSearch] = useState("");
   const [hoveredMappingIndex, setHoveredMappingIndex] = useState<number | null>(null);
   const [transformAnchor, setTransformAnchor] = useState<{ mappingIndex: number; left: number; top: number } | null>(null);
-  const [statusMessage, setStatusMessage] = useState("Select a value from the previous response.");
-  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [statusMessage, setStatusMessage] = useState("Click any value in the previous response.");
+  const [pointerPosition, setPointerPosition] = useState<{ x: number; y: number } | null>(null);
+  const [layoutTick, setLayoutTick] = useState(0);
+  const [workspaceWidth, setWorkspaceWidth] = useState(0);
+  const [leftRatio, setLeftRatio] = useState(0.26);
+  const [rightRatio, setRightRatio] = useState(0.3);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [dragHandle, setDragHandle] = useState<DragHandle>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
   const sourceRefs = useRef(new Map<string, HTMLButtonElement>());
   const targetRefs = useRef(new Map<string, HTMLButtonElement>());
 
@@ -82,11 +91,16 @@ export function MappingBuilderModal({
     setResponse(initialResponse);
     setSelectedSourceId(null);
     setSelectedTargetId(null);
+    setHoveredTargetId(null);
     setHoveredMappingIndex(null);
     setTransformAnchor(null);
     setSourceSearch("");
     setTargetSearch("");
-    setStatusMessage("Select a value from the previous response.");
+    setStatusMessage("Click any value in the previous response.");
+    setPointerPosition(null);
+    setLeftCollapsed(false);
+    setLeftRatio(0.26);
+    setRightRatio(0.3);
   }, [edge.mappings, initialResponse, open]);
 
   useEffect(() => {
@@ -106,9 +120,62 @@ export function MappingBuilderModal({
     };
   }, [initialResponse, open, sourceEndpoint]);
 
+  useEffect(() => {
+    if (!open || !workspaceRef.current) {
+      return;
+    }
+    const bumpLayout = () => setLayoutTick((current) => current + 1);
+    const observer = new ResizeObserver(([entry]) => {
+      setWorkspaceWidth(entry.contentRect.width);
+      bumpLayout();
+    });
+    observer.observe(workspaceRef.current);
+    workspaceRef.current.addEventListener("scroll", bumpLayout, true);
+    window.addEventListener("resize", bumpLayout);
+    return () => {
+      observer.disconnect();
+      workspaceRef.current?.removeEventListener("scroll", bumpLayout, true);
+      window.removeEventListener("resize", bumpLayout);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!dragHandle || !workspaceRef.current) {
+      return;
+    }
+    function handlePointerMove(event: PointerEvent) {
+      const rect = workspaceRef.current?.getBoundingClientRect();
+      if (!rect) {
+        return;
+      }
+      const x = event.clientX - rect.left;
+      const minimumLeft = 240;
+      const minimumRight = 280;
+      const handleWidth = 10;
+      if (dragHandle === "left") {
+        const nextLeft = Math.max(minimumLeft, Math.min(rect.width - minimumRight - handleWidth * 2 - 320, x));
+        setLeftCollapsed(false);
+        setLeftRatio(nextLeft / rect.width);
+      } else {
+        const rightStart = rect.width - x;
+        const nextRight = Math.max(minimumRight, Math.min(rect.width - minimumLeft - handleWidth * 2 - 320, rightStart));
+        setRightRatio(nextRight / rect.width);
+      }
+    }
+    function handlePointerUp() {
+      setDragHandle(null);
+    }
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [dragHandle]);
+
   const sourceCatalog = useMemo(() => buildSourceCatalog(response), [response]);
   const targetCatalog = useMemo(
-    () => targetEndpoint ? buildTargetCatalog(targetEndpoint.request) : buildTargetCatalog(emptyRequest()),
+    () => (targetEndpoint ? buildTargetCatalog(targetEndpoint.request) : buildTargetCatalog(emptyRequest())),
     [targetEndpoint],
   );
 
@@ -123,28 +190,24 @@ export function MappingBuilderModal({
     }
   }, [initialTargetPath, open, targetCatalog.allFields]);
 
-  const filteredSourceTree = useMemo(() => filterTreeNodes(sourceCatalog.bodyTree, sourceSearch), [sourceCatalog.bodyTree, sourceSearch]);
-  const filteredSourceHeaders = useMemo(() => filterFields(sourceCatalog.headerFields, sourceSearch), [sourceCatalog.headerFields, sourceSearch]);
-  const filteredSourceMeta = useMemo(() => filterFields(sourceCatalog.metaFields, sourceSearch), [sourceCatalog.metaFields, sourceSearch]);
-  const filteredTargetTree = useMemo(() => filterTreeNodes(targetCatalog.bodyTree, targetSearch), [targetCatalog.bodyTree, targetSearch]);
-  const filteredNeedsMappingTree = useMemo(
-    () => filterTreeByField(filteredTargetTree, (field) => field.expectsMapping),
-    [filteredTargetTree],
-  );
-  const filteredNeedsMappingFields = useMemo(
-    () => filterFields(targetCatalog.allFields.filter((field) => field.expectsMapping), targetSearch),
-    [targetCatalog.allFields, targetSearch],
-  );
-  const filteredOtherTargetFields = useMemo(
-    () => filterFields(targetCatalog.allFields.filter((field) => !field.expectsMapping), targetSearch),
-    [targetCatalog.allFields, targetSearch],
-  );
-
   const selectedSource = sourceCatalog.allFields.find((field) => field.id === selectedSourceId) ?? null;
+  const placeholderTargetFields = targetCatalog.allFields.filter((field) => field.expectsMapping);
+  const filteredSourceTree = useMemo(
+    () => filterTreeNodes(sourceCatalog.bodyTree, sourceSearch),
+    [sourceCatalog.bodyTree, sourceSearch],
+  );
+  const sourceExtraFields = useMemo(
+    () => filterFields([...sourceCatalog.headerFields, ...sourceCatalog.metaFields], sourceSearch),
+    [sourceCatalog.headerFields, sourceCatalog.metaFields, sourceSearch],
+  );
+  const otherTargetFields = useMemo(
+    () => filterFields(targetCatalog.allFields.filter((field) => field.section !== "body"), targetSearch),
+    [targetCatalog.allFields, targetSearch],
+  );
 
   const autoMapSuggestions = useMemo(
-    () => buildAutoMapSuggestions(sourceCatalog.allFields, targetCatalog.allFields.filter((field) => field.expectsMapping), draftMappings),
-    [draftMappings, sourceCatalog.allFields, targetCatalog.allFields],
+    () => buildAutoMapSuggestions(sourceCatalog.allFields, placeholderTargetFields, draftMappings),
+    [draftMappings, placeholderTargetFields, sourceCatalog.allFields],
   );
 
   const sourceMappedFieldIds = useMemo(() => {
@@ -189,6 +252,9 @@ export function MappingBuilderModal({
     if (selectedTargetId) {
       ids.add(selectedTargetId);
     }
+    if (hoveredTargetId) {
+      ids.add(hoveredTargetId);
+    }
     if (hoveredMappingIndex !== null) {
       const mapping = draftMappings[hoveredMappingIndex];
       const field = mapping ? targetCatalog.allFields.find((item) => item.targetType === mapping.targetType && item.key === mapping.targetKey) : null;
@@ -197,38 +263,75 @@ export function MappingBuilderModal({
       }
     }
     return ids;
-  }, [draftMappings, hoveredMappingIndex, selectedTargetId, targetCatalog.allFields]);
+  }, [draftMappings, hoveredMappingIndex, hoveredTargetId, selectedTargetId, targetCatalog.allFields]);
 
-  const connectionPaths = useMemo(() => {
-    const containerRect = bodyRef.current?.getBoundingClientRect();
-    if (!containerRect) {
+  const glowTargetFieldIds = useMemo(
+    () => (selectedSource ? new Set(placeholderTargetFields.map((field) => field.id)) : undefined),
+    [placeholderTargetFields, selectedSource],
+  );
+
+  const hoveredTargetField = hoveredTargetId
+    ? targetCatalog.allFields.find((field) => field.id === hoveredTargetId) ?? null
+    : null;
+
+  const overlayPaths = useMemo(() => {
+    const container = workspaceRef.current;
+    if (!container) {
       return [];
     }
-    return draftMappings.flatMap((mapping, index) => {
+    const containerRect = container.getBoundingClientRect();
+    const paths: MappingOverlayPath[] = [];
+
+    draftMappings.forEach((mapping, index) => {
       const sourceField = sourceCatalog.allFields.find((item) => item.path === mapping.sourcePath);
       const targetField = targetCatalog.allFields.find((item) => item.targetType === mapping.targetType && item.key === mapping.targetKey);
       if (!sourceField || !targetField) {
-        return [];
+        return;
       }
       const sourceElement = sourceRefs.current.get(sourceField.id);
       const targetElement = targetRefs.current.get(targetField.id);
       if (!sourceElement || !targetElement) {
-        return [];
+        return;
       }
-      const sourceRect = sourceElement.getBoundingClientRect();
-      const targetRect = targetElement.getBoundingClientRect();
-      const startX = sourceRect.right - containerRect.left;
-      const startY = sourceRect.top - containerRect.top + sourceRect.height / 2;
-      const endX = targetRect.left - containerRect.left;
-      const endY = targetRect.top - containerRect.top + targetRect.height / 2;
-      const dx = Math.max((endX - startX) / 2, 70);
-      return [{
+      paths.push({
         id: `${sourceField.id}:${targetField.id}:${index}`,
-        active: hoveredMappingIndex === null || hoveredMappingIndex === index,
-        path: `M ${startX} ${startY} C ${startX + dx} ${startY}, ${endX - dx} ${endY}, ${endX} ${endY}`,
-      }];
+        path: connectorPath(sourceElement, targetElement, containerRect),
+        tone: hoveredMappingIndex === index ? "active" : "saved",
+      });
     });
-  }, [draftMappings, hoveredMappingIndex, sourceCatalog.allFields, targetCatalog.allFields]);
+
+    if (selectedSource) {
+      const sourceElement = sourceRefs.current.get(selectedSource.id);
+      if (sourceElement) {
+        const start = sourceElement.getBoundingClientRect();
+        const startX = start.right - containerRect.left;
+        const startY = start.top - containerRect.top + start.height / 2;
+        if (hoveredTargetField) {
+          const targetElement = targetRefs.current.get(hoveredTargetField.id);
+          if (targetElement) {
+            const targetRect = targetElement.getBoundingClientRect();
+            const endX = targetRect.left - containerRect.left;
+            const endY = targetRect.top - containerRect.top + targetRect.height / 2;
+            const dx = Math.max((endX - startX) / 2, 90);
+            paths.push({
+              id: "temporary-snap",
+              path: `M ${startX} ${startY} C ${startX + dx} ${startY}, ${endX - dx} ${endY}, ${endX} ${endY}`,
+              tone: "active",
+            });
+          }
+        } else if (pointerPosition) {
+          const dx = Math.max((pointerPosition.x - startX) / 2, 90);
+          paths.push({
+            id: "temporary-selection",
+            path: `M ${startX} ${startY} C ${startX + dx} ${startY}, ${pointerPosition.x - dx} ${pointerPosition.y}, ${pointerPosition.x} ${pointerPosition.y}`,
+            tone: "temporary",
+          });
+        }
+      }
+    }
+
+    return paths;
+  }, [draftMappings, hoveredMappingIndex, hoveredTargetField, layoutTick, pointerPosition, selectedSource, sourceCatalog.allFields, targetCatalog.allFields]);
 
   useEffect(() => {
     if (!open) {
@@ -246,7 +349,9 @@ export function MappingBuilderModal({
       if (selectedSourceId || selectedTargetId) {
         setSelectedSourceId(null);
         setSelectedTargetId(null);
-        setStatusMessage("Selection cleared. Select a value from the previous response.");
+        setHoveredTargetId(null);
+        setPointerPosition(null);
+        setStatusMessage("Click any value in the previous response.");
         return;
       }
       onClose();
@@ -266,15 +371,9 @@ export function MappingBuilderModal({
     }
     setLoadingResponse(true);
     try {
-      const next = await api.sendRequest(
-        workspacePath,
-        collection.id,
-        sourceEndpoint.id,
-        environmentId,
-        sourceEndpoint.request,
-      );
+      const next = await api.sendRequest(workspacePath, collection.id, sourceEndpoint.id, environmentId, sourceEndpoint.request);
       setResponse(next);
-      setStatusMessage("Response updated. Select a value from the previous response.");
+      setStatusMessage("Click any value in the previous response.");
       onDiscoveredResponse(fromNode.id, next);
     } finally {
       setLoadingResponse(false);
@@ -285,13 +384,49 @@ export function MappingBuilderModal({
     const nextSelectedId = selectedSourceId === field.id ? null : field.id;
     setSelectedSourceId(nextSelectedId);
     setSelectedTargetId(null);
-    setStatusMessage(nextSelectedId ? `Selected ${formatSourcePath(field.path)}. Now choose where to place it.` : "Select a value from the previous response.");
+    setHoveredTargetId(null);
+    setPointerPosition(null);
+    setStatusMessage(
+      nextSelectedId
+        ? `Selected ${formatSourcePath(field.path)} = ${field.value}. Now click a request placeholder.`
+        : "Click any value in the previous response.",
+    );
+  }
+
+  function handleHoverSource(field: MappingSourceField | null) {
+    if (!field) {
+      if (hoveredMappingIndex === null) {
+        setHoveredTargetId(null);
+      }
+      return;
+    }
+    const mappingIndex = draftMappings.findIndex((mapping) => mapping.sourcePath === field.path);
+    setHoveredMappingIndex(mappingIndex >= 0 ? mappingIndex : null);
+  }
+
+  function handleHoverTarget(field: MappingTargetField | null) {
+    if (!field) {
+      setHoveredTargetId(null);
+      if (hoveredMappingIndex === null) {
+        setHoveredMappingIndex(null);
+      }
+      return;
+    }
+    setHoveredTargetId(field.id);
+    const mappingIndex = draftMappings.findIndex(
+      (mapping) => mapping.targetType === field.targetType && mapping.targetKey === field.key,
+    );
+    setHoveredMappingIndex(mappingIndex >= 0 ? mappingIndex : null);
   }
 
   function addMapping(targetField: MappingTargetField) {
     setSelectedTargetId(targetField.id);
     if (!selectedSource) {
-      setStatusMessage("Choose a value from the previous response first.");
+      setStatusMessage("Click a response value first.");
+      return;
+    }
+    if (!targetField.expectsMapping) {
+      setStatusMessage("Only `->map` placeholders can accept a mapping.");
       return;
     }
     const exists = draftMappings.some((mapping) =>
@@ -302,28 +437,27 @@ export function MappingBuilderModal({
     if (exists) {
       setStatusMessage(`Mapping already exists for ${formatTargetPath(targetField.targetPath)}.`);
       setSelectedSourceId(null);
+      setHoveredTargetId(null);
+      setPointerPosition(null);
       return;
     }
     setDraftMappings((current) => [...current, createMapping(selectedSource, targetField)]);
     setStatusMessage(`Mapped ${formatSourcePath(selectedSource.path)} → ${formatTargetPath(targetField.targetPath)}.`);
     setSelectedSourceId(null);
     setSelectedTargetId(null);
+    setHoveredTargetId(null);
+    setPointerPosition(null);
   }
 
   function applyAutoMap() {
     if (autoMapSuggestions.length === 0) {
       return;
     }
-    setDraftMappings((current) => [...current, ...autoMapSuggestions.map((suggestion) => createMapping(suggestion.sourceField, suggestion.targetField))]);
+    setDraftMappings((current) => [
+      ...current,
+      ...autoMapSuggestions.map((suggestion) => createMapping(suggestion.sourceField, suggestion.targetField)),
+    ]);
     setStatusMessage(`Created ${autoMapSuggestions.length} automatic mapping${autoMapSuggestions.length === 1 ? "" : "s"}.`);
-  }
-
-  function clearMappings() {
-    setDraftMappings([]);
-    setHoveredMappingIndex(null);
-    setSelectedSourceId(null);
-    setSelectedTargetId(null);
-    setStatusMessage("Mappings cleared. Select a value from the previous response.");
   }
 
   function updateTransform(mappingIndex: number, transformType: MappingTransformType, template: string) {
@@ -341,6 +475,11 @@ export function MappingBuilderModal({
     onClose();
   }
 
+  const activeStep: 1 | 2 | 3 = selectedSource ? 2 : draftMappings.length > 0 ? 3 : 1;
+  const leftWidth = leftCollapsed ? 72 : Math.max(260, Math.round(workspaceWidth * leftRatio));
+  const rightWidth = Math.max(300, Math.round(workspaceWidth * rightRatio));
+  const workspaceColumns = `${leftWidth}px 10px minmax(360px, 1fr) 10px ${rightWidth}px`;
+
   return createPortal(
     <div className={styles.backdrop}>
       <div className={styles.modal} onMouseDown={(event) => event.stopPropagation()}>
@@ -349,30 +488,44 @@ export function MappingBuilderModal({
             <strong>Mapping Builder</strong>
             <span>{fromNode.name} &rarr; {toNode.name}</span>
           </div>
-          <div className={styles.headerActions}>
-            <AutoMapButton count={autoMapSuggestions.length} onClick={applyAutoMap} />
-            <button type="button" className={styles.iconButton} onClick={onClose} aria-label="Close mapping builder">
-              <X size={16} />
-            </button>
-          </div>
+          <button type="button" className={styles.iconButton} onClick={onClose} aria-label="Close mapping builder">
+            <X size={16} />
+          </button>
         </header>
 
         <div className={styles.modalBody}>
-          <MappingStepHeader message={statusMessage} />
+          <MappingStepper activeStep={activeStep} message={statusMessage} />
 
-          <div ref={bodyRef} className={styles.workspace}>
-            <MappingConnectionLayer paths={connectionPaths} />
+          <div
+            ref={workspaceRef}
+            className={styles.mappingWorkspace}
+            style={{ gridTemplateColumns: workspaceColumns }}
+            onMouseMove={(event) => {
+              if (!selectedSource || !workspaceRef.current || hoveredTargetField) {
+                return;
+              }
+              const rect = workspaceRef.current.getBoundingClientRect();
+              setPointerPosition({
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top,
+              });
+            }}
+            onMouseLeave={() => setPointerPosition(null)}
+          >
+            <LiveMappingArrowLayer paths={overlayPaths} />
 
-            <PreviousResponsePanel
+            <PreviousResponseJsonTree
               response={response}
+              responseAvailable={Boolean(response)}
               loading={loadingResponse}
               bodyTree={filteredSourceTree}
-              headerFields={filteredSourceHeaders}
-              metaFields={filteredSourceMeta}
+              extraFields={sourceExtraFields}
               search={sourceSearch}
               mappedFieldIds={sourceMappedFieldIds}
               activeFieldIds={activeSourceFieldIds}
               selectedFieldId={selectedSourceId}
+              collapsed={leftCollapsed}
+              selectedSource={selectedSource}
               getFieldRef={(field) => (node) => {
                 if (node) {
                   sourceRefs.current.set(field.id, node);
@@ -380,46 +533,56 @@ export function MappingBuilderModal({
                   sourceRefs.current.delete(field.id);
                 }
               }}
+              onToggleCollapse={() => setLeftCollapsed((current) => !current)}
               onSearchChange={setSourceSearch}
               onRunSourceNode={() => void runSourceNode()}
               onSelectField={handleSelectSource}
-              onHoverField={(field) => {
-                if (!field) {
-                  setHoveredMappingIndex(null);
-                  return;
-                }
-                const mappingIndex = draftMappings.findIndex((mapping) => mapping.sourcePath === field.path);
-                setHoveredMappingIndex(mappingIndex >= 0 ? mappingIndex : null);
-              }}
+              onHoverField={handleHoverSource}
             />
 
-            <MappingLane
+            <div className={styles.resizeHandle} onPointerDown={() => setDragHandle("left")} />
+
+            <LiveMappingColumn
               mappings={draftMappings}
+              autoMapCount={autoMapSuggestions.length}
+              instruction={selectedSource ? "Click a response value, then click a request placeholder." : "Click a response value, then click a request placeholder."}
               hoveredMappingIndex={hoveredMappingIndex}
               selectedSourcePath={selectedSource ? formatSourcePath(selectedSource.path) : null}
-              onHoverMapping={setHoveredMappingIndex}
+              getSourceValue={(mapping) => sourceCatalog.allFields.find((field) => field.path === mapping.sourcePath)?.value ?? ""}
+              formatSourceLabel={(mapping) => formatSourcePath(mapping.sourcePath)}
+              formatTargetLabel={(mapping) => formatTargetPath(mapping.targetPath)}
+              onAutoMap={applyAutoMap}
+              onHoverMapping={(mappingIndex) => {
+                setHoveredMappingIndex(mappingIndex);
+                if (mappingIndex === null) {
+                  return;
+                }
+                const mapping = draftMappings[mappingIndex];
+                const targetField = targetCatalog.allFields.find((field) => field.targetType === mapping.targetType && field.key === mapping.targetKey);
+                setHoveredTargetId(targetField?.id ?? null);
+              }}
               onOpenTransform={(mappingIndex, target) => {
                 const rect = target.getBoundingClientRect();
                 setTransformAnchor({ mappingIndex, left: rect.left - 120, top: rect.bottom + 8 });
               }}
               onDeleteMapping={(mappingIndex) => {
                 setDraftMappings((current) => current.filter((_, index) => index !== mappingIndex));
-                setTransformAnchor((current) => current?.mappingIndex === mappingIndex ? null : current);
+                setTransformAnchor((current) => (current?.mappingIndex === mappingIndex ? null : current));
                 setStatusMessage("Mapping removed.");
               }}
-              formatSourceLabel={(mapping) => formatSourcePath(mapping.sourcePath)}
-              formatTargetLabel={(mapping) => formatTargetPath(mapping.targetPath)}
             />
 
-            <CurrentRequestPanel
-              needsMappingTree={filteredNeedsMappingTree}
-              needsMappingFields={filteredNeedsMappingFields}
-              otherFields={filteredOtherTargetFields}
+            <div className={styles.resizeHandle} onPointerDown={() => setDragHandle("right")} />
+
+            <CurrentRequestJsonView
+              bodyTree={targetCatalog.bodyTree}
+              hasPlaceholders={placeholderTargetFields.length > 0}
+              otherFields={otherTargetFields}
               search={targetSearch}
               mappedFieldIds={targetMappedFieldIds}
               activeFieldIds={activeTargetFieldIds}
+              glowFieldIds={glowTargetFieldIds}
               selectedFieldId={selectedTargetId}
-              pickMode={Boolean(selectedSource)}
               getFieldRef={(field) => (node) => {
                 if (node) {
                   targetRefs.current.set(field.id, node);
@@ -429,30 +592,12 @@ export function MappingBuilderModal({
               }}
               onSearchChange={setTargetSearch}
               onSelectField={addMapping}
-              onHoverField={(field) => {
-                if (!field) {
-                  setHoveredMappingIndex(null);
-                  return;
-                }
-                const mappingIndex = draftMappings.findIndex(
-                  (mapping) => mapping.targetType === field.targetType && mapping.targetKey === field.key,
-                );
-                setHoveredMappingIndex(mappingIndex >= 0 ? mappingIndex : null);
-              }}
+              onHoverField={handleHoverTarget}
             />
           </div>
         </div>
 
-        <footer className={styles.modalFooter}>
-          <div className={styles.footerHint}>
-            {draftMappings.length === 0 ? "No mappings yet. Click a response field, then a target field." : `${draftMappings.length} mapping${draftMappings.length === 1 ? "" : "s"} ready to save.`}
-          </div>
-          <div className={styles.footerActions}>
-            <button type="button" onClick={clearMappings}>Clear Mapping</button>
-            <button type="button" onClick={onClose}>Cancel</button>
-            <button type="button" className={styles.primaryButton} onClick={saveAndClose}>Save</button>
-          </div>
-        </footer>
+        <MappingFooter count={draftMappings.length} onCancel={onClose} onSave={saveAndClose} />
 
         {transformAnchor && draftMappings[transformAnchor.mappingIndex] ? (
           <TransformMenu
@@ -467,6 +612,17 @@ export function MappingBuilderModal({
     </div>,
     document.body,
   );
+}
+
+function connectorPath(sourceElement: HTMLButtonElement, targetElement: HTMLButtonElement, containerRect: DOMRect) {
+  const sourceRect = sourceElement.getBoundingClientRect();
+  const targetRect = targetElement.getBoundingClientRect();
+  const startX = sourceRect.right - containerRect.left;
+  const startY = sourceRect.top - containerRect.top + sourceRect.height / 2;
+  const endX = targetRect.left - containerRect.left;
+  const endY = targetRect.top - containerRect.top + targetRect.height / 2;
+  const dx = Math.max((endX - startX) / 2, 90);
+  return `M ${startX} ${startY} C ${startX + dx} ${startY}, ${endX - dx} ${endY}, ${endX} ${endY}`;
 }
 
 function emptyRequest() {

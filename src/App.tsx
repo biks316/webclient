@@ -239,7 +239,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [expandedSidebarWidth, setExpandedSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [timelineHidden, setTimelineHidden] = useState(true);
-  const [consoleCollapsed, setConsoleCollapsed] = useState(false);
+  const [consoleCollapsed, setConsoleCollapsed] = useState(true);
   const [consoleHidden, setConsoleHidden] = useState(false);
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
   const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");

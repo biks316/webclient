@@ -23,9 +23,9 @@
   display: flex;
   align-items: center;
   padding: 0 8px;
-  color: #8b97a8;
+  color: var(--url-text-color, #f5f5f0);
   text-overflow: clip;
-  z-index: 0;
+  z-index: 2;
 }
 
 .variableField {
@@ -33,6 +33,7 @@
   z-index: 1;
   background: transparent;
   color: transparent;
+  -webkit-text-fill-color: transparent;
   caret-color: #e6edf7;
   text-shadow: none;
 }
@@ -46,24 +47,22 @@
   min-width: 100%;
   white-space: pre;
   line-height: inherit;
+  color: var(--url-text-color, #f5f5f0);
 }
 
 .inlineVariable {
   font-family: "SFMono-Regular", Consolas, monospace;
-  padding: 0 1px;
+  padding: 0;
   border-radius: 4px;
+  font-weight: 600;
 }
 
 .inlineVariableFound {
-  color: #86efac;
-  background: rgba(34, 197, 94, 0.12);
+  color: #03fca1 !important;
 }
 
 .inlineVariableMissing {
-  color: #fca5a5;
-  background: rgba(248, 113, 113, 0.12);
-  text-decoration: underline;
-  text-decoration-style: wavy;
+  color: #f08a8a !important;
 }
 
 .autocomplete {
@@ -108,12 +107,6 @@
   font-style: normal;
 }
 
-.tokenRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-
 .token {
   position: relative;
   display: inline-flex;
@@ -151,6 +144,47 @@
   font-size: 11px;
   color: #aab4c3;
   font-style: normal;
+}
+
+.variableHoverPanel {
+  position: absolute;
+  z-index: 120;
+  left: 0;
+  top: calc(100% + 6px);
+  min-width: 260px;
+  max-width: min(420px, 100%);
+  display: none;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0b1018;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38);
+}
+
+.variableInput:hover .variableHoverPanel,
+.variableInput:focus-within .variableHoverPanel {
+  display: grid;
+}
+
+.variableHoverRow {
+  display: grid;
+  gap: 2px;
+}
+
+.variableHoverRow span {
+  color: #aab4c3;
+  font-size: 11px;
+}
+
+.variableHoverFound {
+  color: #86efac;
+  font-size: 12px;
+}
+
+.variableHoverMissing {
+  color: #fca5a5;
+  font-size: 12px;
 }
 
 .scope_environment {
@@ -389,6 +423,41 @@
   padding: 0 16px 8px;
 }
 
+.managerEnvironmentSection {
+  display: grid;
+  gap: 10px;
+}
+
+.managerEnvironmentCreate {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid rgba(124, 92, 252, 0.34);
+  border-radius: 10px;
+  background: rgba(124, 92, 252, 0.08);
+  color: var(--manager-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.managerEnvironmentCreate:hover:not(:disabled) {
+  border-color: rgba(124, 92, 252, 0.48);
+  background: rgba(124, 92, 252, 0.14);
+}
+
+.managerEnvironmentCreate:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.managerEnvironmentSeparator {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.28), rgba(148, 163, 184, 0.08));
+}
+
 .managerTabs {
   display: flex;
   align-items: center;
@@ -399,14 +468,20 @@
 
 .managerSubTabs {
   display: flex;
-  align-items: center;
-  gap: 3px;
+  align-items: stretch;
+  gap: 6px;
   min-height: 26px;
   padding: 3px;
   border: 1px solid var(--manager-border);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.025);
   overflow-x: auto;
+}
+
+.managerEnvironmentItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .managerSubTabs button {
@@ -419,6 +494,22 @@
   box-shadow: none;
   color: var(--manager-muted);
   font-size: 11px;
+}
+
+.managerEnvironmentQuickAction {
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--manager-border);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--manager-text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.managerEnvironmentQuickAction:hover {
+  border-color: rgba(124, 92, 252, 0.35);
+  background: rgba(124, 92, 252, 0.12);
 }
 
 .managerSubTabs button em {

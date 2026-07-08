@@ -1,14 +1,11 @@
 .bar {
-  display: grid;
-  gap: 5px;
-  padding: 5px 8px 7px;
+  display: block;
+  padding: 7px 8px 9px;
   border-bottom: 1px solid var(--border);
   background: #1a2028;
 }
 
-.header,
-.requestRow,
-.rightMeta {
+.requestRow {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -20,38 +17,8 @@
   font-size: 11px;
 }
 
-.header {
-  justify-content: space-between;
-}
-
-.identity,
-.name,
-.url,
-.rightMeta {
+.url {
   min-width: 0;
-}
-
-.identity {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex: 1;
-}
-
-.name {
-  max-width: 240px;
-  height: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 0;
-  background: transparent;
-  padding: 0 1px;
-  box-shadow: none;
-}
-
-.rightMeta {
-  flex: 0 0 auto;
-  justify-content: flex-end;
 }
 
 .requestRow {
@@ -69,10 +36,19 @@
 }
 
 .url {
+  --url-text-color: #f5f5f0;
   width: 100%;
-  height: 28px;
+  height: 32px;
   border-radius: 4px;
   font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--url-text-color);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.url::placeholder {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .iconAction {

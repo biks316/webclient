@@ -1,8 +1,7 @@
 import { Fragment, InputHTMLAttributes, KeyboardEvent, useMemo, useState } from "react";
-import { extractVariableNames, resolveVariable, VARIABLE_PATTERN, VariableContext } from "../../services/variableResolver";
+import { extractVariableNames, maskVariableValue, resolveVariable, VARIABLE_PATTERN, VariableContext } from "../../services/variableResolver";
 import { useVariableResolver } from "./useVariableResolver";
 import { VariableAutocomplete } from "./VariableAutocomplete";
-import { VariableToken } from "./VariableToken";
 import styles from "./Variables.module.css";
 
 interface VariableInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
@@ -29,6 +28,10 @@ export function VariableInput({ value, variableContext, onChange, className, onK
     return after;
   }, [value]);
   const names = extractVariableNames(value);
+  const resolvedVariables = useMemo(
+    () => names.map((name) => resolveVariable(name, variableContext)),
+    [names, variableContext],
+  );
   const matches = entries.filter((entry) => entry.name.toLowerCase().includes((variableQuery ?? "").toLowerCase()));
   const highlightedValue = useMemo(() => {
     const fragments: JSX.Element[] = [];
@@ -123,9 +126,17 @@ export function VariableInput({ value, variableContext, onChange, className, onK
           onSelect={(entry) => insertVariable(entry.name)}
         />
       )}
-      {names.length > 0 && (
-        <div className={styles.tokenRow}>
-          {names.map((name) => <VariableToken key={name} name={name} context={variableContext} />)}
+      {resolvedVariables.length > 0 && (
+        <div className={styles.variableHoverPanel}>
+          {resolvedVariables.map((variable) => (
+            <div key={variable.name} className={styles.variableHoverRow}>
+              <strong className={variable.found ? styles.variableHoverFound : styles.variableHoverMissing}>
+                {"{{"}{variable.name}{"}}"}
+              </strong>
+              <span>scope: {variable.scope}</span>
+              <span>value: {variable.found ? maskVariableValue(variable.value, variable.isSecret) : "unresolved"}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

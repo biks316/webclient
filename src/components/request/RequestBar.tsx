@@ -1,19 +1,16 @@
 import { Copy, Download, MoreHorizontal, Save, Send, TerminalSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { MethodBadge } from "../common/MethodBadge";
 import { CompactSelect } from "../common/CompactSelect";
 import { VariableContext } from "../../services/variableResolver";
 import { VariableInput } from "../variables/VariableInput";
 import styles from "./RequestBar.module.css";
 
 interface RequestBarProps {
-  name: string;
   method: string;
   url: string;
   variableContext: VariableContext;
   isBusy: boolean;
   sendDisabled?: boolean;
-  onNameChange: (value: string) => void;
   onMethodChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onSave: () => void;
@@ -27,13 +24,11 @@ interface RequestBarProps {
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
 export function RequestBar({
-  name,
   method,
   url,
   variableContext,
   isBusy,
   sendDisabled = false,
-  onNameChange,
   onMethodChange,
   onUrlChange,
   onSave,
@@ -64,17 +59,6 @@ export function RequestBar({
 
   return (
     <section className={styles.bar}>
-      <div className={styles.header}>
-        <div className={styles.identity}>
-          <MethodBadge method={method} compact />
-          <input
-            className={styles.name}
-            value={name}
-            onChange={(event) => onNameChange(event.currentTarget.value)}
-          />
-        </div>
-      </div>
-
       <div className={styles.requestRow}>
         <CompactSelect value={method} options={methodOptions} className={styles.methodSelect} onChange={onMethodChange} />
         <VariableInput

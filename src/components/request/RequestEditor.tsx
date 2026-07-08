@@ -220,13 +220,11 @@ export function RequestEditor({
   return (
     <div className={styles.editor}>
       <RequestBar
-        name={currentRequest.name}
         method={currentRequest.method}
         url={currentRequest.url}
         variableContext={variableContext}
         isBusy={isBusy}
         sendDisabled={!canSend}
-        onNameChange={(name) => update({ name })}
         onMethodChange={changeMethod}
         onUrlChange={(url) => update({ url })}
         onSave={onSave}

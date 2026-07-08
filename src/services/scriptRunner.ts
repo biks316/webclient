@@ -11,6 +11,11 @@ interface ScriptRunOptions {
   request: BikRequest;
   response?: RunResponse;
   variables: Record<string, string>;
+  variableStores?: {
+    environment?: Record<string, string>;
+    request?: Record<string, string>;
+  };
+  defaultVariableScope?: "environment" | "request";
   onLog?: (message: string, level: ScriptLogLevel) => void;
 }
 
@@ -75,14 +80,25 @@ function createScriptRuntime({
   request,
   response,
   variables,
+  variableStores,
+  defaultVariableScope,
   onLog,
-}: Pick<ScriptRunOptions, "request" | "response" | "variables" | "onLog">): ScriptRuntime {
+}: Pick<
+  ScriptRunOptions,
+  "request" | "response" | "variables" | "variableStores" | "defaultVariableScope" | "onLog"
+>): ScriptRuntime {
   const log = (level: ScriptLogLevel) => (...items: unknown[]) => {
     onLog?.(items.map(stringifyLogItem).join(" "), level);
   };
   const setVariable = (name: string, value: unknown) => {
-    variables[name] = toScriptValue(value);
-    request.variables[name] = toScriptValue(value);
+    const nextValue = toScriptValue(value);
+    variables[name] = nextValue;
+    if (defaultVariableScope === "environment" && variableStores?.environment) {
+      variableStores.environment[name] = nextValue;
+      return;
+    }
+    const requestVariables = variableStores?.request ?? request.variables;
+    requestVariables[name] = nextValue;
   };
   const getVariable = (name: string) => variables[name];
 
@@ -157,7 +173,14 @@ export async function runRequestScript(options: ScriptRunOptions): Promise<void>
     return;
   }
 
-  const runtime = createScriptRuntime(options);
+  const runtime = createScriptRuntime({
+    request: options.request,
+    response: options.response,
+    variables: options.variables,
+    onLog: options.onLog,
+    variableStores: options.variableStores,
+    defaultVariableScope: options.defaultVariableScope,
+  });
   const execute = new AsyncFunction(
     "bik",
     "request",

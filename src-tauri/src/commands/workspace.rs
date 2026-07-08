@@ -251,6 +251,13 @@ pub struct DeleteEntityPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DeleteEnvironmentPayload {
+    pub workspace_path: String,
+    pub environment_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DuplicateEntityPayload {
     pub workspace_path: String,
     pub collection_id: String,
@@ -364,6 +371,18 @@ pub fn create_environment(workspace_path: String, name: String) -> CommandResult
 }
 
 #[tauri::command]
+pub fn delete_environment(payload: DeleteEnvironmentPayload) -> CommandResult<WorkspaceIndex> {
+    let root = PathBuf::from(payload.workspace_path);
+    let environment_path = variable_file_path_by_id(&root.join("environments"), &payload.environment_id)?
+        .ok_or_else(|| format!("Environment not found: {}", payload.environment_id))?;
+    if environment_path.exists() {
+        fs::remove_file(&environment_path)
+            .map_err(|error| format!("Failed to delete {}: {error}", environment_path.display()))?;
+    }
+    scan_workspace(&root)
+}
+
+#[tauri::command]
 pub fn create_endpoint(
     workspace_path: String,
     collection_id: String,
@@ -415,6 +434,7 @@ pub fn create_flow(
         .join(&collection_id)
         .join("flows");
     ensure_dir(&flows_dir)?;
+    ensure_unique_flow_name(&flows_dir, &name, None)?;
 
     let flow_id = unique_child_id(&flows_dir, &slugify(&name));
     let flow_dir = flows_dir.join(&flow_id);
@@ -564,6 +584,11 @@ pub fn delete_request(payload: DeleteEntityPayload) -> CommandResult<WorkspaceIn
 #[tauri::command]
 pub fn rename_flow(payload: RenameEntityPayload) -> CommandResult<WorkspaceIndex> {
     let root = PathBuf::from(payload.workspace_path);
+    let flows_dir = root
+        .join("collections")
+        .join(&payload.collection_id)
+        .join("flows");
+    ensure_unique_flow_name(&flows_dir, &payload.name, Some(payload.entity_id.as_str()))?;
     let flow_file = root
         .join("collections")
         .join(&payload.collection_id)
@@ -637,6 +662,7 @@ pub fn duplicate_flow(payload: DuplicateEntityPayload) -> CommandResult<Workspac
         .join("collections")
         .join(&payload.collection_id)
         .join("flows");
+    ensure_unique_flow_name(&flows_dir, &payload.name, None)?;
     let source_dir = flows_dir.join(&payload.entity_id);
     let new_id = unique_child_id(&flows_dir, &slugify(&payload.name));
     let target_dir = flows_dir.join(&new_id);
@@ -695,6 +721,29 @@ pub fn save_environment_variables(payload: SaveVariablesPayload) -> CommandResul
     environment.variables = payload.variables;
     write_json(&environment_path, &environment)?;
     scan_workspace(&root)
+}
+
+fn ensure_unique_flow_name(flows_dir: &Path, candidate_name: &str, exclude_flow_id: Option<&str>) -> Result<(), String> {
+    let next = candidate_name.trim().to_lowercase();
+    for entry in fs::read_dir(flows_dir).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        if !entry.file_type().map_err(|error| error.to_string())?.is_dir() {
+            continue;
+        }
+        let flow_id = entry.file_name().to_string_lossy().to_string();
+        if exclude_flow_id.is_some_and(|excluded| excluded == flow_id) {
+            continue;
+        }
+        let flow_file = entry.path().join("flow.bik");
+        if !flow_file.exists() {
+            continue;
+        }
+        let flow = read_flow_definition(&flow_file)?;
+        if flow.name.trim().to_lowercase() == next {
+            return Err(format!("Flow \"{}\" already exists in this collection.", candidate_name.trim()));
+        }
+    }
+    Ok(())
 }
 
 pub fn scan_workspace(root: &Path) -> CommandResult<WorkspaceIndex> {

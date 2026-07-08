@@ -13,7 +13,7 @@ use commands::request_runner::send_request;
 use commands::timeline::{read_history_entry, request_diff};
 use commands::workspace::{
     create_collection, create_endpoint, create_environment, create_flow, create_workspace,
-    create_workspace_in_directory, delete_collection, delete_flow, delete_request, open_workspace,
+    create_workspace_in_directory, delete_collection, delete_environment, delete_flow, delete_request, open_workspace,
     duplicate_collection, duplicate_flow, duplicate_request, read_flow, rename_collection,
     rename_flow, rename_request, save_collection_variables, save_environment_variables, save_flow,
     save_globals, save_request,
@@ -28,6 +28,7 @@ fn main() {
             open_workspace,
             create_collection,
             create_environment,
+            delete_environment,
             create_endpoint,
             create_flow,
             rename_collection,

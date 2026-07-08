@@ -23,6 +23,8 @@ export const BODY_TYPE_OPTIONS: Array<{ group: string; value: RequestBodyType; l
 
 const BODY_TYPES = new Set<RequestBodyType>(BODY_TYPE_OPTIONS.map((option) => option.value));
 const MAP_PLACEHOLDER = "->map";
+const MAP_PLACEHOLDER_PATTERN = /->map::\{\{\s*[^{}]+\s*\}\}|->map/g;
+const HYBRID_MAP_PLACEHOLDER_PATTERN = /^->map::\{\{\s*([^{}]+?)\s*\}\}$/;
 
 export interface BodyPlaceholderField {
   path: string;
@@ -240,7 +242,11 @@ export function findRequestBodyPlaceholders(body: RequestBody): BodyPlaceholderF
 }
 
 export function isMapPlaceholder(value: unknown) {
-  return typeof value === "string" && value.trim() === MAP_PLACEHOLDER;
+  if (typeof value !== "string") {
+    return false;
+  }
+  const normalized = value.trim();
+  return normalized === MAP_PLACEHOLDER || HYBRID_MAP_PLACEHOLDER_PATTERN.test(normalized);
 }
 
 export function replaceRequestBodyPlaceholder(body: RequestBody, path: string, value: string): RequestBody {
@@ -453,7 +459,7 @@ function setJsonByPath(target: Record<string, JsonValue>, parts: string[], value
 function walkJsonPlaceholders(value: JsonValue, basePath: string): BodyPlaceholderField[] {
   if (isMapPlaceholder(value)) {
     const label = basePath.split(".").pop() ?? basePath;
-    return [{ path: basePath, label, value: MAP_PLACEHOLDER }];
+    return [{ path: basePath, label, value: String(value) }];
   }
   if (Array.isArray(value)) {
     return value.flatMap((item, index) => walkJsonPlaceholders(item, `${basePath}.${index}`));
@@ -465,7 +471,7 @@ function walkJsonPlaceholders(value: JsonValue, basePath: string): BodyPlacehold
 }
 
 function findRawPlaceholders(raw: string): BodyPlaceholderField[] {
-  const matches = [...raw.matchAll(/->map/g)];
+  const matches = [...raw.matchAll(MAP_PLACEHOLDER_PATTERN)];
   return matches.map((match, index) => ({
     path: `body.raw.${index}`,
     label: `placeholder ${index + 1}`,
@@ -475,7 +481,7 @@ function findRawPlaceholders(raw: string): BodyPlaceholderField[] {
 
 function replacePlaceholderOccurrence(raw: string, index: number, nextValue: string) {
   let seen = -1;
-  return raw.replace(/->map/g, (match) => {
+  return raw.replace(MAP_PLACEHOLDER_PATTERN, (match) => {
     seen += 1;
     return seen === index ? nextValue : match;
   });

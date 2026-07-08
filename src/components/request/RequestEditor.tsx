@@ -45,6 +45,7 @@ interface RequestEditorProps {
   onSaveGlobals: () => void;
   onSaveCollectionVariables: () => void;
   onSaveEnvironmentVariables: () => void;
+  onCreateEnvironment: () => void;
   onSaveScripts: () => void;
   onSaveTests: () => void;
   onSend: () => void;
@@ -87,6 +88,7 @@ export function RequestEditor({
   onSaveGlobals,
   onSaveCollectionVariables,
   onSaveEnvironmentVariables,
+  onCreateEnvironment,
   onSaveScripts,
   onSaveTests,
   onSend,
@@ -307,6 +309,7 @@ export function RequestEditor({
                   onCollectionVariablesChange={onCollectionVariablesChange}
                   onEnvironmentVariablesChange={onEnvironmentVariablesChange}
                   onEnvironmentVariablesByIdChange={onEnvironmentVariablesByIdChange}
+                  onCreateEnvironment={onCreateEnvironment}
                 />
               </div>
             ) : (

@@ -38,6 +38,9 @@ interface AppToolbarProps {
   onKeepLocalOnly: () => void;
   onConnectGitHub: () => void;
   onEnvironmentChange: (value: string) => void;
+  onCreateEnvironment: () => void;
+  onDeleteEnvironment: () => void;
+  canDeleteEnvironment: boolean;
   onToggleSidebar: () => void;
   onToggleTimeline: () => void;
   onToggleConsole: () => void;
@@ -64,6 +67,9 @@ export function AppToolbar({
   onKeepLocalOnly,
   onConnectGitHub,
   onEnvironmentChange,
+  onCreateEnvironment,
+  onDeleteEnvironment,
+  canDeleteEnvironment,
   onToggleSidebar,
   onToggleTimeline,
   onToggleConsole,
@@ -187,6 +193,17 @@ export function AppToolbar({
           </IconButton>
           {appMenuOpen && (
             <div className={styles.syncMenu}>
+              <button type="button" onClick={() => { setAppMenuOpen(false); onCreateEnvironment(); }}>
+                <Plus size={13} />
+                Create New Environment
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAppMenuOpen(false); onDeleteEnvironment(); }}
+                disabled={!canDeleteEnvironment}
+              >
+                Delete Environment
+              </button>
               <button type="button" onClick={() => { setAppMenuOpen(false); onOpenPalette(); }}>
                 <Search size={13} />
                 Command Palette

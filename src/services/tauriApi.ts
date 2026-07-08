@@ -65,6 +65,14 @@ export function createEnvironment(
   return invoke("create_environment", { workspacePath, name });
 }
 
+export function deleteEnvironment(
+  workspacePath: string,
+  environmentId: string,
+): Promise<WorkspaceIndex> {
+  ensureTauriRuntime();
+  return invoke("delete_environment", { payload: { workspacePath, environmentId } });
+}
+
 export function createEndpoint(
   workspacePath: string,
   collectionId: string,

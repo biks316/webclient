@@ -13,6 +13,7 @@ interface VariablePanelProps {
   onEnvironmentVariablesChange?: (variables: Record<string, string>) => void;
   onEnvironmentVariablesByIdChange?: (environmentId: string, variables: Record<string, string>) => void;
   onGlobalVariablesChange?: (variables: Record<string, string>) => void;
+  onCreateEnvironment?: () => void;
 }
 
 export function VariablePanel({
@@ -26,6 +27,7 @@ export function VariablePanel({
   onEnvironmentVariablesChange,
   onEnvironmentVariablesByIdChange,
   onGlobalVariablesChange,
+  onCreateEnvironment,
 }: VariablePanelProps) {
   return (
     <VariablesPage
@@ -39,6 +41,7 @@ export function VariablePanel({
       onEnvironmentVariablesChange={onEnvironmentVariablesChange}
       onEnvironmentVariablesByIdChange={onEnvironmentVariablesByIdChange}
       onGlobalVariablesChange={onGlobalVariablesChange}
+      onCreateEnvironment={onCreateEnvironment}
     />
   );
 }

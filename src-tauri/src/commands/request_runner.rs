@@ -410,8 +410,9 @@ fn resolve_value(value: &Value, variables: &HashMap<String, String>) -> Value {
 }
 
 fn resolve_string(input: &str, variables: &HashMap<String, String>) -> String {
+    let hybrid_resolved = resolve_hybrid_map_placeholders(input, variables);
     let mut output = String::new();
-    let mut rest = input;
+    let mut rest = hybrid_resolved.as_str();
 
     while let Some(start) = rest.find("{{") {
         let (before, after_start) = rest.split_at(start);
@@ -423,6 +424,29 @@ fn resolve_string(input: &str, variables: &HashMap<String, String>) -> String {
             rest = &after_start[end + 2..];
         } else {
             output.push_str("{{");
+            output.push_str(after_start);
+            rest = "";
+        }
+    }
+
+    output.push_str(rest);
+    output
+}
+
+fn resolve_hybrid_map_placeholders(input: &str, variables: &HashMap<String, String>) -> String {
+    let mut output = String::new();
+    let mut rest = input;
+    const PREFIX: &str = "->map::{{";
+
+    while let Some(start) = rest.find(PREFIX) {
+        let (before, after_start) = rest.split_at(start);
+        output.push_str(before);
+        let after_prefix = &after_start[PREFIX.len()..];
+        if let Some(end) = after_prefix.find("}}") {
+            let key = after_prefix[..end].trim();
+            output.push_str(variables.get(key).map(String::as_str).unwrap_or(""));
+            rest = &after_prefix[end + 2..];
+        } else {
             output.push_str(after_start);
             rest = "";
         }

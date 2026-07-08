@@ -33,6 +33,7 @@ interface VariablesPageProps {
   onEnvironmentVariablesChange?: (variables: Record<string, string>) => void;
   onEnvironmentVariablesByIdChange?: (environmentId: string, variables: Record<string, string>) => void;
   onGlobalVariablesChange?: (variables: Record<string, string>) => void;
+  onCreateEnvironment?: () => void;
 }
 
 const EMPTY_SCOPE_COPY: Record<VariableScopeKey, string> = {
@@ -168,6 +169,7 @@ export function VariablesPage({
   onEnvironmentVariablesChange,
   onEnvironmentVariablesByIdChange,
   onGlobalVariablesChange,
+  onCreateEnvironment,
 }: VariablesPageProps) {
   const [activeScope, setActiveScope] = useState<VariableScopeKey>("request");
   const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(
@@ -184,10 +186,22 @@ export function VariablesPage({
   const [localEnvironmentValues, setLocalEnvironmentValues] = useState<Record<string, Record<string, string>>>({});
   const searchRef = useRef<HTMLInputElement | null>(null);
   const importRef = useRef<HTMLInputElement | null>(null);
+  const availableEnvironments = useMemo(
+    () => (environments.length > 0 ? environments : context.environment ? [context.environment] : []),
+    [context.environment, environments],
+  );
 
   useEffect(() => {
-    setActiveEnvironmentId((current) => current ?? selectedEnvironmentId ?? environments[0]?.id ?? null);
-  }, [environments, selectedEnvironmentId]);
+    setActiveEnvironmentId((current) => {
+      if (selectedEnvironmentId && availableEnvironments.some((environment) => environment.id === selectedEnvironmentId)) {
+        return selectedEnvironmentId;
+      }
+      if (current && availableEnvironments.some((environment) => environment.id === current)) {
+        return current;
+      }
+      return availableEnvironments[0]?.id ?? null;
+    });
+  }, [availableEnvironments, selectedEnvironmentId]);
 
   function environmentValues(environmentId: string | null) {
     const environment = environments.find((item) => item.id === environmentId) ??
@@ -321,7 +335,8 @@ export function VariablesPage({
     }
   }
 
-  function openNewVariable() {
+  function openNewVariable(environmentIdOverride?: string) {
+    const environmentId = environmentIdOverride ?? activeEnvironmentId ?? undefined;
     setDraft({
       enabled: true,
       name: "",
@@ -329,7 +344,7 @@ export function VariablesPage({
       currentValue: "",
       description: "",
       scope: activeScope === "secrets" ? "request" : activeScope,
-      environmentId: activeScope === "environment" ? activeEnvironmentId ?? undefined : undefined,
+      environmentId: activeScope === "environment" ? environmentId : undefined,
       type: activeScope === "secrets" ? "secret" : "default",
       group: inferGroup(""),
     });
@@ -527,7 +542,7 @@ export function VariablesPage({
             <Download size={14} />
             Export
           </button>
-          <button type="button" className={styles.managerPrimaryButton} onClick={openNewVariable}>
+          <button type="button" className={styles.managerPrimaryButton} onClick={() => openNewVariable()}>
             <Plus size={14} />
             New Variable
           </button>
@@ -538,22 +553,49 @@ export function VariablesPage({
         <VariableTabs activeScope={activeScope} variables={allVariables} onChange={setActiveScope} />
 
         {activeScope === "environment" && (
-          <nav className={styles.managerSubTabs} aria-label="Environments">
-            {(environments.length > 0 ? environments : context.environment ? [context.environment] : []).map((environment) => {
-              const count = Object.keys(environmentValues(environment.id)).length;
-              return (
+          <div className={styles.managerEnvironmentSection}>
+            <nav className={styles.managerSubTabs} aria-label="Environments">
+              {availableEnvironments.map((environment) => {
+                const count = Object.keys(environmentValues(environment.id)).length;
+                return (
+                  <div key={environment.id} className={styles.managerEnvironmentItem}>
+                    <button
+                      type="button"
+                      className={activeEnvironmentId === environment.id ? styles.managerSubTabActive : ""}
+                      onClick={() => setActiveEnvironmentId(environment.id)}
+                    >
+                      <span>{environment.name}</span>
+                      <em>{count}</em>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.managerEnvironmentQuickAction}
+                      onClick={() => {
+                        setActiveEnvironmentId(environment.id);
+                        openNewVariable(environment.id);
+                      }}
+                    >
+                      <Plus size={14} />
+                      New Variable
+                    </button>
+                  </div>
+                );
+              })}
+            </nav>
+            {availableEnvironments.length === 0 && onCreateEnvironment && (
+              <>
+                <div className={styles.managerEnvironmentSeparator} aria-hidden="true" />
                 <button
-                  key={environment.id}
                   type="button"
-                  className={activeEnvironmentId === environment.id ? styles.managerSubTabActive : ""}
-                  onClick={() => setActiveEnvironmentId(environment.id)}
+                  className={styles.managerEnvironmentCreate}
+                  onClick={() => onCreateEnvironment()}
                 >
-                  <span>{environment.name}</span>
-                  <em>{count}</em>
+                  <Plus size={14} />
+                  Create New Environment
                 </button>
-              );
-            })}
-          </nav>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -566,7 +608,7 @@ export function VariablesPage({
               {referencedNames.length > 0 && (
                 <small>{referencedNames.length} variable reference(s) found in the current request.</small>
               )}
-              <button type="button" className={styles.managerPrimaryButton} onClick={openNewVariable}>
+              <button type="button" className={styles.managerPrimaryButton} onClick={() => openNewVariable()}>
                 Create {VARIABLE_SCOPE_LABEL[activeScope]} Variable
               </button>
             </div>

@@ -1,4 +1,4 @@
-import { LayoutPanelLeft, MonitorDown, PanelsRightBottom, Plus, X } from "lucide-react";
+import { Bot, LayoutPanelLeft, MonitorDown, PanelsRightBottom, Plus, X } from "lucide-react";
 import { MethodBadge } from "../common/MethodBadge";
 import { IconButton } from "../common/IconButton";
 import styles from "./TopTabs.module.css";
@@ -15,16 +15,17 @@ interface TopTab {
 
 interface TopTabsProps {
   tabs: TopTab[];
-  hiddenPanels: Array<"sidebar" | "timeline" | "console">;
+  hiddenPanels: Array<"sidebar" | "timeline" | "copilot" | "console">;
   onSelect: (collectionId: string, endpointId: string) => void;
   onClose: (collectionId: string, endpointId: string) => void;
   onCreate: () => void;
-  onRestorePanel: (panel: "sidebar" | "timeline" | "console") => void;
+  onRestorePanel: (panel: "sidebar" | "timeline" | "copilot" | "console") => void;
 }
 
 const hiddenPanelMeta = {
   sidebar: { label: "Collections", icon: LayoutPanelLeft },
   timeline: { label: "Timeline", icon: PanelsRightBottom },
+  copilot: { label: "Copilot", icon: Bot },
   console: { label: "Console", icon: MonitorDown },
 } as const;
 

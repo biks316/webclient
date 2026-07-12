@@ -5,11 +5,11 @@
 }
 
 .animated.horizontal {
-  transition: grid-template-columns 140ms ease;
+  transition: grid-template-columns 200ms ease;
 }
 
 .animated.vertical {
-  transition: grid-template-rows 140ms ease;
+  transition: grid-template-rows 200ms ease;
 }
 
 .horizontal {

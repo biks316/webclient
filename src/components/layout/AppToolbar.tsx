@@ -1,6 +1,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  Bot,
   Check,
   LayoutPanelLeft,
   MoreHorizontal,
@@ -27,6 +28,7 @@ interface AppToolbarProps {
   selectedEnvironmentId: string;
   sidebarHidden: boolean;
   timelineHidden: boolean;
+  copilotHidden: boolean;
   consoleHidden: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -43,6 +45,7 @@ interface AppToolbarProps {
   canDeleteEnvironment: boolean;
   onToggleSidebar: () => void;
   onToggleTimeline: () => void;
+  onToggleCopilot: () => void;
   onToggleConsole: () => void;
   onOpenPalette: () => void;
 }
@@ -56,6 +59,7 @@ export function AppToolbar({
   selectedEnvironmentId,
   sidebarHidden,
   timelineHidden,
+  copilotHidden,
   consoleHidden,
   canUndo,
   canRedo,
@@ -72,6 +76,7 @@ export function AppToolbar({
   canDeleteEnvironment,
   onToggleSidebar,
   onToggleTimeline,
+  onToggleCopilot,
   onToggleConsole,
   onOpenPalette,
 }: AppToolbarProps) {
@@ -187,6 +192,24 @@ export function AppToolbar({
           className={styles.environment}
           onChange={onEnvironmentChange}
         />
+        <div className={styles.panelToggleGroup}>
+          <button
+            type="button"
+            className={`${styles.panelToggle} ${!timelineHidden ? styles.active : ""}`}
+            onClick={onToggleTimeline}
+          >
+            <PanelsRightBottom size={13} />
+            Timeline
+          </button>
+          <button
+            type="button"
+            className={`${styles.panelToggle} ${!copilotHidden ? styles.active : ""}`}
+            onClick={onToggleCopilot}
+          >
+            <Bot size={13} />
+            Copilot
+          </button>
+        </div>
         <div className={styles.syncMenuWrap} ref={appMenuRef}>
           <IconButton title="App menu" onClick={() => setAppMenuOpen((open) => !open)}>
             <MoreHorizontal size={14} />
@@ -223,6 +246,10 @@ export function AppToolbar({
               <button type="button" onClick={() => { setAppMenuOpen(false); onToggleTimeline(); }}>
                 <PanelsRightBottom size={13} />
                 {timelineHidden ? "Show timeline" : "Hide timeline"}
+              </button>
+              <button type="button" onClick={() => { setAppMenuOpen(false); onToggleCopilot(); }}>
+                <Bot size={13} />
+                {copilotHidden ? "Show copilot" : "Hide copilot"}
               </button>
               <button type="button" onClick={() => { setAppMenuOpen(false); onToggleConsole(); }}>
                 <TerminalSquare size={13} />

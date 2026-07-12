@@ -1,0 +1,47 @@
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.steps {
+  display: grid;
+  gap: 8px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.done {
+  color: var(--success-green);
+}
+
+.running {
+  color: var(--active-blue);
+  animation: spin 1s linear infinite;
+}
+
+.failed {
+  color: var(--error-red);
+}
+
+.pending {
+  color: var(--text-faint);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,6 +1,7 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CopilotPanel } from "./components/copilot/CopilotPanel";
 import { AppShell } from "./components/layout/AppShell";
 import { FlowBuilder } from "./components/flows/FlowBuilder";
 import { AppToolbar } from "./components/layout/AppToolbar";
@@ -27,6 +28,10 @@ import {
 } from "./services/recentWorkspaceService";
 import { runRequestScript } from "./services/scriptRunner";
 import { applyTheme, loadThemePreference, resolveTheme, saveThemePreference } from "./services/themeStore";
+import { buildCopilotContext } from "./services/copilotContext";
+import { useCopilotController } from "./services/copilotController";
+import { loadCopilotPanelWidth, saveCopilotPanelWidth } from "./services/copilotSessionStore";
+import { createUnavailableCopilotService } from "./services/copilotService";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
 import { buildCurlBody, createRequestBody, defaultContentType, formatJsonBody, normalizeRequest, normalizeRequestBody } from "./services/requestBody";
@@ -53,6 +58,9 @@ const DEFAULT_SIDEBAR_WIDTH = 260;
 const SIDEBAR_COLLAPSED_WIDTH = 52;
 const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 280;
+const DEFAULT_COPILOT_WIDTH = 380;
+const COPILOT_MIN_WIDTH = 320;
+const COPILOT_MAX_WIDTH = 560;
 const SYNC_PREFS_KEY = "bikapi:sync-preferences";
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 interface TextPromptState {
@@ -108,7 +116,7 @@ interface CurlPreviewState {
 
 type RequestEditorTab = "params" | "auth" | "headers" | "body" | "scripts" | "docs" | "tests";
 type ResponseTab = "response" | "headers" | "timeline" | "tests";
-type HiddenPanel = "sidebar" | "timeline" | "console";
+type HiddenPanel = "sidebar" | "timeline" | "copilot" | "console";
 type WorkspaceViewState = "NO_WORKSPACE" | "WORKSPACE_LOADING" | "WORKSPACE_READY" | "WORKSPACE_ERROR";
 
 interface NewWorkspaceFormState {
@@ -239,6 +247,8 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [expandedSidebarWidth, setExpandedSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [timelineHidden, setTimelineHidden] = useState(true);
+  const [copilotHidden, setCopilotHidden] = useState(true);
+  const [copilotWidth, setCopilotWidth] = useState(() => loadCopilotPanelWidth(DEFAULT_COPILOT_WIDTH));
   const [consoleCollapsed, setConsoleCollapsed] = useState(true);
   const [consoleHidden, setConsoleHidden] = useState(false);
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([]);
@@ -322,15 +332,32 @@ export default function App() {
       [
         sidebarHidden ? "sidebar" : null,
         timelineHidden ? "timeline" : null,
+        copilotHidden ? "copilot" : null,
         consoleHidden ? "console" : null,
       ].filter((panel): panel is HiddenPanel => panel !== null),
-    [consoleHidden, sidebarHidden, timelineHidden],
+    [consoleHidden, copilotHidden, sidebarHidden, timelineHidden],
   );
   const collectionStatusById = useMemo(
     () =>
       Object.fromEntries((syncStatus?.collections ?? []).map((item) => [item.collectionId, item])),
     [syncStatus],
   );
+  const copilotService = useMemo(() => createUnavailableCopilotService(), []);
+  const copilotContext = useMemo(
+    () =>
+      buildCopilotContext({
+        workspace,
+        selectedCollection,
+        selectedEnvironment,
+        selectedFlow,
+        selectedRequestName: draftRequest?.name ?? selectedEndpoint?.name ?? null,
+        requestVariables: draftRequest?.variables,
+        response,
+        responseError,
+      }),
+    [draftRequest?.name, response, responseError, selectedCollection, selectedEndpoint?.name, selectedEnvironment, selectedFlow, workspace],
+  );
+  const copilot = useCopilotController({ context: copilotContext, service: copilotService });
 
   function normalizedName(name: string) {
     return name.trim().toLowerCase();
@@ -414,6 +441,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(SYNC_PREFS_KEY, JSON.stringify(syncPreferences));
   }, [syncPreferences]);
+
+  useEffect(() => {
+    saveCopilotPanelWidth(copilotWidth);
+  }, [copilotWidth]);
 
   useEffect(() => {
     if (!workspace) {
@@ -1111,6 +1142,10 @@ export default function App() {
       setTimelineHidden(false);
       return;
     }
+    if (panel === "copilot") {
+      setCopilotHidden(false);
+      return;
+    }
     setConsoleHidden(false);
     setConsoleCollapsed(false);
   }
@@ -1175,6 +1210,10 @@ export default function App() {
       return;
     }
     setTimelineHidden((current) => !current);
+  }
+
+  function toggleCopilotPanel() {
+    setCopilotHidden((current) => !current);
   }
 
   function toggleConsolePanel() {
@@ -1379,6 +1418,11 @@ export default function App() {
         run: toggleTimelinePanel,
       },
       {
+        id: "toggle-copilot",
+        label: `${copilotHidden ? "Show" : "Hide"} Copilot Panel`,
+        run: toggleCopilotPanel,
+      },
+      {
         id: "toggle-console",
         label: `${consoleHidden ? "Show" : "Hide"} Console`,
         run: toggleConsolePanel,
@@ -1393,7 +1437,7 @@ export default function App() {
         },
       },
     ],
-    [consoleHidden, selectedEndpoint, sidebarHidden, themeId, timelineHidden],
+    [consoleHidden, copilotHidden, selectedEndpoint, sidebarHidden, themeId, timelineHidden],
   );
 
   function openEndpointHistory(collectionId: string, endpointId: string) {
@@ -2942,6 +2986,7 @@ export default function App() {
               selectedEnvironmentId={selectedEnvironmentId ?? ""}
               sidebarHidden={sidebarHidden}
               timelineHidden={timelineHidden}
+              copilotHidden={copilotHidden}
               consoleHidden={consoleHidden}
               canUndo={flowHistoryAvailability.canUndo}
               canRedo={flowHistoryAvailability.canRedo}
@@ -2961,6 +3006,7 @@ export default function App() {
               canDeleteEnvironment={Boolean(selectedEnvironmentId)}
               onToggleSidebar={toggleSidebarPanel}
               onToggleTimeline={toggleTimelinePanel}
+              onToggleCopilot={toggleCopilotPanel}
               onToggleConsole={toggleConsolePanel}
               onOpenPalette={() => setCommandPaletteOpen(true)}
             />
@@ -2996,23 +3042,58 @@ export default function App() {
             />
           }
           main={renderMainContent()}
-          rightPanel={
-            <RightTimelinePanel
-              endpoint={selectedEndpoint}
-              diffRows={diffRows}
-              selectedHistoryPath={selectedHistoryPath}
-              onClose={() => setTimelineHidden(true)}
-              onSelectHistory={setSelectedHistoryPath}
-              onCompare={setSelectedHistoryPath}
-              onRestore={handleRestoreHistory}
-            />
-          }
+          rightPanels={[
+            ...(Boolean(selectedEndpoint) && !timelineHidden
+              ? [{
+                  id: "timeline",
+                  content: (
+                    <RightTimelinePanel
+                      endpoint={selectedEndpoint}
+                      diffRows={diffRows}
+                      selectedHistoryPath={selectedHistoryPath}
+                      onClose={() => setTimelineHidden(true)}
+                      onSelectHistory={setSelectedHistoryPath}
+                      onCompare={setSelectedHistoryPath}
+                      onRestore={handleRestoreHistory}
+                    />
+                  ),
+                  width: 320,
+                  minWidth: 260,
+                  maxWidth: 420,
+                }]
+              : []),
+            ...(!copilotHidden
+              ? [{
+                  id: "copilot",
+                  content: (
+                    <CopilotPanel
+                      context={copilotContext}
+                      messages={copilot.messages}
+                      suggestions={copilot.suggestions}
+                      isLoading={copilot.isLoading}
+                      onClose={() => setCopilotHidden(true)}
+                      onSuggestionSelect={(prompt) => void copilot.sendPrompt(prompt)}
+                      onSubmitPrompt={(prompt) => void copilot.sendPrompt(prompt)}
+                      onSubmitMissingInput={(prompt, values) => void copilot.sendPrompt(prompt, values)}
+                      onAction={() => {
+                        setStatus("Copilot actions require a connected execution service.");
+                        appendConsole("Copilot action blocked until an execution service is configured.", "warning");
+                      }}
+                      onCopy={(content) => void navigator.clipboard.writeText(content)}
+                    />
+                  ),
+                  width: copilotWidth,
+                  minWidth: COPILOT_MIN_WIDTH,
+                  maxWidth: COPILOT_MAX_WIDTH,
+                  onWidthChange: setCopilotWidth,
+                }]
+              : []),
+          ]}
           sidebarWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth}
           sidebarMinWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MIN_WIDTH}
           sidebarMaxWidth={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_MAX_WIDTH}
           onSidebarWidthChange={handleSidebarWidthChange}
           showSidebar={!sidebarHidden}
-          showRightPanel={Boolean(selectedEndpoint) && !timelineHidden}
         />
       ) : (
         <WelcomeScreen

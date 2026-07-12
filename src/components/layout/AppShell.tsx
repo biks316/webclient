@@ -2,13 +2,21 @@ import { ReactNode } from "react";
 import { SplitPane } from "../common/SplitPane";
 import styles from "./AppShell.module.css";
 
+interface RightPanelConfig {
+  id: string;
+  content: ReactNode;
+  width: number;
+  minWidth?: number;
+  maxWidth?: number;
+  onWidthChange?: (size: number) => void;
+}
+
 interface AppShellProps {
   toolbar?: ReactNode;
   sidebar: ReactNode;
   main: ReactNode;
-  rightPanel: ReactNode;
+  rightPanels?: RightPanelConfig[];
   showSidebar: boolean;
-  showRightPanel: boolean;
   sidebarWidth?: number;
   sidebarMinWidth?: number;
   sidebarMaxWidth?: number;
@@ -26,27 +34,30 @@ function AppShellRoot({
   toolbar,
   sidebar,
   main,
-  rightPanel,
+  rightPanels = [],
   showSidebar,
-  showRightPanel,
   sidebarWidth = 220,
   sidebarMinWidth = 180,
   sidebarMaxWidth = 280,
   onSidebarWidthChange,
 }: AppShellProps) {
-  const center = showRightPanel ? (
-    <SplitPane
-      direction="horizontal"
-      first={main}
-      second={rightPanel}
-      initialPrimarySize={320}
-      primary="second"
-      minPrimarySize={260}
-      maxPrimarySize={420}
-      className={styles.mainSplit}
-    />
-  ) : (
-    <div className={styles.main}>{main}</div>
+  const center = rightPanels.reduce<ReactNode>(
+    (content, panel) => (
+      <SplitPane
+        key={panel.id}
+        direction="horizontal"
+        first={content}
+        second={panel.content}
+        initialPrimarySize={panel.width}
+        primarySize={panel.width}
+        primary="second"
+        minPrimarySize={panel.minWidth ?? 260}
+        maxPrimarySize={panel.maxWidth}
+        onPrimarySizeChange={panel.onWidthChange}
+        className={styles.mainSplit}
+      />
+    ),
+    <div className={styles.main}>{main}</div>,
   );
 
   if (!showSidebar) {

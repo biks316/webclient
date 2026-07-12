@@ -1,0 +1,125 @@
+.panel {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background:
+    radial-gradient(circle at top, rgba(108, 168, 255, 0.08), transparent 32%),
+    #141920;
+  border-left: 1px solid rgba(108, 168, 255, 0.12);
+}
+
+.resizeGrip {
+  position: absolute;
+  top: 14px;
+  left: -10px;
+  width: 20px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.header {
+  display: grid;
+  gap: 14px;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid rgba(108, 168, 255, 0.1);
+  background: rgba(14, 18, 24, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.titleRow,
+.title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  justify-content: flex-start;
+}
+
+.title strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.title span {
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.closeButton {
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.contextGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.conversation {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.footer {
+  padding: 14px 16px 16px;
+  border-top: 1px solid rgba(108, 168, 255, 0.1);
+  background: rgba(14, 18, 24, 0.84);
+}
+
+.emptyState {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 8px 0;
+}
+
+.emptyIcon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(108, 168, 255, 0.12);
+  color: var(--active-blue);
+}
+
+.suggestionList {
+  display: grid;
+  gap: 8px;
+}
+
+.suggestionList button {
+  min-height: 34px;
+  justify-content: flex-start;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+  text-align: left;
+  transition:
+    border-color 200ms ease,
+    background 200ms ease,
+    transform 200ms ease;
+}
+
+.suggestionList button:hover {
+  border-color: rgba(108, 168, 255, 0.28);
+  background: rgba(108, 168, 255, 0.08);
+  transform: translateX(2px);
+}

@@ -19,3 +19,14 @@
   white-space: pre-wrap;
   color: #ffd9d9;
 }
+
+:global(:root[data-theme="bw"]) .box {
+  border-color: #8b1a1a;
+  background: #fff2f2;
+  color: #8b1a1a;
+}
+
+:global(:root[data-theme="bw"]) .title,
+:global(:root[data-theme="bw"]) .box pre {
+  color: #8b1a1a;
+}

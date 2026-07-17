@@ -84,3 +84,24 @@
   top: 14px;
   right: 14px;
 }
+
+:global(:root[data-theme="bw"]) .editor,
+:global(:root[data-theme="bw"]) .quickBar,
+:global(:root[data-theme="bw"]) .workSurface,
+:global(:root[data-theme="bw"]) .leftPane,
+:global(:root[data-theme="bw"]) .rightPane,
+:global(:root[data-theme="bw"]) .responseSplit {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .quickBar,
+:global(:root[data-theme="bw"]) .rightPane {
+  border-color: #d9d9d9;
+}
+
+:global(:root[data-theme="bw"]) .bodyPlaceholder {
+  color: #333333;
+  font-size: 12px;
+  font-weight: 500;
+}

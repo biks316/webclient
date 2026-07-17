@@ -1,5 +1,6 @@
 import Editor from "@monaco-editor/react";
 import type { editor as MonacoEditor } from "monaco-editor";
+import { defineBikApiMonacoThemes, useEditorTheme } from "../../services/monacoTheme";
 import { VariableContext, buildVariableEntries, resolveVariable, VARIABLE_PATTERN, maskVariableValue } from "../../services/variableResolver";
 
 interface JsonEditorProps {
@@ -21,12 +22,15 @@ export function JsonEditor({
   variableContext,
   onChange,
 }: JsonEditorProps) {
+  const editorTheme = useEditorTheme();
+
   return (
     <Editor
       height="100%"
       defaultLanguage={language}
       language={language}
-      theme="vs-dark"
+      theme={editorTheme.theme}
+      beforeMount={defineBikApiMonacoThemes}
       value={value}
       onChange={(nextValue) => onChange?.(nextValue ?? "")}
       onMount={(editor: MonacoEditor.IStandaloneCodeEditor, monaco) => {
@@ -80,8 +84,10 @@ export function JsonEditor({
       options={{
         readOnly,
         minimap: { enabled: false },
-        fontSize,
-        lineHeight,
+        fontFamily: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace",
+        fontSize: editorTheme.isBlackAndWhite ? Math.max(14, fontSize) : fontSize,
+        fontWeight: editorTheme.isBlackAndWhite ? "500" : "normal",
+        lineHeight: editorTheme.isBlackAndWhite ? Math.max(21, lineHeight) : lineHeight,
         padding: { top: 8, bottom: 8 },
         automaticLayout: true,
         smoothScrolling: true,
@@ -94,7 +100,7 @@ export function JsonEditor({
         folding: true,
         lineNumbersMinChars: 3,
         overviewRulerBorder: false,
-        renderLineHighlight: "gutter",
+        renderLineHighlight: editorTheme.isBlackAndWhite ? "all" : "gutter",
       }}
     />
   );

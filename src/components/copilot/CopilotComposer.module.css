@@ -1,0 +1,245 @@
+.composer {
+  display: grid;
+  gap: 10px;
+}
+
+.dropZone {
+  position: relative;
+  border: 1px solid rgba(108, 168, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(9, 13, 18, 0.88);
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.dropZoneActive {
+  border-color: rgba(108, 168, 255, 0.48);
+  background: rgba(17, 27, 39, 0.96);
+  box-shadow: 0 0 0 1px rgba(108, 168, 255, 0.18), 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(15, 23, 33, 0.84);
+  color: var(--active-blue);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 78px;
+  max-height: 180px;
+  padding: 12px 12px 10px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 8px;
+  border: 1px solid rgba(108, 168, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+}
+
+.chipPinned {
+  border-color: rgba(255, 201, 77, 0.28);
+  background: rgba(255, 201, 77, 0.08);
+  color: var(--text);
+}
+
+.chipIcon {
+  display: inline-flex;
+  color: var(--active-blue);
+}
+
+.chipLabel {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.toolbar,
+.toolbarLeading,
+.toolbarTrailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar {
+  justify-content: space-between;
+}
+
+.toolbarLeading :global(button[aria-haspopup="listbox"]) {
+  min-width: 84px;
+  height: 24px;
+}
+
+.countBadge {
+  min-width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(108, 168, 255, 0.14);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.sendButton {
+  background: rgba(108, 168, 255, 0.16);
+  border-color: rgba(108, 168, 255, 0.28);
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestions button {
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+  font-size: 11px;
+}
+
+.suggestions button:hover {
+  border-color: rgba(108, 168, 255, 0.28);
+  background: rgba(108, 168, 255, 0.08);
+}
+
+.mentionMenu {
+  position: fixed;
+  z-index: 120;
+  min-width: 280px;
+  max-width: 360px;
+  max-height: 280px;
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(16, 21, 28, 0.98);
+  box-shadow: var(--shadow-hard);
+}
+
+.mentionItem {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.mentionItemActive,
+.mentionItem:hover {
+  background: rgba(108, 168, 255, 0.12);
+}
+
+.mentionItemIcon {
+  display: inline-flex;
+  color: var(--active-blue);
+}
+
+.mentionItemBody {
+  min-width: 0;
+  display: grid;
+}
+
+.mentionItemBody strong,
+.mentionItemBody small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mentionItemBody small,
+.mentionEmpty {
+  color: var(--text-muted);
+}
+
+:global(:root[data-theme="bw"]) .dropZone,
+:global(:root[data-theme="bw"]) .dropZoneActive,
+:global(:root[data-theme="bw"]) .chip,
+:global(:root[data-theme="bw"]) .suggestions button,
+:global(:root[data-theme="bw"]) .mentionMenu,
+:global(:root[data-theme="bw"]) .mentionItem {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .dropOverlay {
+  background: rgba(255, 255, 255, 0.94);
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .textarea,
+:global(:root[data-theme="bw"]) .chip,
+:global(:root[data-theme="bw"]) .chipIcon,
+:global(:root[data-theme="bw"]) .countBadge,
+:global(:root[data-theme="bw"]) .mentionItemIcon,
+:global(:root[data-theme="bw"]) .mentionItemBody small,
+:global(:root[data-theme="bw"]) .mentionEmpty {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .sendButton,
+:global(:root[data-theme="bw"]) .mentionItemActive,
+:global(:root[data-theme="bw"]) .mentionItem:hover,
+:global(:root[data-theme="bw"]) .suggestions button:hover {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .textarea:focus {
+  outline: 2px solid #000000;
+  outline-offset: 2px;
+}
+
+.mentionEmpty {
+  padding: 8px;
+  font-size: 12px;
+}

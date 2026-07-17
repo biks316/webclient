@@ -104,3 +104,27 @@
     transform: rotate(360deg);
   }
 }
+
+:global(:root[data-theme="bw"]) .screen,
+:global(:root[data-theme="bw"]) .panel,
+:global(:root[data-theme="bw"]) .recommendation {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .panel,
+:global(:root[data-theme="bw"]) .recommendation {
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .heading p,
+:global(:root[data-theme="bw"]) .panel p,
+:global(:root[data-theme="bw"]) .recommendation ul,
+:global(:root[data-theme="bw"]) .recommendationHeader {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .spinner {
+  border-color: #d9d9d9;
+  border-top-color: #000000;
+}

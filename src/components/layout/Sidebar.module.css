@@ -388,3 +388,82 @@
   font-size: 11px;
   box-shadow: none;
 }
+
+:global(:root[data-theme="bw"]) .sidebar {
+  --text: #ffffff;
+  --text-muted: #ffffff;
+  --text-faint: #d9d9d9;
+  --border: #404040;
+  --border-strong: #ffffff;
+  --hover-bg: #191919;
+  color: #ffffff;
+  border-right-color: #000000;
+  background: #000000;
+}
+
+:global(:root[data-theme="bw"]) .sidebar strong,
+:global(:root[data-theme="bw"]) .sidebar label,
+:global(:root[data-theme="bw"]) .sidebar svg,
+:global(:root[data-theme="bw"]) .brand span,
+:global(:root[data-theme="bw"]) .workspaceMeta span,
+:global(:root[data-theme="bw"]) .workspaceLabel,
+:global(:root[data-theme="bw"]) .sidebarSectionTitle,
+:global(:root[data-theme="bw"]) .treeGroupLabel,
+:global(:root[data-theme="bw"]) .treeGroupHeader,
+:global(:root[data-theme="bw"]) .treeRow,
+:global(:root[data-theme="bw"]) .chevron,
+:global(:root[data-theme="bw"]) .flowIcon,
+:global(:root[data-theme="bw"]) .emptyFolder {
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .sidebar button {
+  border-color: #404040;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .sidebar button:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .treeRow:hover,
+:global(:root[data-theme="bw"]) .collectionIconButton:hover {
+  border-color: #ffffff;
+  background: #191919;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .searchBox {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .searchBox input,
+:global(:root[data-theme="bw"]) .searchBox svg {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .brandMark {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .active,
+:global(:root[data-theme="bw"]) .collectionIconButtonActive {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: inset 3px 0 0 #000000;
+}
+
+:global(:root[data-theme="bw"]) .active svg,
+:global(:root[data-theme="bw"]) .active .chevron,
+:global(:root[data-theme="bw"]) .active .flowIcon,
+:global(:root[data-theme="bw"]) .collectionIconButtonActive svg {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .sidebar button:focus-visible,
+:global(:root[data-theme="bw"]) .treeRow:focus-visible {
+  outline-color: #ffffff;
+}

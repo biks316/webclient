@@ -22,3 +22,27 @@
   border-color: var(--border);
   background: rgba(255, 255, 255, 0.05);
 }
+
+:global(:root[data-theme="bw"]) .tabs {
+  border-bottom: 1px solid #d9d9d9;
+  background: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .tab {
+  min-height: 32px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: #ffffff;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:global(:root[data-theme="bw"]) .active,
+:global(:root[data-theme="bw"]) .tab:hover:not(:disabled) {
+  border-bottom-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  font-weight: 700;
+}

@@ -178,3 +178,33 @@
     transform: translateY(-2px);
   }
 }
+
+:global(:root[data-theme="bw"]) .message,
+:global(:root[data-theme="bw"]) .assistant,
+:global(:root[data-theme="bw"]) .system,
+:global(:root[data-theme="bw"]) .inlineCard,
+:global(:root[data-theme="bw"]) .codeBlock,
+:global(:root[data-theme="bw"]) .followUps span {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .role,
+:global(:root[data-theme="bw"]) .markdown p,
+:global(:root[data-theme="bw"]) .list,
+:global(:root[data-theme="bw"]) .followUps span,
+:global(:root[data-theme="bw"]) .nodeStatus {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .progressTrack {
+  border: 1px solid #000000;
+  background: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .progressFill,
+:global(:root[data-theme="bw"]) .statusDot,
+:global(:root[data-theme="bw"]) .typing span {
+  background: #000000;
+}

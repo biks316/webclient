@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
 import type { editor as MonacoEditor } from "monaco-editor";
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { defineBikApiMonacoThemes, useEditorTheme } from "../../../services/monacoTheme";
 
 export interface ScriptEditorHandle {
   format: () => void;
@@ -18,6 +19,7 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(
   function ScriptEditor({ value, minimap, wordWrap, onChange }, ref) {
     const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
     const [mounted, setMounted] = useState(false);
+    const editorTheme = useEditorTheme();
 
     useImperativeHandle(ref, () => ({
       format: () => {
@@ -44,7 +46,8 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(
         <Editor
           height="100%"
           language="javascript"
-          theme="vs-dark"
+          theme={editorTheme.theme}
+          beforeMount={defineBikApiMonacoThemes}
           value={value}
           onChange={(nextValue) => onChange(nextValue ?? "")}
           onMount={(editor) => {
@@ -59,7 +62,8 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(
             cursorBlinking: "smooth",
             fontFamily: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace",
             fontLigatures: true,
-            fontSize: 13,
+            fontSize: editorTheme.isBlackAndWhite ? 14 : 13,
+            fontWeight: editorTheme.isBlackAndWhite ? "500" : "normal",
             formatOnPaste: true,
             formatOnType: true,
             lineHeight: 20,

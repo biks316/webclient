@@ -108,3 +108,31 @@
   display: grid;
   place-items: center;
 }
+
+:global(:root[data-theme="bw"]) .panel,
+:global(:root[data-theme="bw"]) .current,
+:global(:root[data-theme="bw"]) .historyCard,
+:global(:root[data-theme="bw"]) .emptyBox,
+:global(:root[data-theme="bw"]) .diffRow {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .panel,
+:global(:root[data-theme="bw"]) .current,
+:global(:root[data-theme="bw"]) .historyCard,
+:global(:root[data-theme="bw"]) .emptyBox,
+:global(:root[data-theme="bw"]) .diffRow {
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .header span,
+:global(:root[data-theme="bw"]) .current span,
+:global(:root[data-theme="bw"]) .historyMain span {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .historyCardActive {
+  border: 2px solid #000000;
+  background: #ededed;
+}

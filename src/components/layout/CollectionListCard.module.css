@@ -23,3 +23,13 @@
   justify-content: flex-start;
   align-items: stretch;
 }
+
+:global(:root[data-theme="bw"]) .collectionListCard {
+  border-color: #ffffff;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .collectionListTitle {
+  color: #ffffff;
+}

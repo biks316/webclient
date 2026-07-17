@@ -262,6 +262,75 @@
     rgba(252, 253, 248, 0.98);
 }
 
+:root[data-theme="bw"] {
+  color-scheme: light;
+  font-size: 14px;
+  color: #000000;
+  background: #ffffff;
+  --bw-background: #ffffff;
+  --bw-surface: #ffffff;
+  --bw-text: #000000;
+  --bw-border: #d9d9d9;
+  --bw-inverse-background: #000000;
+  --bw-inverse-text: #ffffff;
+  --bg: var(--bw-background);
+  --window: var(--bw-surface);
+  --panel: var(--bw-surface);
+  --panel-soft: var(--bw-surface);
+  --panel-elevated: var(--bw-surface);
+  --field: var(--bw-surface);
+  --field-soft: var(--bw-surface);
+  --border: var(--bw-border);
+  --border-strong: #000000;
+  --text: var(--bw-text);
+  --text-muted: #1f1f1f;
+  --text-faint: #333333;
+  --active-blue: #000000;
+  --active-blue-strong: #000000;
+  --border-color: #404040;
+  --sidebar-bg: var(--bw-inverse-background);
+  --panel-bg: var(--bw-surface);
+  --hover-bg: #ededed;
+  --active-bg: #000000;
+  --active-border: #000000;
+  --success-green: #145c2e;
+  --error-red: #8b1a1a;
+  --warning-orange: #6b4700;
+  --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.12);
+  --shadow-hard: 0 16px 40px rgba(0, 0, 0, 0.22);
+  --overlay: rgba(0, 0, 0, 0.58);
+  --dialog-bg: var(--bw-surface);
+  --shell-bg: var(--bw-background);
+  --shell-panel: var(--bw-surface);
+  --palette-bg: var(--bw-surface);
+  --launchpad-bg: var(--bw-background);
+  --card-hero: var(--bw-surface);
+}
+
+:root[data-theme="bw"] body {
+  font-weight: 500;
+}
+
+:root[data-theme="bw"] ::selection {
+  background: #d9d9d9;
+  color: #000000;
+}
+
+:root[data-theme="bw"] h1 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+:root[data-theme="bw"] h2,
+:root[data-theme="bw"] h3 {
+  font-weight: 700;
+}
+
+:root[data-theme="bw"] small {
+  font-size: 12px;
+  font-weight: 500;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -319,6 +388,18 @@ button:hover:not(:disabled) {
   box-shadow: none;
 }
 
+:root[data-theme="bw"] button {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  font-weight: 600;
+}
+
+:root[data-theme="bw"] button:hover:not(:disabled) {
+  border-color: #000000;
+  background: #ededed;
+}
+
 button:active:not(:disabled) {
   transform: none;
   background: rgba(255, 255, 255, 0.04);
@@ -326,6 +407,16 @@ button:active:not(:disabled) {
 
 button:disabled {
   opacity: 0.55;
+  cursor: not-allowed;
+}
+
+:root[data-theme="bw"] button:disabled,
+:root[data-theme="bw"] input:disabled,
+:root[data-theme="bw"] select:disabled,
+:root[data-theme="bw"] textarea:disabled {
+  opacity: 1;
+  color: #4a4a4a;
+  background-color: #f0f0f0;
   cursor: not-allowed;
 }
 
@@ -338,6 +429,13 @@ button.primary {
 
 button.primary:hover:not(:disabled) {
   background: linear-gradient(180deg, #81b5ff, #4a91ff);
+}
+
+:root[data-theme="bw"] button.primary,
+:root[data-theme="bw"] button.primary:hover:not(:disabled) {
+  color: #ffffff;
+  background: #000000;
+  border-color: #000000;
 }
 
 input,
@@ -374,9 +472,31 @@ textarea:focus {
     0 0 0 1px rgba(108, 168, 255, 0.2);
 }
 
+:root[data-theme="bw"] input:focus,
+:root[data-theme="bw"] select:focus,
+:root[data-theme="bw"] textarea:focus {
+  border-color: #000000;
+  box-shadow: none;
+  outline: 2px solid #000000;
+  outline-offset: 1px;
+}
+
+:root[data-theme="bw"] button:focus-visible,
+:root[data-theme="bw"] [tabindex]:focus-visible,
+:root[data-theme="bw"] summary:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: 2px;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: var(--text-faint);
+}
+
+:root[data-theme="bw"] input::placeholder,
+:root[data-theme="bw"] textarea::placeholder {
+  color: #333333;
+  opacity: 1;
 }
 
 select {
@@ -722,6 +842,54 @@ button.icon-button {
   width: min(640px, calc(100vw - 28px));
 }
 
+.appearance-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.appearance-option {
+  min-height: 38px;
+  justify-content: flex-start;
+  padding: 0 10px;
+}
+
+.appearance-option.active {
+  border-color: var(--active-blue);
+  background: color-mix(in srgb, var(--active-blue) 16%, var(--field));
+}
+
+.appearance-swatch {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: linear-gradient(135deg, #111827 0 50%, #ffffff 50% 100%);
+}
+
+.appearance-option:nth-child(1) .appearance-swatch {
+  background: #111827;
+}
+
+.appearance-option:nth-child(2) .appearance-swatch {
+  background: #ffffff;
+}
+
+:root[data-theme="bw"] .settings-section {
+  background: #ffffff;
+  color: #000000;
+}
+
+:root[data-theme="bw"] .appearance-option.active {
+  background: #000000;
+  color: #ffffff;
+}
+
+:root[data-theme="bw"] .appearance-option.active .appearance-swatch {
+  border-color: #ffffff;
+}
+
 .settings-hint {
   color: var(--text-faint);
   font-size: 11px;
@@ -818,6 +986,28 @@ button.icon-button {
 
 .toast.error {
   border-color: rgba(240, 109, 109, 0.3);
+}
+
+:root[data-theme="bw"] .menu-popover,
+:root[data-theme="bw"] .sync-file-list,
+:root[data-theme="bw"] .import-preview-tree,
+:root[data-theme="bw"] .import-warning-list,
+:root[data-theme="bw"] .toast {
+  background: #ffffff;
+  color: #000000;
+}
+
+:root[data-theme="bw"] .sync-file-list code,
+:root[data-theme="bw"] .import-preview-tree code,
+:root[data-theme="bw"] .import-warning-list span {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #d9d9d9;
+}
+
+:root[data-theme="bw"] .error-text {
+  color: #8b1a1a;
+  font-weight: 600;
 }
 
 @keyframes workspace-spin {

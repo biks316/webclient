@@ -217,3 +217,61 @@
     transform: rotate(360deg);
   }
 }
+
+:global(:root[data-theme="bw"]) .toolbar {
+  --text: #ffffff;
+  --text-muted: #ffffff;
+  --text-faint: #ffffff;
+  --field: #000000;
+  --field-soft: #000000;
+  --panel-elevated: #000000;
+  --border: #404040;
+  --border-strong: #ffffff;
+  color: #ffffff;
+  border-bottom-color: #000000;
+  background: #000000;
+}
+
+:global(:root[data-theme="bw"]) .toolbar button,
+:global(:root[data-theme="bw"]) .panelToggle,
+:global(:root[data-theme="bw"]) .syncStatus {
+  border-color: #ffffff;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .toolbar button:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .panelToggle:hover {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .primaryRequest,
+:global(:root[data-theme="bw"]) .active {
+  border-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+:global(:root[data-theme="bw"]) .syncMenu {
+  border-color: #ffffff;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .syncMenu button:hover:not(:disabled) {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .green,
+:global(:root[data-theme="bw"]) .blue,
+:global(:root[data-theme="bw"]) .orange,
+:global(:root[data-theme="bw"]) .red {
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .toolbar button:focus-visible {
+  outline-color: #ffffff;
+}

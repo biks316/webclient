@@ -110,3 +110,28 @@
   display: grid;
   place-items: center;
 }
+
+:global(:root[data-theme="bw"]) .panel,
+:global(:root[data-theme="bw"]) .card,
+:global(:root[data-theme="bw"]) .tab,
+:global(:root[data-theme="bw"]) .metaPill {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .muted,
+:global(:root[data-theme="bw"]) .label {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .tabActive,
+:global(:root[data-theme="bw"]) .tab:hover {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .dot {
+  background: #000000;
+}

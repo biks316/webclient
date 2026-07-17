@@ -15,6 +15,11 @@ import {
   WorkspaceIndex,
 } from "../types/bik";
 
+export interface TextFileEntry {
+  path: string;
+  content: string;
+}
+
 function ensureTauriRuntime() {
   if (!("__TAURI_INTERNALS__" in window)) {
     throw new Error("Desktop app required. Run npm run tauri:dev to create and edit .bik files.");
@@ -44,7 +49,7 @@ export function readTextFile(path: string): Promise<string> {
   return invoke("read_text_file", { payload: { path } });
 }
 
-export function readTextFolderRecursive(path: string): Promise<Array<{ path: string; content: string }>> {
+export function readTextFolderRecursive(path: string): Promise<TextFileEntry[]> {
   ensureTauriRuntime();
   return invoke("read_text_folder_recursive", { payload: { path } });
 }

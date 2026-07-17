@@ -27,3 +27,14 @@
   background: linear-gradient(180deg, rgba(108, 168, 255, 0.16), rgba(108, 168, 255, 0.05));
   color: var(--active-blue);
 }
+
+:global(:root[data-theme="bw"]) .state,
+:global(:root[data-theme="bw"]) .state strong {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .iconWrap {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}

@@ -89,3 +89,43 @@
 .requestMenu button:hover {
   background: rgba(108, 168, 255, 0.12);
 }
+
+:global(:root[data-theme="bw"]) .bar {
+  border-bottom-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .url {
+  --url-text-color: #000000;
+  height: 34px;
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  caret-color: #000000;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+:global(:root[data-theme="bw"]) .url::placeholder {
+  color: #333333;
+  opacity: 1;
+}
+
+:global(:root[data-theme="bw"]) .methodSelect {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  font-size: 14px;
+}
+
+:global(:root[data-theme="bw"]) .requestMenu {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .requestMenu button:hover {
+  background: #000000;
+  color: #ffffff;
+}

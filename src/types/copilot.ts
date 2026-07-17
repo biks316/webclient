@@ -1,3 +1,7 @@
+export type CopilotMode = "ask" | "build" | "debug" | "run";
+
+export type CopilotContextReferenceSource = "drag-and-drop" | "mention" | "picker" | "session" | "response" | "suggestion";
+
 export interface CopilotVariable {
   scope: "global" | "collection" | "environment" | "request";
   key: string;
@@ -56,9 +60,13 @@ export interface CopilotExecutionEntry {
 export interface CopilotContextSnapshot {
   workspaceName: string | null;
   workspacePath: string | null;
+  currentCollectionId: string | null;
   currentCollectionName: string | null;
+  currentRequestId: string | null;
   currentRequestName: string | null;
+  currentEnvironmentId: string | null;
   currentEnvironmentName: string | null;
+  currentFlowId: string | null;
   currentFlowName: string | null;
   collections: CopilotCollectionSummary[];
   variables: CopilotVariable[];
@@ -67,6 +75,155 @@ export interface CopilotContextSnapshot {
     edges: CopilotFlowEdgeSummary[];
   } | null;
   recentExecutionHistory: CopilotExecutionEntry[];
+}
+
+export interface CopilotReferenceBase {
+  label: string;
+  pinned: boolean;
+  source: CopilotContextReferenceSource;
+  metadata?: Record<string, string | number | boolean | null | undefined>;
+}
+
+export interface RequestContextReference extends CopilotReferenceBase {
+  type: "request";
+  id: string;
+  collectionId: string;
+  method: string;
+  url: string;
+  path: string;
+}
+
+export interface CollectionContextReference extends CopilotReferenceBase {
+  type: "collection";
+  id: string;
+  path: string;
+}
+
+export interface FlowContextReference extends CopilotReferenceBase {
+  type: "flow";
+  id: string;
+  collectionId: string;
+  path: string;
+}
+
+export interface FlowNodeContextReference extends CopilotReferenceBase {
+  type: "flow-node";
+  id: string;
+  flowId: string;
+  collectionId: string;
+  requestId: string;
+}
+
+export interface FileContextReference extends CopilotReferenceBase {
+  type: "file";
+  path: string;
+  extension: string;
+}
+
+export interface ResponseContextReference extends CopilotReferenceBase {
+  type: "response";
+  id: string;
+  requestId?: string | null;
+  status?: number | null;
+  sentAt?: string | null;
+}
+
+export interface SchemaContextReference extends CopilotReferenceBase {
+  type: "schema";
+  path: string;
+  format: "json" | "yaml" | "yml";
+}
+
+export interface EnvironmentContextReference extends CopilotReferenceBase {
+  type: "environment";
+  id: string;
+}
+
+export type CopilotContextReference =
+  | RequestContextReference
+  | CollectionContextReference
+  | FlowContextReference
+  | FlowNodeContextReference
+  | FileContextReference
+  | ResponseContextReference
+  | SchemaContextReference
+  | EnvironmentContextReference;
+
+export interface CopilotResolvedRequestContext {
+  id: string;
+  collectionId: string;
+  label: string;
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  queryParams: Record<string, string>;
+  body?: string | null;
+}
+
+export interface CopilotResolvedCollectionContext {
+  id: string;
+  label: string;
+  path: string;
+  variables: string[];
+  requestIds: string[];
+  flowIds: string[];
+}
+
+export interface CopilotResolvedFlowContext {
+  id: string;
+  label: string;
+  path: string;
+  nodes: Array<{
+    id: string;
+    name: string;
+    requestId: string;
+    status: "idle" | "running" | "success" | "failed";
+  }>;
+  edges: Array<{
+    id: string;
+    from: string;
+    to: string;
+    mappingCount: number;
+  }>;
+}
+
+export interface CopilotResolvedFileContext {
+  path: string;
+  label: string;
+  content: string;
+  headings: string[];
+}
+
+export interface CopilotResolvedSchemaContext {
+  path: string;
+  label: string;
+  content: string;
+}
+
+export interface CopilotResolvedResponseContext {
+  id: string;
+  label: string;
+  status: number | null;
+  statusText?: string;
+  sentAt?: string | null;
+  headers: Record<string, string>;
+  body: string;
+}
+
+export interface CopilotResolvedEnvironmentContext {
+  id: string;
+  label: string;
+  variableKeys: string[];
+}
+
+export interface CopilotResolvedContext {
+  requests: CopilotResolvedRequestContext[];
+  collections: CopilotResolvedCollectionContext[];
+  flows: CopilotResolvedFlowContext[];
+  files: CopilotResolvedFileContext[];
+  schemas: CopilotResolvedSchemaContext[];
+  responses: CopilotResolvedResponseContext[];
+  environments: CopilotResolvedEnvironmentContext[];
 }
 
 export interface CopilotAction {
@@ -130,9 +287,23 @@ export interface CopilotMessage {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
+  mode?: CopilotMode;
+  contextReferences?: CopilotContextReference[];
   cards?: CopilotCard[];
   actions?: CopilotAction[];
   followUps?: string[];
+}
+
+export interface CopilotSession {
+  id: string;
+  title: string;
+  mode: CopilotMode;
+  createdAt: string;
+  updatedAt: string;
+  messages: CopilotMessage[];
+  pinnedContext: CopilotContextReference[];
+  draftPrompt?: string;
+  draftContext?: CopilotContextReference[];
 }
 
 export interface CopilotResponse {
@@ -140,7 +311,11 @@ export interface CopilotResponse {
 }
 
 export interface CopilotConversationTurn {
+  sessionId: string;
   prompt: string;
+  mode: CopilotMode;
+  references: CopilotContextReference[];
+  resolvedContext: CopilotResolvedContext;
   providedValues?: Record<string, string>;
 }
 
@@ -150,4 +325,12 @@ export interface CopilotService {
     history: CopilotMessage[],
     turn: CopilotConversationTurn,
   ) => Promise<CopilotResponse>;
+}
+
+export interface CopilotContextSearchItem {
+  key: string;
+  title: string;
+  subtitle?: string;
+  keywords: string[];
+  reference: CopilotContextReference;
 }

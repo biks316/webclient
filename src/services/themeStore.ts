@@ -1,4 +1,4 @@
-export type ThemeMode = "light" | "dark";
+export type ThemeMode = "light" | "dark" | "bw";
 
 export interface AppTheme {
   id: string;
@@ -18,6 +18,7 @@ export const APP_THEMES: AppTheme[] = [
   { id: "paper", name: "Paper Stack", mode: "light", accent: "#2563eb", popular: true },
   { id: "nord", name: "Nord Light", mode: "light", accent: "#0f766e", popular: true },
   { id: "matcha", name: "Matcha", mode: "light", accent: "#3f7a36", popular: true },
+  { id: "bw", name: "B/W Theme", mode: "bw", accent: "#000000", popular: true },
 ];
 
 export function resolveTheme(themeId: string | null | undefined): AppTheme {

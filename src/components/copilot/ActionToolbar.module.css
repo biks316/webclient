@@ -48,3 +48,26 @@
   gap: 6px;
   color: var(--text-muted);
 }
+
+:global(:root[data-theme="bw"]) .primary {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .secondary,
+:global(:root[data-theme="bw"]) .confirmation {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .destructive {
+  border-color: #8b1a1a;
+  background: #ffffff;
+  color: #8b1a1a;
+}
+
+:global(:root[data-theme="bw"]) .confirmationBody {
+  color: #000000;
+}

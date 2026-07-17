@@ -167,3 +167,56 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+:global(:root[data-theme="bw"]) .console,
+:global(:root[data-theme="bw"]) .header,
+:global(:root[data-theme="bw"]) .body,
+:global(:root[data-theme="bw"]) .responseWrap,
+:global(:root[data-theme="bw"]) .logBody,
+:global(:root[data-theme="bw"]) .flowBody {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .header {
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .tab {
+  color: #000000;
+  font-weight: 600;
+}
+
+:global(:root[data-theme="bw"]) .tabActive {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .entry,
+:global(:root[data-theme="bw"]) .flowItem,
+:global(:root[data-theme="bw"]) .metaRow {
+  border-color: #d9d9d9;
+  background: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .entry time,
+:global(:root[data-theme="bw"]) .info span,
+:global(:root[data-theme="bw"]) .flowItem strong,
+:global(:root[data-theme="bw"]) .arrow,
+:global(:root[data-theme="bw"]) .metaRow span,
+:global(:root[data-theme="bw"]) .empty {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .success span {
+  color: #145c2e;
+}
+
+:global(:root[data-theme="bw"]) .warning span {
+  color: #6b4700;
+}
+
+:global(:root[data-theme="bw"]) .error span {
+  color: #8b1a1a;
+}

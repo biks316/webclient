@@ -318,3 +318,123 @@
   z-index: 100;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
 }
+
+[data-theme="bw"] .scripts-tab,
+[data-theme="bw"] .scripts-header,
+[data-theme="bw"] .script-tabs,
+[data-theme="bw"] .script-workbench,
+[data-theme="bw"] .script-main,
+[data-theme="bw"] .script-toolbar,
+[data-theme="bw"] .script-editor-surface,
+[data-theme="bw"] .script-docs-panel,
+[data-theme="bw"] .script-docs-panel section,
+[data-theme="bw"] .script-console,
+[data-theme="bw"] .script-console-tabs,
+[data-theme="bw"] .script-console-body,
+[data-theme="bw"] .script-variable-row {
+  border-color: #d9d9d9;
+  background: #ffffff;
+  color: #000000;
+}
+
+[data-theme="bw"] .scripts-tab {
+  border-color: #000000;
+}
+
+[data-theme="bw"] .scripts-header,
+[data-theme="bw"] .script-tabs,
+[data-theme="bw"] .script-toolbar,
+[data-theme="bw"] .script-console,
+[data-theme="bw"] .script-docs-panel {
+  border-color: #000000;
+}
+
+[data-theme="bw"] .script-tabs button {
+  height: 34px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: #ffffff;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+[data-theme="bw"] .script-tabs button.active,
+[data-theme="bw"] .script-tabs button:hover:not(:disabled) {
+  border-bottom-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+[data-theme="bw"] .script-toolbar-title span,
+[data-theme="bw"] .script-docs-panel header span,
+[data-theme="bw"] .script-console-empty,
+[data-theme="bw"] .script-console-entry,
+[data-theme="bw"] .script-variable-row,
+[data-theme="bw"] .script-docs-panel p {
+  color: #000000;
+  font-weight: 500;
+}
+
+[data-theme="bw"] .script-toolbar button,
+[data-theme="bw"] .script-template-menu button,
+[data-theme="bw"] .script-docs-panel button,
+[data-theme="bw"] .script-console button,
+[data-theme="bw"] .script-docs-rail {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+[data-theme="bw"] .script-toolbar button:hover,
+[data-theme="bw"] .script-template-menu button:hover,
+[data-theme="bw"] .script-docs-panel button:hover,
+[data-theme="bw"] .script-console button:hover,
+[data-theme="bw"] .script-console-tabs button.active {
+  background: #000000;
+  color: #ffffff;
+}
+
+[data-theme="bw"] .script-template-popover,
+[data-theme="bw"] .script-docs-panel code,
+[data-theme="bw"] .script-docs-panel pre {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+[data-theme="bw"] .script-docs-panel h3 {
+  color: #000000;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-theme="bw"] .script-status.valid {
+  border-color: #145c2e;
+  background: #effaf2;
+  color: #145c2e;
+}
+
+[data-theme="bw"] .script-status.warning {
+  border-color: #6b4700;
+  background: #fff8e8;
+  color: #6b4700;
+}
+
+[data-theme="bw"] .script-status.error,
+[data-theme="bw"] .script-console-entry.error {
+  border-color: #8b1a1a;
+  background: #fff2f2;
+  color: #8b1a1a;
+}
+
+[data-theme="bw"] .script-console-entry.success {
+  color: #145c2e;
+}
+
+[data-theme="bw"] .script-console-entry.warning {
+  color: #6b4700;
+}

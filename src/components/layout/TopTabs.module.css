@@ -73,3 +73,34 @@
   box-shadow: none;
   font-size: 11px;
 }
+
+:global(:root[data-theme="bw"]) .wrap {
+  --text: #ffffff;
+  --text-muted: #ffffff;
+  --border: #ffffff;
+  border-bottom-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .tab,
+:global(:root[data-theme="bw"]) .main,
+:global(:root[data-theme="bw"]) .restore {
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .active,
+:global(:root[data-theme="bw"]) .active .main {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .dot {
+  background: currentColor;
+}
+
+:global(:root[data-theme="bw"]) .wrap button:focus-visible {
+  outline-color: #ffffff;
+}

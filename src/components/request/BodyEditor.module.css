@@ -175,3 +175,41 @@
     grid-column: 2 / -1;
   }
 }
+
+:global(:root[data-theme="bw"]) .editor,
+:global(:root[data-theme="bw"]) .bodyPane,
+:global(:root[data-theme="bw"]) .graphqlPane,
+:global(:root[data-theme="bw"]) .tableWrap,
+:global(:root[data-theme="bw"]) .binaryWrap,
+:global(:root[data-theme="bw"]) .surface,
+:global(:root[data-theme="bw"]) .binaryCard,
+:global(:root[data-theme="bw"]) .emptyState {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .surface,
+:global(:root[data-theme="bw"]) .binaryCard,
+:global(:root[data-theme="bw"]) .emptyState {
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .typeSelector,
+:global(:root[data-theme="bw"]) .sectionTitle,
+:global(:root[data-theme="bw"]) .formHint,
+:global(:root[data-theme="bw"]) .formTableHead,
+:global(:root[data-theme="bw"]) .multipartHead,
+:global(:root[data-theme="bw"]) .fileCell small,
+:global(:root[data-theme="bw"]) .binaryCard span,
+:global(:root[data-theme="bw"]) .emptyState span,
+:global(:root[data-theme="bw"]) .binaryCard small {
+  color: #000000;
+  font-weight: 600;
+}
+
+:global(:root[data-theme="bw"]) .error {
+  border-color: #8b1a1a;
+  background: #fff4f4;
+  color: #8b1a1a;
+  font-weight: 600;
+}

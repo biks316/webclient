@@ -15,7 +15,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { DragEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ActionMenu } from "../ActionMenu";
 import { IconButton } from "../common/IconButton";
@@ -190,6 +190,11 @@ export function Sidebar({
     };
   }
 
+  function setCopilotContextPayload(event: DragEvent<HTMLElement>, payload: Record<string, string>) {
+    event.dataTransfer.setData("application/bikapi-copilot-context", JSON.stringify(payload));
+    event.dataTransfer.effectAllowed = "copy";
+  }
+
   return (
     <>
       <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ""}`}>
@@ -269,7 +274,11 @@ export function Sidebar({
                   return (
                     <section className={styles.collectionTreeItem} key={collection.id}>
                       <div
+                        draggable
                         className={`${styles.treeRow} ${activeCollection ? styles.active : ""}`}
+                        onDragStart={(event) => {
+                          setCopilotContextPayload(event, { type: "collection", id: collection.id });
+                        }}
                         onContextMenu={(event) => {
                           event.preventDefault();
                           setContextMenu({
@@ -357,6 +366,11 @@ export function Sidebar({
                                   console.log("[DND] dragStart request", requestId, endpoint.name);
                                   const payload = dragPayload(collection, endpoint);
                                   setCurrentRequestDrag(payload);
+                                  setCopilotContextPayload(event, {
+                                    type: "request",
+                                    id: endpoint.id,
+                                    collectionId: collection.id,
+                                  });
                                   event.dataTransfer.setData("application/bikapi-request", JSON.stringify(payload));
                                   event.dataTransfer.setData("application/bikapi-endpoint", JSON.stringify(payload));
                                   event.dataTransfer.setData("text/plain", requestId);
@@ -431,7 +445,15 @@ export function Sidebar({
                               <button
                                 key={flow.id}
                                 type="button"
+                                draggable
                                 className={`${styles.treeRow} ${styles.endpointRow} ${active ? styles.active : ""}`}
+                                onDragStart={(event) => {
+                                  setCopilotContextPayload(event, {
+                                    type: "flow",
+                                    id: flow.id,
+                                    collectionId: collection.id,
+                                  });
+                                }}
                                 onClick={() => handleSelectFlow(collection.id, flow.id)}
                                 onContextMenu={(event) => {
                                   event.preventDefault();

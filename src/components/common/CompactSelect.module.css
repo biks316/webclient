@@ -21,6 +21,7 @@
   z-index: 120;
   display: grid;
   gap: 1px;
+  overflow: auto;
   padding: 4px;
   border-radius: 6px;
   border: 1px solid var(--border-strong);
@@ -41,4 +42,22 @@
 .optionActive,
 .option:hover:not(:disabled) {
   background: rgba(108, 168, 255, 0.14);
+}
+
+:global(:root[data-theme="bw"]) .trigger,
+:global(:root[data-theme="bw"]) .popover {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .option {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .optionActive,
+:global(:root[data-theme="bw"]) .option:hover:not(:disabled) {
+  background: #000000;
+  color: #ffffff;
 }

@@ -18,10 +18,16 @@ interface CompactSelectProps {
 }
 
 interface MenuPosition {
-  top: number;
+  top?: number;
+  bottom?: number;
   left: number;
   minWidth: number;
+  maxHeight: number;
 }
+
+const MENU_GAP = 4;
+const VIEWPORT_MARGIN = 12;
+const ESTIMATED_ROW_HEIGHT = 28;
 
 export function CompactSelect({
   value,
@@ -37,18 +43,33 @@ export function CompactSelect({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find((option) => option.value === value);
 
-  useLayoutEffect(() => {
-    if (!open || !triggerRef.current) {
+  function updatePosition() {
+    if (!triggerRef.current) {
       return;
     }
 
     const rect = triggerRef.current.getBoundingClientRect();
+    const estimatedHeight = options.length * ESTIMATED_ROW_HEIGHT + 10;
+    const availableBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN;
+    const availableAbove = rect.top - VIEWPORT_MARGIN;
+    const preferredHeight = Math.min(estimatedHeight, 220);
+    const openUpward = availableBelow < preferredHeight && availableAbove > availableBelow;
+
     setPosition({
-      top: rect.bottom + 4,
+      top: openUpward ? undefined : rect.bottom + MENU_GAP,
+      bottom: openUpward ? window.innerHeight - rect.top + MENU_GAP : undefined,
       left: rect.left,
       minWidth: rect.width,
+      maxHeight: Math.max(96, openUpward ? availableAbove : availableBelow),
     });
-  }, [open]);
+  }
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) {
+      return;
+    }
+    updatePosition();
+  }, [open, options.length]);
 
   useEffect(() => {
     if (!open) {
@@ -69,15 +90,7 @@ export function CompactSelect({
     }
 
     function handleReposition() {
-      if (!triggerRef.current) {
-        return;
-      }
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        minWidth: rect.width,
-      });
+      updatePosition();
     }
 
     document.addEventListener("mousedown", handlePointer);
@@ -96,8 +109,10 @@ export function CompactSelect({
   const popoverStyle: CSSProperties | undefined = position
     ? {
         top: position.top,
+        bottom: position.bottom,
         left: position.left,
         minWidth: position.minWidth,
+        maxHeight: position.maxHeight,
       }
     : undefined;
 

@@ -81,3 +81,11 @@
 .hidden {
   display: none;
 }
+
+:global(:root[data-theme="bw"]) .handle::before {
+  background: #d9d9d9;
+}
+
+:global(:root[data-theme="bw"]) .handle:hover::before {
+  background: #000000;
+}

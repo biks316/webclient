@@ -38,6 +38,12 @@
   gap: 12px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .title {
   justify-content: flex-start;
 }
@@ -58,6 +64,53 @@
   border-radius: 8px;
   background: transparent;
   box-shadow: none;
+}
+
+.historyWrap {
+  position: relative;
+}
+
+.historyMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 90;
+  min-width: 220px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(15, 20, 26, 0.98);
+  box-shadow: var(--shadow-hard);
+}
+
+.historyMenu button {
+  min-height: 38px;
+  display: grid;
+  justify-items: flex-start;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.historyMenu button:hover,
+.historyItemActive {
+  background: rgba(108, 168, 255, 0.12);
+}
+
+.historyMenu small,
+.emptyText {
+  color: var(--text-muted);
+}
+
+.activeButton {
+  background: rgba(108, 168, 255, 0.16);
+  border-color: rgba(108, 168, 255, 0.28);
 }
 
 .contextGrid {
@@ -122,4 +175,37 @@
   border-color: rgba(108, 168, 255, 0.28);
   background: rgba(108, 168, 255, 0.08);
   transform: translateX(2px);
+}
+
+:global(:root[data-theme="bw"]) .panel,
+:global(:root[data-theme="bw"]) .header,
+:global(:root[data-theme="bw"]) .conversation,
+:global(:root[data-theme="bw"]) .footer,
+:global(:root[data-theme="bw"]) .historyMenu,
+:global(:root[data-theme="bw"]) .suggestionList button {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  backdrop-filter: none;
+}
+
+:global(:root[data-theme="bw"]) .title span,
+:global(:root[data-theme="bw"]) .historyMenu small,
+:global(:root[data-theme="bw"]) .emptyText {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .historyMenu button:hover,
+:global(:root[data-theme="bw"]) .historyItemActive,
+:global(:root[data-theme="bw"]) .activeButton,
+:global(:root[data-theme="bw"]) .suggestionList button:hover {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .emptyIcon {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
 }

@@ -65,3 +65,28 @@
 .empty {
   padding: 10px 8px;
 }
+
+:global(:root[data-theme="bw"]) .palette,
+:global(:root[data-theme="bw"]) .searchRow,
+:global(:root[data-theme="bw"]) .results,
+:global(:root[data-theme="bw"]) .item {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .itemActive,
+:global(:root[data-theme="bw"]) .item:hover:not(:disabled) {
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .itemActive .itemMeta,
+:global(:root[data-theme="bw"]) .item:hover:not(:disabled) .itemMeta {
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .itemMeta,
+:global(:root[data-theme="bw"]) .empty {
+  color: #000000;
+}

@@ -65,3 +65,25 @@
   color: var(--text-muted);
   line-height: 1.35;
 }
+
+:global(:root[data-theme="bw"]) .dialog,
+:global(:root[data-theme="bw"]) .option {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .header p,
+:global(:root[data-theme="bw"]) .option small {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .option:hover:not(:disabled) {
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .option:hover:not(:disabled) small,
+:global(:root[data-theme="bw"]) .option:hover:not(:disabled) strong {
+  color: #ffffff;
+}

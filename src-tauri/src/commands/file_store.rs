@@ -210,7 +210,7 @@ fn read_text_folder_inner(root: &PathBuf, dir: &PathBuf, files: &mut Vec<TextFil
             continue;
         }
         let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
-        if !matches!(extension, "bru" | "json" | "txt" | "js") {
+        if !matches!(extension, "bru" | "json" | "txt" | "js" | "md" | "mdx" | "yaml" | "yml") {
             continue;
         }
         let relative = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().to_string();

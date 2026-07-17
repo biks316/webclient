@@ -9,3 +9,14 @@
   font-size: 12px;
   margin-top: 2px;
 }
+
+:global(:root[data-theme="bw"]) .wrap {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .header span {
+  color: #000000;
+  font-size: 12px;
+  font-weight: 500;
+}

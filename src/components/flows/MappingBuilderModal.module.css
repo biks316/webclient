@@ -1000,3 +1000,231 @@
     align-items: stretch;
   }
 }
+
+:global(:root[data-theme="bw"]) .backdrop {
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: none;
+}
+
+:global(:root[data-theme="bw"]) .modal,
+:global(:root[data-theme="bw"]) .modalHeader,
+:global(:root[data-theme="bw"]) .modalFooter,
+:global(:root[data-theme="bw"]) .stepHeader,
+:global(:root[data-theme="bw"]) .mappingWorkspace,
+:global(:root[data-theme="bw"]) .mappingPanel,
+:global(:root[data-theme="bw"]) .mappingLane,
+:global(:root[data-theme="bw"]) .leftCollapsedPanel,
+:global(:root[data-theme="bw"]) .collapsedSelectionCard,
+:global(:root[data-theme="bw"]) .stepItem,
+:global(:root[data-theme="bw"]) .stepMessage,
+:global(:root[data-theme="bw"]) .responseStatusBar,
+:global(:root[data-theme="bw"]) .searchField,
+:global(:root[data-theme="bw"]) .inlineHint,
+:global(:root[data-theme="bw"]) .compactEmptyState,
+:global(:root[data-theme="bw"]) .codeFrame,
+:global(:root[data-theme="bw"]) .jsonTreePanel,
+:global(:root[data-theme="bw"]) .mappingPairRow,
+:global(:root[data-theme="bw"]) .mappingPairCard,
+:global(:root[data-theme="bw"]) .mappingChip,
+:global(:root[data-theme="bw"]) .emptyState,
+:global(:root[data-theme="bw"]) .emptyStateCode,
+:global(:root[data-theme="bw"]) .requestOtherField,
+:global(:root[data-theme="bw"]) .transformMenu,
+:global(:root[data-theme="bw"]) .transformField input,
+:global(:root[data-theme="bw"]) .transformField select {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .modal {
+  border: 2px solid #000000;
+}
+
+:global(:root[data-theme="bw"]) .modalHeader,
+:global(:root[data-theme="bw"]) .modalFooter,
+:global(:root[data-theme="bw"]) .stepHeader,
+:global(:root[data-theme="bw"]) .mappingLane,
+:global(:root[data-theme="bw"]) .collapsedSelectionCard,
+:global(:root[data-theme="bw"]) .stepItem,
+:global(:root[data-theme="bw"]) .stepMessage,
+:global(:root[data-theme="bw"]) .responseStatusBar,
+:global(:root[data-theme="bw"]) .searchField,
+:global(:root[data-theme="bw"]) .inlineHint,
+:global(:root[data-theme="bw"]) .compactEmptyState,
+:global(:root[data-theme="bw"]) .codeFrame,
+:global(:root[data-theme="bw"]) .jsonTreePanel,
+:global(:root[data-theme="bw"]) .mappingPairRow,
+:global(:root[data-theme="bw"]) .mappingPairCard,
+:global(:root[data-theme="bw"]) .mappingChip,
+:global(:root[data-theme="bw"]) .emptyState,
+:global(:root[data-theme="bw"]) .requestOtherField,
+:global(:root[data-theme="bw"]) .transformMenu,
+:global(:root[data-theme="bw"]) .transformField input,
+:global(:root[data-theme="bw"]) .transformField select {
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .modalHeader strong,
+:global(:root[data-theme="bw"]) .mappingPanelHeader strong,
+:global(:root[data-theme="bw"]) .mappingLaneHeader strong,
+:global(:root[data-theme="bw"]) .modalHeader span,
+:global(:root[data-theme="bw"]) .mappingPanelHeader span,
+:global(:root[data-theme="bw"]) .mappingLaneHeader span,
+:global(:root[data-theme="bw"]) .footerCount,
+:global(:root[data-theme="bw"]) .stepItem strong,
+:global(:root[data-theme="bw"]) .stepItem span,
+:global(:root[data-theme="bw"]) .stepMessage,
+:global(:root[data-theme="bw"]) .collapsedSelectionCard span,
+:global(:root[data-theme="bw"]) .collapsedSelectionCard small,
+:global(:root[data-theme="bw"]) .responseStatusCopy strong,
+:global(:root[data-theme="bw"]) .responseStatusCopy span,
+:global(:root[data-theme="bw"]) .searchField,
+:global(:root[data-theme="bw"]) .searchField input,
+:global(:root[data-theme="bw"]) .inlineHint span,
+:global(:root[data-theme="bw"]) .inlineHint strong,
+:global(:root[data-theme="bw"]) .panelExtrasLabel,
+:global(:root[data-theme="bw"]) .inlineFieldButton small,
+:global(:root[data-theme="bw"]) .mappingPairCard span,
+:global(:root[data-theme="bw"]) .mappingPairArrow,
+:global(:root[data-theme="bw"]) .mappingChipText strong,
+:global(:root[data-theme="bw"]) .mappingChipSource,
+:global(:root[data-theme="bw"]) .mappingChipTarget,
+:global(:root[data-theme="bw"]) .mappingChipTransform,
+:global(:root[data-theme="bw"]) .emptyState,
+:global(:root[data-theme="bw"]) .emptyState strong,
+:global(:root[data-theme="bw"]) .requestOtherField,
+:global(:root[data-theme="bw"]) .requestOtherField span,
+:global(:root[data-theme="bw"]) .transformField {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .resizeHandle,
+:global(:root[data-theme="bw"]) .resizeHandle:hover {
+  background: #d9d9d9;
+}
+
+:global(:root[data-theme="bw"]) .mappingSvgPathSaved,
+:global(:root[data-theme="bw"]) .mappingSvgPathActive,
+:global(:root[data-theme="bw"]) .mappingSvgPathTemporary {
+  stroke: #000000;
+  stroke-width: 4;
+  filter: none;
+}
+
+:global(:root[data-theme="bw"]) .mappingSvgArrowSaved,
+:global(:root[data-theme="bw"]) .mappingSvgArrowActive,
+:global(:root[data-theme="bw"]) .mappingSvgArrowTemporary {
+  fill: #000000;
+}
+
+:global(:root[data-theme="bw"]) .jsonTreeRow,
+:global(:root[data-theme="bw"]) .jsonTreeRowValue,
+:global(:root[data-theme="bw"]) .jsonTreeToggleButton,
+:global(:root[data-theme="bw"]) .jsonCodeEmpty,
+:global(:root[data-theme="bw"]) .jsonCodeLine,
+:global(:root[data-theme="bw"]) .jsonLineNumber,
+:global(:root[data-theme="bw"]) .jsonKeyToken,
+:global(:root[data-theme="bw"]) .jsonPunctuation,
+:global(:root[data-theme="bw"]) .jsonStringToken,
+:global(:root[data-theme="bw"]) .jsonNumberToken,
+:global(:root[data-theme="bw"]) .jsonBooleanToken,
+:global(:root[data-theme="bw"]) .jsonNullToken {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .jsonTreeKey,
+:global(:root[data-theme="bw"]) .jsonKeyToken,
+:global(:root[data-theme="bw"]) .jsonBooleanToken {
+  font-weight: 700;
+}
+
+:global(:root[data-theme="bw"]) .jsonNullToken {
+  font-style: italic;
+}
+
+:global(:root[data-theme="bw"]) .jsonTreeRowInteractive:hover,
+:global(:root[data-theme="bw"]) .jsonCodeLineInteractive:hover,
+:global(:root[data-theme="bw"]) .jsonTreeRowActive,
+:global(:root[data-theme="bw"]) .jsonCodeLineActive,
+:global(:root[data-theme="bw"]) .jsonCodeLineMatch {
+  background: #ededed;
+}
+
+:global(:root[data-theme="bw"]) .jsonTreeRowSelected,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected {
+  background: #000000;
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 #000000;
+}
+
+:global(:root[data-theme="bw"]) .jsonTreeRowSelected .jsonTreeRowButton,
+:global(:root[data-theme="bw"]) .jsonTreeRowSelected .jsonTreeKey,
+:global(:root[data-theme="bw"]) .jsonTreeRowSelected .jsonTreeRowValue,
+:global(:root[data-theme="bw"]) .jsonTreeRowSelected .jsonTreeToggleButton,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected .jsonLineNumber,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected .jsonKeyToken,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected .jsonPunctuation,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected .jsonStringToken,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected .jsonNumberToken,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected .jsonBooleanToken,
+:global(:root[data-theme="bw"]) .jsonCodeLineSelected .jsonNullToken {
+  background: transparent;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .jsonTreeRowMapped,
+:global(:root[data-theme="bw"]) .jsonCodeLineMapped {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 2px #000000;
+}
+
+:global(:root[data-theme="bw"]) .jsonTreeMappedIcon,
+:global(:root[data-theme="bw"]) .jsonTreeLeafDot {
+  background: #000000;
+  color: #000000;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .jsonAnchorSource,
+:global(:root[data-theme="bw"]) .jsonAnchorTarget {
+  background: #000000;
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 4px #000000;
+}
+
+:global(:root[data-theme="bw"]) .placeholderToken,
+:global(:root[data-theme="bw"]) .placeholderTokenMapped,
+:global(:root[data-theme="bw"]) .inlineFieldButton,
+:global(:root[data-theme="bw"]) .inlineFieldButtonMapped,
+:global(:root[data-theme="bw"]) .inlineFieldButtonPlaceholder {
+  border: 2px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .mappingMiniButton,
+:global(:root[data-theme="bw"]) .iconButton,
+:global(:root[data-theme="bw"]) .ghostActionButton,
+:global(:root[data-theme="bw"]) .footerActions button,
+:global(:root[data-theme="bw"]) .transformFooter button {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .autoMapButton,
+:global(:root[data-theme="bw"]) .primaryButton {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .mappingMiniButton:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .iconButton:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .ghostActionButton:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .footerActions button:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .transformFooter button:hover:not(:disabled) {
+  background: #000000;
+  color: #ffffff;
+}

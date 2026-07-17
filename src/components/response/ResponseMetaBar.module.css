@@ -31,3 +31,23 @@
   border-color: rgba(240, 109, 109, 0.24);
   background: rgba(240, 109, 109, 0.11);
 }
+
+:global(:root[data-theme="bw"]) .meta span,
+:global(:root[data-theme="bw"]) .badge {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  font-weight: 600;
+}
+
+:global(:root[data-theme="bw"]) .success {
+  border-color: #145c2e !important;
+  background: #effaf2 !important;
+  color: #145c2e !important;
+}
+
+:global(:root[data-theme="bw"]) .error {
+  border-color: #8b1a1a !important;
+  background: #fff2f2 !important;
+  color: #8b1a1a !important;
+}

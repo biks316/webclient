@@ -136,3 +136,32 @@
   padding-top: 4px;
   border-top: 1px solid var(--border);
 }
+
+:global(:root[data-theme="bw"]) .trigger,
+:global(:root[data-theme="bw"]) .menu,
+:global(:root[data-theme="bw"]) .current,
+:global(:root[data-theme="bw"]) .recentButton,
+:global(:root[data-theme="bw"]) .actions button {
+  border-color: #ffffff;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .current span,
+:global(:root[data-theme="bw"]) .sectionLabel,
+:global(:root[data-theme="bw"]) .empty,
+:global(:root[data-theme="bw"]) .recentButton small {
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .recentButton:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .actions button:hover,
+:global(:root[data-theme="bw"]) .selected .recentButton {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .selected .recentButton small,
+:global(:root[data-theme="bw"]) .recentButton:hover:not(:disabled) small {
+  color: #000000;
+}

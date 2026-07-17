@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   padding: 0 8px;
-  color: var(--url-text-color, #f5f5f0);
+  color: var(--url-text-color, var(--text));
   text-overflow: clip;
   z-index: 2;
 }
@@ -34,7 +34,7 @@
   background: transparent;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  caret-color: #e6edf7;
+  caret-color: var(--url-text-color, var(--text));
   text-shadow: none;
 }
 
@@ -47,7 +47,7 @@
   min-width: 100%;
   white-space: pre;
   line-height: inherit;
-  color: var(--url-text-color, #f5f5f0);
+  color: var(--url-text-color, var(--text));
 }
 
 .inlineVariable {
@@ -1011,4 +1011,145 @@
   .managerRow {
     grid-template-columns: 38px 140px 150px 150px 170px 92px 128px 136px;
   }
+}
+
+:global(:root[data-theme="bw"]) .autocomplete,
+:global(:root[data-theme="bw"]) .tooltip,
+:global(:root[data-theme="bw"]) .variableHoverPanel,
+:global(:root[data-theme="bw"]) .panel,
+:global(:root[data-theme="bw"]) .variableRow {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .autocomplete button {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .autocompleteActive,
+:global(:root[data-theme="bw"]) .autocomplete button:hover {
+  background: #000000 !important;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .autocomplete span,
+:global(:root[data-theme="bw"]) .autocomplete em,
+:global(:root[data-theme="bw"]) .panel p,
+:global(:root[data-theme="bw"]) .panel h4,
+:global(:root[data-theme="bw"]) .variableRow small,
+:global(:root[data-theme="bw"]) .variableRow em,
+:global(:root[data-theme="bw"]) .tooltip span,
+:global(:root[data-theme="bw"]) .tooltip em,
+:global(:root[data-theme="bw"]) .variableHoverRow span {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .scope_environment,
+:global(:root[data-theme="bw"]) .scope_collection,
+:global(:root[data-theme="bw"]) .scope_flow,
+:global(:root[data-theme="bw"]) .scope_runtime,
+:global(:root[data-theme="bw"]) .scope_global {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .managerPage {
+  --manager-accent: #000000;
+  --manager-bg: #ffffff;
+  --manager-panel: #ffffff;
+  --manager-panel-strong: #ffffff;
+  --manager-border: #d9d9d9;
+  --manager-border-strong: #000000;
+  --manager-muted: #1f1f1f;
+  --manager-text: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .managerSearch,
+:global(:root[data-theme="bw"]) .managerPrecedence,
+:global(:root[data-theme="bw"]) .managerSubTabs,
+:global(:root[data-theme="bw"]) .managerEnvironmentQuickAction,
+:global(:root[data-theme="bw"]) .managerMain,
+:global(:root[data-theme="bw"]) .managerTableHeader,
+:global(:root[data-theme="bw"]) .managerGroupHeader,
+:global(:root[data-theme="bw"]) .managerRow,
+:global(:root[data-theme="bw"]) .managerUsagePanel,
+:global(:root[data-theme="bw"]) .managerDrawer,
+:global(:root[data-theme="bw"]) .managerDrawerFields input,
+:global(:root[data-theme="bw"]) .managerDrawerFields textarea,
+:global(:root[data-theme="bw"]) .managerDrawerFields select,
+:global(:root[data-theme="bw"]) .managerContextMenu {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .managerMain,
+:global(:root[data-theme="bw"]) .managerUsagePanel,
+:global(:root[data-theme="bw"]) .managerDrawer,
+:global(:root[data-theme="bw"]) .managerContextMenu {
+  border-color: #000000;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+
+:global(:root[data-theme="bw"]) .managerHeader p,
+:global(:root[data-theme="bw"]) .managerPrecedence,
+:global(:root[data-theme="bw"]) .managerPrecedence span,
+:global(:root[data-theme="bw"]) .managerPrecedence em,
+:global(:root[data-theme="bw"]) .managerTabs button,
+:global(:root[data-theme="bw"]) .managerTabs button em,
+:global(:root[data-theme="bw"]) .managerSubTabs button,
+:global(:root[data-theme="bw"]) .managerSubTabs button em,
+:global(:root[data-theme="bw"]) .managerTableHeader button,
+:global(:root[data-theme="bw"]) .managerTableHeader > span,
+:global(:root[data-theme="bw"]) .managerGroupHeader,
+:global(:root[data-theme="bw"]) .managerGroupHeader span,
+:global(:root[data-theme="bw"]) .managerRow > span,
+:global(:root[data-theme="bw"]) .managerUsageButton,
+:global(:root[data-theme="bw"]) .managerEmpty span,
+:global(:root[data-theme="bw"]) .managerEmpty small,
+:global(:root[data-theme="bw"]) .managerDrawerFields label,
+:global(:root[data-theme="bw"]) .managerDrawer header span,
+:global(:root[data-theme="bw"]) .managerUsagePanel header span,
+:global(:root[data-theme="bw"]) .managerUsageList p,
+:global(:root[data-theme="bw"]) .managerUsageList span,
+:global(:root[data-theme="bw"]) .managerUsageList code {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .managerRow:hover {
+  background: #ededed;
+}
+
+:global(:root[data-theme="bw"]) .managerPrimaryButton,
+:global(:root[data-theme="bw"]) .managerTabPill,
+:global(:root[data-theme="bw"]) .managerSubTabActive {
+  border-color: #000000 !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .managerTabActive,
+:global(:root[data-theme="bw"]) .managerTabActive em,
+:global(:root[data-theme="bw"]) .managerSubTabActive em {
+  color: #ffffff !important;
+}
+
+:global(:root[data-theme="bw"]) .managerEnvironmentCreate {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .managerEnvironmentCreate:hover:not(:disabled),
+:global(:root[data-theme="bw"]) .managerToolbarActions button:hover,
+:global(:root[data-theme="bw"]) .managerActions button:hover,
+:global(:root[data-theme="bw"]) .managerContextMenu button:hover {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
 }

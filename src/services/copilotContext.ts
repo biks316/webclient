@@ -6,6 +6,7 @@ interface BuildCopilotContextArgs {
   selectedCollection: CollectionIndex | null;
   selectedEnvironment: VariableFile | null;
   selectedFlow: FlowIndex | null;
+  selectedRequestId: string | null;
   selectedRequestName: string | null;
   requestVariables?: Record<string, string>;
   response: RunResponse | null;
@@ -79,6 +80,7 @@ export function buildCopilotContext({
   selectedCollection,
   selectedEnvironment,
   selectedFlow,
+  selectedRequestId,
   selectedRequestName,
   requestVariables,
   response,
@@ -87,9 +89,13 @@ export function buildCopilotContext({
   return {
     workspaceName: workspace?.name ?? null,
     workspacePath: workspace?.path ?? null,
+    currentCollectionId: selectedCollection?.id ?? null,
     currentCollectionName: selectedCollection?.name ?? null,
+    currentRequestId: selectedRequestId,
     currentRequestName: selectedRequestName,
+    currentEnvironmentId: selectedEnvironment?.id ?? null,
     currentEnvironmentName: selectedEnvironment?.name ?? null,
+    currentFlowId: selectedFlow?.id ?? null,
     currentFlowName: selectedFlow?.name ?? null,
     collections: summarizeCollections(workspace?.collections ?? []),
     variables: [

@@ -117,3 +117,44 @@
 .timelineRow span {
   color: var(--text-muted);
 }
+
+:global(:root[data-theme="bw"]) .viewer,
+:global(:root[data-theme="bw"]) .content,
+:global(:root[data-theme="bw"]) .editorWrap,
+:global(:root[data-theme="bw"]) .empty,
+:global(:root[data-theme="bw"]) .emptyQuiet,
+:global(:root[data-theme="bw"]) .timeline,
+:global(:root[data-theme="bw"]) .timelineRow {
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .editorWrap,
+:global(:root[data-theme="bw"]) .timelineRow {
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .header strong {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+:global(:root[data-theme="bw"]) .header span,
+:global(:root[data-theme="bw"]) .emptyQuiet,
+:global(:root[data-theme="bw"]) .timelineRow span {
+  color: #000000;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+:global(:root[data-theme="bw"]) .responseMenu {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .responseMenu button:hover:not(:disabled) {
+  background: #000000;
+  color: #ffffff;
+}

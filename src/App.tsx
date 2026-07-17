@@ -30,10 +30,12 @@ import { runRequestScript } from "./services/scriptRunner";
 import { applyTheme, loadThemePreference, resolveTheme, saveThemePreference } from "./services/themeStore";
 import { buildCopilotContext } from "./services/copilotContext";
 import { useCopilotController } from "./services/copilotController";
+import { buildCopilotContextIndex } from "./services/copilotContextIndex";
 import { loadCopilotPanelWidth, saveCopilotPanelWidth } from "./services/copilotSessionStore";
 import { createUnavailableCopilotService } from "./services/copilotService";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
+import { TextFileEntry } from "./services/tauriApi";
 import { buildCurlBody, createRequestBody, defaultContentType, formatJsonBody, normalizeRequest, normalizeRequestBody } from "./services/requestBody";
 import { findMissingVariablesInRequest } from "./services/variableResolver";
 import { cloneJson, findCollection, findEndpoint, firstCollection, normalizeWorkspace } from "./services/workspaceService";
@@ -258,6 +260,7 @@ export default function App() {
   const [themeId, setThemeId] = useState(() => loadThemePreference());
   const [importPreview, setImportPreview] = useState<ParsedImportResult | null>(null);
   const [createSequenceFlow, setCreateSequenceFlow] = useState(false);
+  const [copilotTextFiles, setCopilotTextFiles] = useState<TextFileEntry[]>([]);
   const [curlPreview, setCurlPreview] = useState<CurlPreviewState | null>(null);
   const [flowHistoryAvailability, setFlowHistoryAvailability] = useState({ canUndo: false, canRedo: false });
   const startupSyncWorkspaceRef = useRef<string | null>(null);
@@ -269,6 +272,13 @@ export default function App() {
     applyTheme(themeId);
     saveThemePreference(themeId);
   }, [themeId]);
+
+  function selectAppearance(mode: "dark" | "light" | "bw") {
+    if (resolveTheme(themeId).mode === mode) {
+      return;
+    }
+    setThemeId(mode === "dark" ? "midnight" : mode === "light" ? "paper" : "bw");
+  }
 
   useEffect(() => {
     function handleFlowHistory(event: Event) {
@@ -350,14 +360,36 @@ export default function App() {
         selectedCollection,
         selectedEnvironment,
         selectedFlow,
+        selectedRequestId: selectedEndpoint?.id ?? null,
         selectedRequestName: draftRequest?.name ?? selectedEndpoint?.name ?? null,
         requestVariables: draftRequest?.variables,
         response,
         responseError,
       }),
-    [draftRequest?.name, response, responseError, selectedCollection, selectedEndpoint?.name, selectedEnvironment, selectedFlow, workspace],
+    [draftRequest?.name, response, responseError, selectedCollection, selectedEndpoint?.id, selectedEndpoint?.name, selectedEnvironment, selectedFlow, workspace],
   );
-  const copilot = useCopilotController({ context: copilotContext, service: copilotService });
+  const copilotMentionItems = useMemo(
+    () =>
+      buildCopilotContextIndex({
+        workspace,
+        selectedCollection,
+        selectedEnvironment,
+        selectedResponse: response,
+        selectedRequestId: selectedEndpoint?.id ?? null,
+        textFiles: copilotTextFiles,
+      }),
+    [copilotTextFiles, response, selectedCollection, selectedEndpoint?.id, selectedEnvironment, workspace],
+  );
+  const copilot = useCopilotController({
+    context: copilotContext,
+    workspace,
+    selectedCollection,
+    selectedEnvironment,
+    response,
+    responseError,
+    textFiles: copilotTextFiles,
+    service: copilotService,
+  });
 
   function normalizedName(name: string) {
     return name.trim().toLowerCase();
@@ -395,6 +427,30 @@ export default function App() {
   useEffect(() => {
     void loadRecentWorkspaces().then(setRecentWorkspaces);
   }, []);
+
+  useEffect(() => {
+    if (!workspace?.path) {
+      setCopilotTextFiles([]);
+      return;
+    }
+
+    let cancelled = false;
+    void api.readTextFolderRecursive(workspace.path)
+      .then((entries) => {
+        if (!cancelled) {
+          setCopilotTextFiles(entries);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCopilotTextFiles([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace?.path]);
 
   useEffect(() => {
     const restoredSession = loadWorkspaceSession();
@@ -3068,12 +3124,23 @@ export default function App() {
                   content: (
                     <CopilotPanel
                       context={copilotContext}
-                      messages={copilot.messages}
+                      session={copilot.activeSession}
+                      sessions={copilot.sessions}
+                      mentionItems={copilotMentionItems}
                       suggestions={copilot.suggestions}
                       isLoading={copilot.isLoading}
+                      isStopping={copilot.isStopping}
                       onClose={() => setCopilotHidden(true)}
+                      onCreateSession={copilot.createNewSession}
+                      onSwitchSession={copilot.setActiveSessionId}
                       onSuggestionSelect={(prompt) => void copilot.sendPrompt(prompt)}
-                      onSubmitPrompt={(prompt) => void copilot.sendPrompt(prompt)}
+                      onPromptChange={copilot.setDraftPrompt}
+                      onModeChange={copilot.setMode}
+                      onAttachContext={copilot.attachContext}
+                      onRemoveContext={copilot.removeContext}
+                      onTogglePinned={copilot.togglePinned}
+                      onSubmitPrompt={() => void copilot.sendPrompt()}
+                      onStopGeneration={copilot.stopGeneration}
                       onSubmitMissingInput={(prompt, values) => void copilot.sendPrompt(prompt, values)}
                       onAction={() => {
                         setStatus("Copilot actions require a connected execution service.");
@@ -3535,8 +3602,34 @@ export default function App() {
 
       {settingsOpen && (
         <div className="prompt-backdrop" role="presentation">
-          <div className="prompt-dialog settings-dialog">
+          <div className="prompt-dialog settings-dialog" role="dialog" aria-modal="true" aria-label="Settings">
             <h2>Settings</h2>
+            <div className="settings-section">
+              <strong>Appearance</strong>
+              <div className="appearance-options" role="radiogroup" aria-label="Appearance theme">
+                {([
+                  { mode: "dark", label: "Dark" },
+                  { mode: "light", label: "Light" },
+                  { mode: "bw", label: "B/W Theme" },
+                ] as const).map((option) => {
+                  const selected = resolveTheme(themeId).mode === option.mode;
+                  return (
+                    <button
+                      key={option.mode}
+                      type="button"
+                      className={selected ? "appearance-option active" : "appearance-option"}
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => selectAppearance(option.mode)}
+                    >
+                      <span className="appearance-swatch" aria-hidden="true" />
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="settings-hint">Theme changes are saved automatically.</span>
+            </div>
             <div className="settings-section">
               <strong>Synchronization</strong>
               <label className="checkbox-row">

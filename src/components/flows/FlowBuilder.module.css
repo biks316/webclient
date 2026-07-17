@@ -1393,3 +1393,302 @@
 .runStatus_error {
   color: #fca5a5;
 }
+
+:global(:root[data-theme="bw"]) .flowBuilder,
+:global(:root[data-theme="bw"]) .header,
+:global(:root[data-theme="bw"]) .body,
+:global(:root[data-theme="bw"]) .mappingPanel,
+:global(:root[data-theme="bw"]) .mappingOverlay,
+:global(:root[data-theme="bw"]) .mappingPane,
+:global(:root[data-theme="bw"]) .mappingPaneEmpty,
+:global(:root[data-theme="bw"]) .mappingField,
+:global(:root[data-theme="bw"]) .mappingConnectorLabel,
+:global(:root[data-theme="bw"]) .mappingPopover,
+:global(:root[data-theme="bw"]) .autoMapPanel,
+:global(:root[data-theme="bw"]) .autoMapEmpty,
+:global(:root[data-theme="bw"]) .autoMapRow,
+:global(:root[data-theme="bw"]) .forwardRuleSummary,
+:global(:root[data-theme="bw"]) .forwardRuleEmpty,
+:global(:root[data-theme="bw"]) .forwardRuleRow,
+:global(:root[data-theme="bw"]) .forwardRuleBadge,
+:global(:root[data-theme="bw"]) .forwardTree,
+:global(:root[data-theme="bw"]) .forwardPopover,
+:global(:root[data-theme="bw"]) .forwardEmptyHint,
+:global(:root[data-theme="bw"]) .responseTree,
+:global(:root[data-theme="bw"]) .mappingSummary,
+:global(:root[data-theme="bw"]) .nodeDetails pre,
+:global(:root[data-theme="bw"]) .mappingCard,
+:global(:root[data-theme="bw"]) .runPanel,
+:global(:root[data-theme="bw"]) .runStep,
+:global(:root[data-theme="bw"]) .runStepBody pre,
+:global(:root[data-theme="bw"]) .runStepBody code {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .header,
+:global(:root[data-theme="bw"]) .mappingPanel,
+:global(:root[data-theme="bw"]) .mappingOverlay,
+:global(:root[data-theme="bw"]) .mappingPane,
+:global(:root[data-theme="bw"]) .mappingPaneEmpty,
+:global(:root[data-theme="bw"]) .mappingField,
+:global(:root[data-theme="bw"]) .mappingConnectorLabel,
+:global(:root[data-theme="bw"]) .mappingPopover,
+:global(:root[data-theme="bw"]) .autoMapPanel,
+:global(:root[data-theme="bw"]) .autoMapEmpty,
+:global(:root[data-theme="bw"]) .autoMapRow,
+:global(:root[data-theme="bw"]) .forwardRuleSummary,
+:global(:root[data-theme="bw"]) .forwardRuleEmpty,
+:global(:root[data-theme="bw"]) .forwardRuleRow,
+:global(:root[data-theme="bw"]) .forwardRuleBadge,
+:global(:root[data-theme="bw"]) .forwardTree,
+:global(:root[data-theme="bw"]) .forwardPopover,
+:global(:root[data-theme="bw"]) .forwardEmptyHint,
+:global(:root[data-theme="bw"]) .responseTree,
+:global(:root[data-theme="bw"]) .mappingSummary,
+:global(:root[data-theme="bw"]) .noExample,
+:global(:root[data-theme="bw"]) .mappingCard,
+:global(:root[data-theme="bw"]) .runPanel,
+:global(:root[data-theme="bw"]) .runStep,
+:global(:root[data-theme="bw"]) .runStepBody {
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .header span,
+:global(:root[data-theme="bw"]) .emptyText,
+:global(:root[data-theme="bw"]) .canvasEmpty span,
+:global(:root[data-theme="bw"]) .mappingOverlayHeader span,
+:global(:root[data-theme="bw"]) .mappingSearch,
+:global(:root[data-theme="bw"]) .mappingSearch input,
+:global(:root[data-theme="bw"]) .mappingPaneEmpty,
+:global(:root[data-theme="bw"]) .mappingPaneEmpty strong,
+:global(:root[data-theme="bw"]) .mappingSectionLabel,
+:global(:root[data-theme="bw"]) .mappingField,
+:global(:root[data-theme="bw"]) .mappingField em,
+:global(:root[data-theme="bw"]) .mappingConnectorLabel,
+:global(:root[data-theme="bw"]) .mappingOverlayFooter,
+:global(:root[data-theme="bw"]) .mappingTransformLabel,
+:global(:root[data-theme="bw"]) .autoMapPanel header span,
+:global(:root[data-theme="bw"]) .autoMapRow strong,
+:global(:root[data-theme="bw"]) .mappingPanel p,
+:global(:root[data-theme="bw"]) .mappingPanel span,
+:global(:root[data-theme="bw"]) .forwardFieldLabel,
+:global(:root[data-theme="bw"]) .forwardFieldLabel em,
+:global(:root[data-theme="bw"]) .forwardPopoverFooter code,
+:global(:root[data-theme="bw"]) .treeValue,
+:global(:root[data-theme="bw"]) .treeValue em,
+:global(:root[data-theme="bw"]) .runStep summary em,
+:global(:root[data-theme="bw"]) .runStepBody h4 {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .toolbar select,
+:global(:root[data-theme="bw"]) .toolbar button,
+:global(:root[data-theme="bw"]) .mappingPanel input,
+:global(:root[data-theme="bw"]) .mappingPanel button,
+:global(:root[data-theme="bw"]) .mappingOverlayActions button,
+:global(:root[data-theme="bw"]) .mappingOverlayFooter button,
+:global(:root[data-theme="bw"]) .autoMapFooter button,
+:global(:root[data-theme="bw"]) .mappingPopover button,
+:global(:root[data-theme="bw"]) .mappingTransformLabel select,
+:global(:root[data-theme="bw"]) .mappingTransformLabel input,
+:global(:root[data-theme="bw"]) .forwardDestinationChips button,
+:global(:root[data-theme="bw"]) .forwardFieldChoice,
+:global(:root[data-theme="bw"]) .forwardNewField,
+:global(:root[data-theme="bw"]) .advancedForwardingToggle,
+:global(:root[data-theme="bw"]) .forwardCustomRow input,
+:global(:root[data-theme="bw"]) .targetPicker select,
+:global(:root[data-theme="bw"]) .targetPicker input {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .primaryButton {
+  border-color: #000000 !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+:global(:root[data-theme="bw"]) .flowMenu {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+:global(:root[data-theme="bw"]) .flowMenu button:hover,
+:global(:root[data-theme="bw"]) .mappingOverlayActions button:hover,
+:global(:root[data-theme="bw"]) .mappingOverlayFooter button:hover,
+:global(:root[data-theme="bw"]) .mappingPopover button:hover,
+:global(:root[data-theme="bw"]) .forwardDestinationChips button:hover,
+:global(:root[data-theme="bw"]) .forwardFieldChoice:hover,
+:global(:root[data-theme="bw"]) .forwardNewField:hover,
+:global(:root[data-theme="bw"]) .advancedForwardingToggle:hover,
+:global(:root[data-theme="bw"]) .forwardPopoverHeader button:hover {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .flowMenuDanger,
+:global(:root[data-theme="bw"]) .flowMenuDanger:hover {
+  border-color: #8b1a1a !important;
+  background: #ffffff !important;
+  color: #8b1a1a !important;
+}
+
+:global(:root[data-theme="bw"]) .canvas,
+:global(:root[data-theme="bw"]) .canvasDropActive {
+  background:
+    radial-gradient(circle at 1px 1px, #e6e6e6 1px, transparent 0),
+    #ffffff;
+  background-size: 22px 22px;
+}
+
+:global(:root[data-theme="bw"]) .canvasDropActive,
+:global(:root[data-theme="bw"]) .canvas:global(.is-drag-over) {
+  outline-color: #000000;
+  border-color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .edgePath,
+:global(:root[data-theme="bw"]) .edgePathActive,
+:global(:root[data-theme="bw"]) .connectionPreview,
+:global(:root[data-theme="bw"]) .startEdgePath {
+  stroke: #000000;
+  filter: none;
+  opacity: 1;
+}
+
+:global(:root[data-theme="bw"]) .edgePath {
+  stroke-width: 3;
+}
+
+:global(:root[data-theme="bw"]) .edgePathActive {
+  stroke-width: 5;
+}
+
+:global(:root[data-theme="bw"]) .requestNode,
+:global(:root[data-theme="bw"]) .startNode {
+  border: 2px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+}
+
+:global(:root[data-theme="bw"]) .requestNode small {
+  color: #000000;
+  font-weight: 500;
+}
+
+:global(:root[data-theme="bw"]) .requestNodeActive {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 5px #000000;
+}
+
+:global(:root[data-theme="bw"]) .requestNodeActive strong,
+:global(:root[data-theme="bw"]) .requestNodeActive small,
+:global(:root[data-theme="bw"]) .requestNodeActive svg {
+  color: #ffffff;
+}
+
+:global(:root[data-theme="bw"]) .nodeStatus_idle {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .nodeStatus_running {
+  border: 1px solid #6b4700;
+  background: #fff8e8;
+  color: #6b4700;
+}
+
+:global(:root[data-theme="bw"]) .nodeStatus_success {
+  border: 1px solid #145c2e;
+  background: #effaf2;
+  color: #145c2e;
+}
+
+:global(:root[data-theme="bw"]) .nodeStatus_failed {
+  border: 1px solid #8b1a1a;
+  background: #fff2f2;
+  color: #8b1a1a;
+}
+
+:global(:root[data-theme="bw"]) .connector,
+:global(:root[data-theme="bw"]) .connector:hover {
+  border-color: #000000 !important;
+  background: #ffffff !important;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .edgeLabel,
+:global(:root[data-theme="bw"]) .edgeActions,
+:global(:root[data-theme="bw"]) .minimap {
+  border-color: #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .edgeActions span {
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .edgeActions button,
+:global(:root[data-theme="bw"]) .mappingFieldActive,
+:global(:root[data-theme="bw"]) .mappingFieldMapped,
+:global(:root[data-theme="bw"]) .forwardRuleBadgeActive,
+:global(:root[data-theme="bw"]) .forwardDestinationActive,
+:global(:root[data-theme="bw"]) .treeValueActive,
+:global(:root[data-theme="bw"]) .targetOptionActive {
+  border-color: #000000 !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+  box-shadow: none;
+}
+
+:global(:root[data-theme="bw"]) .minimap span,
+:global(:root[data-theme="bw"]) .minimapNodeActive {
+  background: #000000 !important;
+}
+
+:global(:root[data-theme="bw"]) .mappingConnector,
+:global(:root[data-theme="bw"]) .mappingConnectorActive {
+  stroke: #000000;
+  stroke-width: 3.5;
+  opacity: 1;
+}
+
+:global(:root[data-theme="bw"]) .placeholderButton {
+  border: 2px solid #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+:global(:root[data-theme="bw"]) .placeholderButton em {
+  color: #000000;
+  font-weight: 700;
+}
+
+:global(:root[data-theme="bw"]) .runStatus_pending {
+  color: #4a4a4a;
+}
+
+:global(:root[data-theme="bw"]) .runStatus_running {
+  color: #6b4700;
+}
+
+:global(:root[data-theme="bw"]) .runStatus_success {
+  color: #145c2e;
+}
+
+:global(:root[data-theme="bw"]) .runStatus_error,
+:global(:root[data-theme="bw"]) .flowWarning {
+  color: #8b1a1a;
+}

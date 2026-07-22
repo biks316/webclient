@@ -1,6 +1,7 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AiConnectionWizard } from "./components/ai/AiConnectionWizard";
 import { CopilotPanel } from "./components/copilot/CopilotPanel";
 import { AppShell } from "./components/layout/AppShell";
 import { FlowBuilder } from "./components/flows/FlowBuilder";
@@ -32,10 +33,14 @@ import { buildCopilotContext } from "./services/copilotContext";
 import { useCopilotController } from "./services/copilotController";
 import { buildCopilotContextIndex } from "./services/copilotContextIndex";
 import { loadCopilotPanelWidth, saveCopilotPanelWidth } from "./services/copilotSessionStore";
-import { createUnavailableCopilotService } from "./services/copilotService";
+import { createConnectedCopilotService } from "./services/copilotService";
+import {
+  isJsonBody,
+  validateBuildPlanAgainstWorkspace,
+} from "./services/copilotBuildPlan";
 import { loadWorkspaceSession, saveWorkspaceSession } from "./services/sessionStore";
 import * as api from "./services/tauriApi";
-import { TextFileEntry } from "./services/tauriApi";
+import { AiConnectionConfig, AiConnectionTestResult, TextFileEntry } from "./services/tauriApi";
 import { buildCurlBody, createRequestBody, defaultContentType, formatJsonBody, normalizeRequest, normalizeRequestBody } from "./services/requestBody";
 import { findMissingVariablesInRequest } from "./services/variableResolver";
 import { cloneJson, findCollection, findEndpoint, firstCollection, normalizeWorkspace } from "./services/workspaceService";
@@ -51,6 +56,7 @@ import {
   SyncStatusResult,
   WorkspaceIndex,
 } from "./types/bik";
+import { CopilotAction, CopilotCreateEndpointOperation } from "./types/copilot";
 
 const EMPTY_COLLECTION_AUTOMATION: CollectionAutomation = { pre: "", post: "", test: "", assert: "" };
 const EMPTY_SCRIPTS: Scripts = { pre: "", post: "", helpers: "" };
@@ -65,6 +71,12 @@ const COPILOT_MIN_WIDTH = 320;
 const COPILOT_MAX_WIDTH = 560;
 const SYNC_PREFS_KEY = "bikapi:sync-preferences";
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+const DEVELOPMENT_AI_CONNECTION: AiConnectionConfig = {
+  endpointUrl: "http://192.168.1.4:11434",
+  protocol: "openAiCompatible",
+  chatPath: "/v1/chat/completions",
+  enabled: true,
+};
 interface TextPromptState {
   title: string;
   label: string;
@@ -170,6 +182,14 @@ function appendQueryParams(url: string, queryParams: Record<string, string>) {
   return `${url}${url.includes("?") ? "&" : "?"}${query}`;
 }
 
+function isDevelopmentAiConnection(config: AiConnectionConfig) {
+  return (
+    config.endpointUrl === DEVELOPMENT_AI_CONNECTION.endpointUrl &&
+    config.protocol === DEVELOPMENT_AI_CONNECTION.protocol &&
+    config.chatPath === DEVELOPMENT_AI_CONNECTION.chatPath
+  );
+}
+
 function buildCurlCommand(request: BikRequest) {
   const parts = ["curl"];
   const url = appendQueryParams(request.url, request.queryParams ?? {});
@@ -257,6 +277,10 @@ export default function App() {
   const [activeBottomTab, setActiveBottomTab] = useState<BottomDockTab>("response");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [aiConnection, setAiConnection] = useState<AiConnectionConfig | null | undefined>(undefined);
+  const [aiWizardMode, setAiWizardMode] = useState<"configure" | "edit" | null>(null);
+  const [aiRemoveConfirmationOpen, setAiRemoveConfirmationOpen] = useState(false);
+  const [aiConnectionActionBusy, setAiConnectionActionBusy] = useState(false);
   const [themeId, setThemeId] = useState(() => loadThemePreference());
   const [importPreview, setImportPreview] = useState<ParsedImportResult | null>(null);
   const [createSequenceFlow, setCreateSequenceFlow] = useState(false);
@@ -266,6 +290,7 @@ export default function App() {
   const startupSyncWorkspaceRef = useRef<string | null>(null);
   const environmentSaveTimersRef = useRef<Record<string, number>>({});
   const lastSavedFlowDraftRef = useRef<string | null>(null);
+  const copilotActionsInFlightRef = useRef<Set<string>>(new Set());
   const hasWorkspace = Boolean(workspace?.path);
 
   useEffect(() => {
@@ -352,7 +377,7 @@ export default function App() {
       Object.fromEntries((syncStatus?.collections ?? []).map((item) => [item.collectionId, item])),
     [syncStatus],
   );
-  const copilotService = useMemo(() => createUnavailableCopilotService(), []);
+  const copilotService = useMemo(() => createConnectedCopilotService(aiConnection), [aiConnection]);
   const copilotContext = useMemo(
     () =>
       buildCopilotContext({
@@ -426,6 +451,41 @@ export default function App() {
 
   useEffect(() => {
     void loadRecentWorkspaces().then(setRecentWorkspaces);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAiConnection() {
+      try {
+        const config = await api.readAiConnection();
+        if (!cancelled) {
+          setAiConnection(config);
+        }
+        if (!cancelled && config?.enabled && isDevelopmentAiConnection(config)) {
+          try {
+            await testAiConnection(config);
+          } catch {
+            if (!cancelled) {
+              pushToast("Connection unavailable", "warning");
+            }
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAiConnection(null);
+          if ("__TAURI_INTERNALS__" in window) {
+            appendConsole(`AI connection settings could not be loaded: ${String(error)}`, "warning");
+          }
+        }
+      }
+    }
+
+    void loadAiConnection();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -1131,6 +1191,163 @@ export default function App() {
     return safe || "export";
   }
 
+  function createRequestFromCopilotOperation(operation: CopilotCreateEndpointOperation): BikRequest {
+    const body = createRequestBody(
+      operation.body ? (isJsonBody(operation) ? "json" : "text") : "none",
+    );
+    if (operation.body && body.type !== "none") {
+      body.raw = operation.body;
+    }
+
+    const headers = { ...operation.headers };
+    const contentType = defaultContentType(body);
+    const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === "content-type");
+    if (contentType && !hasContentType) {
+      headers["Content-Type"] = contentType;
+    }
+
+    return {
+      bikVersion: REQUEST_VERSION,
+      type: "request",
+      id: fileSafeName(operation.name),
+      name: operation.name,
+      method: operation.method,
+      url: operation.url,
+      headers,
+      queryParams: { ...operation.queryParams },
+      body,
+      variables: {},
+    };
+  }
+
+  async function handleCopilotAction(action: CopilotAction) {
+    if (action.intent !== "apply_build_plan" || !action.buildPlan) {
+      setStatus("This Copilot action is not supported yet.");
+      appendConsole("Copilot action was not applied because it is not supported.", "warning");
+      return;
+    }
+    if (!workspace) {
+      const message = "Open a workspace before applying a Build plan.";
+      setStatus(message);
+      pushToast(message, "warning");
+      return;
+    }
+    if (isBusy || copilotActionsInFlightRef.current.has(action.id)) {
+      pushToast("Another workspace action is already running.", "info");
+      return;
+    }
+
+    const plan = action.buildPlan;
+    const validationError = validateBuildPlanAgainstWorkspace(plan, workspace);
+    if (validationError) {
+      const message = `Build plan not applied: ${validationError}`;
+      const firstOperation = plan.operations[0];
+      if (firstOperation) {
+        copilot.updateActionStep(action.id, firstOperation.id, "failed");
+      }
+      copilot.completeAction(action.id, "failed", message);
+      setStatus(message);
+      appendConsole(message, "warning");
+      pushToast("Build plan needs an update.", "warning");
+      return;
+    }
+
+    copilotActionsInFlightRef.current.add(action.id);
+    setIsBusy(true);
+    setStatus("Applying Copilot Build plan...");
+    appendConsole(`Applying Copilot Build plan with ${plan.operations.length} operation(s).`);
+
+    let nextWorkspace = workspace;
+    let completedOperations = 0;
+    let activeOperationId: string | null = null;
+    let preferredCollectionId = selectedCollectionId;
+    let preferredEndpointId: string | null = selectedEndpointId;
+    let createdCollections = 0;
+    let createdEndpoints = 0;
+
+    try {
+      for (const operation of plan.operations) {
+        activeOperationId = operation.id;
+        copilot.updateActionStep(action.id, operation.id, "running");
+
+        if (operation.type === "create_collection") {
+          nextWorkspace = await api.createCollection(nextWorkspace.path, operation.name);
+          const createdCollection = nextWorkspace.collections.find(
+            (collection) => normalizedName(collection.name) === normalizedName(operation.name),
+          );
+          if (!createdCollection) {
+            throw new Error(`Collection “${operation.name}” was not found after creation.`);
+          }
+          preferredCollectionId = createdCollection.id;
+          preferredEndpointId = null;
+          createdCollections += 1;
+        } else {
+          const targetCollection = nextWorkspace.collections.find(
+            (collection) => normalizedName(collection.name) === normalizedName(operation.collectionName),
+          );
+          if (!targetCollection) {
+            throw new Error(`Collection “${operation.collectionName}” was not found.`);
+          }
+
+          const previousEndpointIds = new Set(targetCollection.endpoints.map((endpoint) => endpoint.id));
+          const request = createRequestFromCopilotOperation(operation);
+          nextWorkspace = await api.createEndpointWithRequest(
+            nextWorkspace.path,
+            targetCollection.id,
+            request,
+          );
+          const refreshedCollection = nextWorkspace.collections.find(
+            (collection) => collection.id === targetCollection.id,
+          );
+          const createdEndpoint = [...(refreshedCollection?.endpoints ?? [])]
+            .reverse()
+            .find(
+              (endpoint) =>
+                !previousEndpointIds.has(endpoint.id) &&
+                normalizedName(endpoint.name) === normalizedName(operation.name),
+            );
+          if (!createdEndpoint) {
+            throw new Error(`Request “${operation.name}” was not found after creation.`);
+          }
+          preferredCollectionId = targetCollection.id;
+          preferredEndpointId = createdEndpoint.id;
+          createdEndpoints += 1;
+        }
+
+        completedOperations += 1;
+        activeOperationId = null;
+        copilot.updateActionStep(action.id, operation.id, "done");
+      }
+
+      applyWorkspace(nextWorkspace, preferredCollectionId, preferredEndpointId);
+      const detail = `Build complete: created ${createdCollections} collection(s) and ${createdEndpoints} request(s).`;
+      copilot.completeAction(action.id, "success", detail);
+      setStatus(detail);
+      appendConsole(detail, "success");
+      pushToast("Copilot Build plan applied.", "success");
+      maybeAutoSync();
+    } catch (error) {
+      if (activeOperationId) {
+        copilot.updateActionStep(action.id, activeOperationId, "failed");
+      }
+      if (completedOperations > 0) {
+        applyWorkspace(nextWorkspace, preferredCollectionId, preferredEndpointId);
+        maybeAutoSync();
+      }
+      const reason = error instanceof Error ? error.message : String(error);
+      const detail = completedOperations > 0
+        ? `Build stopped after ${completedOperations} operation(s): ${reason}`
+        : `Build failed: ${reason}`;
+      copilot.completeAction(action.id, "failed", detail);
+      setStatus(detail);
+      appendConsole(detail, "error");
+      pushToast("Copilot Build plan failed.", "error");
+    } finally {
+      copilotActionsInFlightRef.current.delete(action.id);
+      setIsBusy(false);
+    }
+  }
+
   function requestEndpointPrompt(collectionId: string): Promise<EndpointPromptResult | null> {
     return new Promise((resolve) => {
       setEndpointPrompt({
@@ -1426,74 +1643,182 @@ export default function App() {
     }
   }
 
+  function openAiConnectionWizard(mode: "configure" | "edit") {
+    setAiWizardMode(mode);
+  }
+
+  async function testAiConnection(config: AiConnectionConfig): Promise<AiConnectionTestResult> {
+    try {
+      return await api.testAiConnection(config);
+    } catch (error) {
+      if (isDevelopmentAiConnection(config)) {
+        throw new Error("Connection unavailable");
+      }
+      throw error;
+    }
+  }
+
+  async function saveAiConnection(config: AiConnectionConfig) {
+    const saved = await api.saveAiConnection(config);
+    setAiConnection(saved);
+    pushToast("AI connection saved", "success");
+  }
+
+  async function testConfiguredAiConnection() {
+    if (!aiConnection) {
+      return;
+    }
+
+    try {
+      const result = await testAiConnection(aiConnection);
+      pushToast(`AI connection passed (${result.responseTimeMs} ms)`, "success");
+    } catch (error) {
+      pushToast(
+        isDevelopmentAiConnection(aiConnection)
+          ? "Connection unavailable"
+          : `AI connection failed: ${String(error)}`,
+        "error",
+      );
+    }
+  }
+
+  async function setConfiguredAiConnectionEnabled(enabled: boolean) {
+    setAiConnectionActionBusy(true);
+    try {
+      const saved = await api.setAiConnectionEnabled(enabled);
+      setAiConnection(saved);
+      pushToast(`AI connection ${enabled ? "enabled" : "disabled"}`, "success");
+    } catch (error) {
+      pushToast(`Could not ${enabled ? "enable" : "disable"} AI connection: ${String(error)}`, "error");
+    } finally {
+      setAiConnectionActionBusy(false);
+    }
+  }
+
+  async function removeConfiguredAiConnection() {
+    setAiConnectionActionBusy(true);
+    try {
+      await api.removeAiConnection();
+      setAiConnection(null);
+      setAiRemoveConfirmationOpen(false);
+      pushToast("AI connection removed", "success");
+    } catch (error) {
+      pushToast(`Could not remove AI connection: ${String(error)}`, "error");
+    } finally {
+      setAiConnectionActionBusy(false);
+    }
+  }
+
   const paletteCommands = useMemo<CommandPaletteCommand[]>(
-    () => [
-      {
-        id: "open-workspace",
-        label: "Open Local Workspace",
-        shortcut: "Ctrl/Cmd+O",
-        run: () => void handleOpenWorkspace(),
-      },
-      {
-        id: "new-collection",
-        label: "Create Collection",
-        run: () => void handleCreateCollection(),
-      },
-      {
-        id: "new-request",
-        label: "Create Request",
-        run: () => void handleCreateEndpoint(),
-      },
-      {
-        id: "save-request",
-        label: "Save Current Request",
-        shortcut: "Ctrl/Cmd+S",
-        run: () => void handleSaveRequest(),
-      },
-      {
-        id: "send-request",
-        label: "Send Current Request",
-        shortcut: "Ctrl/Cmd+Enter",
-        run: () => void handleSendRequest(),
-      },
-      {
-        id: "change-theme",
-        label: "Change Theme",
-        hint: resolveTheme(themeId).name,
-        run: () => setThemePickerOpen(true),
-      },
-      {
-        id: "toggle-sidebar",
-        label: `${sidebarHidden ? "Show" : "Hide"} Collections Panel`,
-        run: toggleSidebarPanel,
-      },
-      {
-        id: "toggle-timeline",
-        label: `${timelineHidden ? "Show" : "Hide"} Timeline Panel`,
-        hint: selectedEndpoint ? selectedEndpoint.name : "Select a request first",
-        run: toggleTimelinePanel,
-      },
-      {
-        id: "toggle-copilot",
-        label: `${copilotHidden ? "Show" : "Hide"} Copilot Panel`,
-        run: toggleCopilotPanel,
-      },
-      {
-        id: "toggle-console",
-        label: `${consoleHidden ? "Show" : "Hide"} Console`,
-        run: toggleConsolePanel,
-      },
-      {
-        id: "show-response-dock",
-        label: "Show Response Dock",
-        run: () => {
-          setConsoleHidden(false);
-          setConsoleCollapsed(false);
-          setActiveBottomTab("response");
+    () => {
+      const commands: CommandPaletteCommand[] = [
+        {
+          id: "open-workspace",
+          label: "Open Local Workspace",
+          shortcut: "Ctrl/Cmd+O",
+          run: () => void handleOpenWorkspace(),
         },
-      },
-    ],
-    [consoleHidden, copilotHidden, selectedEndpoint, sidebarHidden, themeId, timelineHidden],
+        {
+          id: "new-collection",
+          label: "Create Collection",
+          run: () => void handleCreateCollection(),
+        },
+        {
+          id: "new-request",
+          label: "Create Request",
+          run: () => void handleCreateEndpoint(),
+        },
+        {
+          id: "save-request",
+          label: "Save Current Request",
+          shortcut: "Ctrl/Cmd+S",
+          run: () => void handleSaveRequest(),
+        },
+        {
+          id: "send-request",
+          label: "Send Current Request",
+          shortcut: "Ctrl/Cmd+Enter",
+          run: () => void handleSendRequest(),
+        },
+        {
+          id: "change-theme",
+          label: "Change Theme",
+          hint: resolveTheme(themeId).name,
+          run: () => setThemePickerOpen(true),
+        },
+        {
+          id: "toggle-sidebar",
+          label: `${sidebarHidden ? "Show" : "Hide"} Collections Panel`,
+          run: toggleSidebarPanel,
+        },
+        {
+          id: "toggle-timeline",
+          label: `${timelineHidden ? "Show" : "Hide"} Timeline Panel`,
+          hint: selectedEndpoint ? selectedEndpoint.name : "Select a request first",
+          run: toggleTimelinePanel,
+        },
+        {
+          id: "toggle-copilot",
+          label: `${copilotHidden ? "Show" : "Hide"} Copilot Panel`,
+          run: toggleCopilotPanel,
+        },
+        {
+          id: "toggle-console",
+          label: `${consoleHidden ? "Show" : "Hide"} Console`,
+          run: toggleConsolePanel,
+        },
+        {
+          id: "show-response-dock",
+          label: "Show Response Dock",
+          run: () => {
+            setConsoleHidden(false);
+            setConsoleCollapsed(false);
+            setActiveBottomTab("response");
+          },
+        },
+      ];
+
+      if (aiConnection === null) {
+        commands.push({
+          id: "ai-configure-connection",
+          label: "AI: Configure Connection",
+          run: () => openAiConnectionWizard("configure"),
+        });
+      } else if (aiConnection) {
+        commands.push(
+          {
+            id: "ai-edit-connection",
+            label: "AI: Edit Connection",
+            hint: aiConnection.endpointUrl,
+            run: () => openAiConnectionWizard("edit"),
+          },
+          {
+            id: "ai-test-connection",
+            label: "AI: Test Connection",
+            run: () => void testConfiguredAiConnection(),
+          },
+          aiConnection.enabled
+            ? {
+                id: "ai-disable-connection",
+                label: "AI: Disable Connection",
+                run: () => void setConfiguredAiConnectionEnabled(false),
+              }
+            : {
+                id: "ai-enable-connection",
+                label: "AI: Enable Connection",
+                run: () => void setConfiguredAiConnectionEnabled(true),
+              },
+          {
+            id: "ai-remove-connection",
+            label: "AI: Remove Connection",
+            run: () => setAiRemoveConfirmationOpen(true),
+          },
+        );
+      }
+
+      return commands;
+    },
+    [aiConnection, consoleHidden, copilotHidden, selectedEndpoint, sidebarHidden, themeId, timelineHidden],
   );
 
   function openEndpointHistory(collectionId: string, endpointId: string) {
@@ -3142,10 +3467,7 @@ export default function App() {
                       onSubmitPrompt={() => void copilot.sendPrompt()}
                       onStopGeneration={copilot.stopGeneration}
                       onSubmitMissingInput={(prompt, values) => void copilot.sendPrompt(prompt, values)}
-                      onAction={() => {
-                        setStatus("Copilot actions require a connected execution service.");
-                        appendConsole("Copilot action blocked until an execution service is configured.", "warning");
-                      }}
+                      onAction={(action) => void handleCopilotAction(action)}
                       onCopy={(content) => void navigator.clipboard.writeText(content)}
                     />
                   ),
@@ -3195,6 +3517,58 @@ export default function App() {
         }}
         onClose={() => setThemePickerOpen(false)}
       />
+
+      {aiWizardMode && (
+        <AiConnectionWizard
+          mode={aiWizardMode}
+          initialConfig={aiConnection ?? null}
+          onTest={testAiConnection}
+          onSave={saveAiConnection}
+          onClose={() => setAiWizardMode(null)}
+        />
+      )}
+
+      {aiRemoveConfirmationOpen && aiConnection && (
+        <div
+          className="prompt-backdrop"
+          role="presentation"
+          onMouseDown={() => {
+            if (!aiConnectionActionBusy) {
+              setAiRemoveConfirmationOpen(false);
+            }
+          }}
+        >
+          <div
+            className="prompt-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-ai-connection-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="remove-ai-connection-title">Remove AI Connection?</h2>
+            <p>
+              BikAPI will delete the saved connection to <code>{aiConnection.endpointUrl}</code>.
+            </p>
+            <div className="prompt-actions">
+              <button
+                type="button"
+                disabled={aiConnectionActionBusy}
+                onClick={() => setAiRemoveConfirmationOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={aiConnectionActionBusy}
+                onClick={() => void removeConfiguredAiConnection()}
+              >
+                {aiConnectionActionBusy ? "Removing" : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {githubSyncPromptOpen && (
         <GitHubSyncPrompt

@@ -11,6 +11,7 @@ import {
   CopilotResolvedSchemaContext,
 } from "../types/copilot";
 import { CopilotTextFileEntry } from "./copilotContextIndex";
+import { buildCurlBody } from "./requestBody";
 
 interface ResolveCopilotContextArgs {
   prompt: string;
@@ -116,12 +117,13 @@ export function resolveCopilotContext({
         requests.push({
           id: endpoint.id,
           collectionId: collection.id,
+          collectionName: collection.name,
           label: reference.label,
           method: endpoint.request.method.toUpperCase(),
           url: endpoint.request.url,
           headers: sanitizeHeaders(endpoint.request.headers),
-          queryParams: endpoint.request.queryParams,
-          body: sanitizeBody(endpoint.request.body.raw),
+          queryParams: sanitizeHeaders(endpoint.request.queryParams),
+          body: sanitizeBody(buildCurlBody(endpoint.request.body)),
         });
         return;
       }
@@ -137,6 +139,17 @@ export function resolveCopilotContext({
           variables: sanitizeVariables(collection.variables),
           requestIds: collection.endpoints.map((item) => item.id),
           flowIds: collection.flows.map((item) => item.id),
+          requests: collection.endpoints.map((item) => ({
+            id: item.id,
+            name: item.name,
+            method: item.request.method.toUpperCase(),
+            url: item.request.url,
+          })),
+          flows: collection.flows.map((item) => ({
+            id: item.id,
+            name: item.name,
+            nodeCount: item.flow.nodes.length,
+          })),
         });
         return;
       }
@@ -148,6 +161,8 @@ export function resolveCopilotContext({
         }
         flows.push({
           id: flow.id,
+          collectionId: collection.id,
+          collectionName: collection.name,
           label: flow.name,
           path: flow.path,
           nodes: flow.flow.nodes.map((node) => ({
@@ -174,6 +189,8 @@ export function resolveCopilotContext({
         }
         flows.push({
           id: `${flow.id}:${node.id}`,
+          collectionId: collection.id,
+          collectionName: collection.name,
           label: `${flow.name} / ${node.name}`,
           path: flow.path,
           nodes: [{

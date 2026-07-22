@@ -20,6 +20,31 @@ export interface TextFileEntry {
   content: string;
 }
 
+export type AiProtocol = "openAiCompatible" | "ollama";
+
+export interface AiConnectionConfig {
+  endpointUrl: string;
+  protocol: AiProtocol;
+  chatPath: string;
+  enabled: boolean;
+}
+
+export interface AiConnectionTestResult {
+  url: string;
+  statusCode: number;
+  responseTimeMs: number;
+  message: string;
+}
+
+export interface AiChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface AiChatResult {
+  content: string;
+}
+
 function ensureTauriRuntime() {
   if (!("__TAURI_INTERNALS__" in window)) {
     throw new Error("Desktop app required. Run npm run tauri:dev to create and edit .bik files.");
@@ -384,6 +409,36 @@ export function readRecentWorkspaces(): Promise<RecentWorkspaceList> {
 export function saveRecentWorkspaces(list: RecentWorkspaceList): Promise<void> {
   ensureTauriRuntime();
   return invoke("save_recent_workspaces", { payload: list });
+}
+
+export function readAiConnection(): Promise<AiConnectionConfig | null> {
+  ensureTauriRuntime();
+  return invoke("read_ai_connection");
+}
+
+export function saveAiConnection(config: AiConnectionConfig): Promise<AiConnectionConfig> {
+  ensureTauriRuntime();
+  return invoke("save_ai_connection", { payload: config });
+}
+
+export function testAiConnection(config: AiConnectionConfig): Promise<AiConnectionTestResult> {
+  ensureTauriRuntime();
+  return invoke("test_ai_connection", { payload: config });
+}
+
+export function sendAiChat(messages: AiChatMessage[]): Promise<AiChatResult> {
+  ensureTauriRuntime();
+  return invoke("send_ai_chat", { payload: { messages } });
+}
+
+export function setAiConnectionEnabled(enabled: boolean): Promise<AiConnectionConfig> {
+  ensureTauriRuntime();
+  return invoke("set_ai_connection_enabled", { payload: { enabled } });
+}
+
+export function removeAiConnection(): Promise<void> {
+  ensureTauriRuntime();
+  return invoke("remove_ai_connection");
 }
 
 export function getGitRemoteUrl(workspacePath: string): Promise<string | null> {

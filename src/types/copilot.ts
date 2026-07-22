@@ -152,6 +152,7 @@ export type CopilotContextReference =
 export interface CopilotResolvedRequestContext {
   id: string;
   collectionId: string;
+  collectionName: string;
   label: string;
   method: string;
   url: string;
@@ -167,10 +168,23 @@ export interface CopilotResolvedCollectionContext {
   variables: string[];
   requestIds: string[];
   flowIds: string[];
+  requests: Array<{
+    id: string;
+    name: string;
+    method: string;
+    url: string;
+  }>;
+  flows: Array<{
+    id: string;
+    name: string;
+    nodeCount: number;
+  }>;
 }
 
 export interface CopilotResolvedFlowContext {
   id: string;
+  collectionId: string;
+  collectionName: string;
   label: string;
   path: string;
   nodes: Array<{
@@ -226,13 +240,50 @@ export interface CopilotResolvedContext {
   environments: CopilotResolvedEnvironmentContext[];
 }
 
+export interface CopilotCreateCollectionOperation {
+  id: string;
+  type: "create_collection";
+  name: string;
+}
+
+export interface CopilotCreateEndpointOperation {
+  id: string;
+  type: "create_endpoint";
+  collectionName: string;
+  name: string;
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  queryParams: Record<string, string>;
+  body?: string;
+}
+
+export type CopilotBuildOperation =
+  | CopilotCreateCollectionOperation
+  | CopilotCreateEndpointOperation;
+
+export interface CopilotBuildPlan {
+  id: string;
+  summary: string;
+  operations: CopilotBuildOperation[];
+}
+
 export interface CopilotAction {
   id: string;
   label: string;
-  intent: "preview_flow" | "insert_into_flow" | "run_flow" | "cancel" | "create_request" | "modify_collection" | "delete_request";
+  intent:
+    | "preview_flow"
+    | "insert_into_flow"
+    | "run_flow"
+    | "cancel"
+    | "create_request"
+    | "modify_collection"
+    | "delete_request"
+    | "apply_build_plan";
   requiresConfirmation: boolean;
   destructive?: boolean;
   disabled?: boolean;
+  buildPlan?: CopilotBuildPlan;
 }
 
 export interface CopilotExecutionPlanCard {

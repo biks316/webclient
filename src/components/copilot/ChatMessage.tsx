@@ -13,6 +13,11 @@ interface ChatMessageProps {
   onSubmitMissingInput: (prompt: string, values: Record<string, string>) => void;
 }
 
+function contextReferenceLabel(reference: NonNullable<CopilotMessage["contextReferences"]>[number]) {
+  const endpointName = reference.metadata?.endpointName;
+  return typeof endpointName === "string" ? endpointName : reference.label;
+}
+
 export function ChatMessage({
   message,
   typing = false,
@@ -35,6 +40,19 @@ export function ChatMessage({
       </div>
       <div className={styles.body}>
         <MarkdownContent content={message.content} typing={typing} />
+        {message.contextReferences?.length ? (
+          <div className={styles.contextReferences} aria-label="Context used for this message">
+            {message.contextReferences.map((reference) => (
+              <span
+                key={`${reference.type}:${"id" in reference ? reference.id : reference.path}`}
+                className={styles.contextReference}
+              >
+                <small>{reference.source === "mention" ? "@mention" : reference.pinned ? "pinned" : reference.type}</small>
+                {contextReferenceLabel(reference)}
+              </span>
+            ))}
+          </div>
+        ) : null}
         {message.cards?.map((card, index) => (
           <CardRenderer
             key={`${message.id}:${card.type}:${index}`}

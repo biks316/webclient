@@ -353,9 +353,13 @@ fn app_state_path() -> CommandResult<PathBuf> {
 }
 
 fn recent_workspaces_path() -> CommandResult<PathBuf> {
+    Ok(app_config_dir()?.join("recent-workspaces.bik"))
+}
+
+pub(crate) fn app_config_dir() -> CommandResult<PathBuf> {
     let home = std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
-        .ok_or_else(|| "Could not resolve a home directory for recent workspaces.".to_string())?;
+        .ok_or_else(|| "Could not resolve a home directory for app settings.".to_string())?;
     let home = PathBuf::from(home);
 
     let config_dir = if cfg!(target_os = "macos") {
@@ -374,5 +378,5 @@ fn recent_workspaces_path() -> CommandResult<PathBuf> {
             .join("BikAPI")
     };
 
-    Ok(config_dir.join("recent-workspaces.bik"))
+    Ok(config_dir)
 }

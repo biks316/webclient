@@ -117,7 +117,10 @@ export function CopilotComposer({
   }
 
   function handleSelectItem(item: CopilotContextSearchItem) {
-    onAttachContext(item.reference);
+    onAttachContext({
+      ...item.reference,
+      source: mentionState && !mentionState.pickerOnly ? "mention" : "picker",
+    });
     if (mentionState) {
       const nextValue = `${value.slice(0, mentionState.start)}${value.slice(mentionState.end)}`.replace(/\s{2,}/g, " ");
       onChange(nextValue);

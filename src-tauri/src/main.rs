@@ -1,5 +1,9 @@
 mod commands;
 
+use commands::ai_connection::{
+    read_ai_connection, remove_ai_connection, save_ai_connection, send_ai_chat,
+    set_ai_connection_enabled, test_ai_connection,
+};
 use commands::file_store::{
     read_app_state, read_collection_automation, read_recent_workspaces, read_scripts, save_app_state,
     read_text_file, read_text_folder_recursive, save_collection_automation_script,
@@ -66,7 +70,13 @@ fn main() {
             read_recent_workspaces,
             save_recent_workspaces,
             read_text_file,
-            read_text_folder_recursive
+            read_text_folder_recursive,
+            read_ai_connection,
+            save_ai_connection,
+            test_ai_connection,
+            send_ai_chat,
+            set_ai_connection_enabled,
+            remove_ai_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running BikAPI");

@@ -43,6 +43,32 @@
   gap: 10px;
 }
 
+.contextReferences {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.contextReference {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 7px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: rgba(108, 168, 255, 0.06);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contextReference small {
+  color: var(--active-blue);
+  font-size: 10px;
+}
+
 .markdown {
   display: grid;
   gap: 10px;
@@ -184,7 +210,8 @@
 :global(:root[data-theme="bw"]) .system,
 :global(:root[data-theme="bw"]) .inlineCard,
 :global(:root[data-theme="bw"]) .codeBlock,
-:global(:root[data-theme="bw"]) .followUps span {
+:global(:root[data-theme="bw"]) .followUps span,
+:global(:root[data-theme="bw"]) .contextReference {
   border-color: #000000;
   background: #ffffff;
   color: #000000;
@@ -194,7 +221,9 @@
 :global(:root[data-theme="bw"]) .markdown p,
 :global(:root[data-theme="bw"]) .list,
 :global(:root[data-theme="bw"]) .followUps span,
-:global(:root[data-theme="bw"]) .nodeStatus {
+:global(:root[data-theme="bw"]) .nodeStatus,
+:global(:root[data-theme="bw"]) .contextReference,
+:global(:root[data-theme="bw"]) .contextReference small {
   color: #000000;
 }
 

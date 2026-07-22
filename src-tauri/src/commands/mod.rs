@@ -1,3 +1,4 @@
+pub mod ai_connection;
 pub mod file_store;
 pub mod git;
 pub mod request_runner;

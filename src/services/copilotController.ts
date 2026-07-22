@@ -216,6 +216,90 @@ export function useCopilotController({
     window.setTimeout(() => setIsStopping(false), 800);
   }
 
+  function updateActionStep(
+    actionId: string,
+    stepId: string,
+    status: "pending" | "running" | "done" | "failed",
+  ) {
+    patchActiveSession((session) => ({
+      ...session,
+      messages: session.messages.map((message) => {
+        if (!message.actions?.some((action) => action.id === actionId)) {
+          return message;
+        }
+        return {
+          ...message,
+          actions: message.actions.map((action) =>
+            action.id === actionId ? { ...action, disabled: true } : action,
+          ),
+          cards: message.cards?.map((card) =>
+            card.type === "execution-plan"
+              ? {
+                  ...card,
+                  steps: card.steps.map((step) =>
+                    step.id === stepId ? { ...step, status } : step,
+                  ),
+                }
+              : card,
+          ),
+        };
+      }),
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
+  function completeAction(actionId: string, outcome: "success" | "failed", detail: string) {
+    patchActiveSession((session) => {
+      let matched = false;
+      const messages = session.messages.map((message) => {
+        if (!message.actions?.some((action) => action.id === actionId)) {
+          return message;
+        }
+        matched = true;
+        return {
+          ...message,
+          actions: message.actions.map((action) =>
+            action.id === actionId ? { ...action, disabled: true } : action,
+          ),
+          cards: message.cards?.map((card) =>
+            card.type === "execution-plan"
+              ? {
+                  ...card,
+                  steps: card.steps.map((step) => ({
+                    ...step,
+                    status:
+                      outcome === "success"
+                        ? "done" as const
+                        : step.status === "running"
+                          ? "failed" as const
+                          : step.status,
+                  })),
+                }
+              : card,
+          ),
+        };
+      });
+
+      if (!matched) {
+        return session;
+      }
+
+      return {
+        ...session,
+        messages: [
+          ...messages,
+          {
+            id: `system-${crypto.randomUUID()}`,
+            role: "system",
+            content: detail,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  }
+
   async function sendPrompt(prompt = activeSession.draftPrompt ?? "", providedValues?: Record<string, string>) {
     const trimmed = prompt.trim();
     const references = dedupeContextReferences([...(activeSession.pinnedContext ?? []), ...(activeSession.draftContext ?? [])]);
@@ -327,6 +411,8 @@ export function useCopilotController({
     clearTemporaryContext,
     sendPrompt,
     stopGeneration,
+    updateActionStep,
+    completeAction,
     activeRequestId,
   };
 }
